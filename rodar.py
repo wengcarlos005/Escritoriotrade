@@ -273,6 +273,52 @@ def _retro(sprint):
         print(f"  🧠 O gerente não conseguiu escrever a retrospectiva: {e}")
 
 
+def cmd_resumo(args):
+    """Resumo em texto (pra conferir ou mandar pro Claude). Não mostra chave nem nada pessoal."""
+    if not ARQ_SIM.exists():
+        print("Ainda não tem simulação. Abra o 2_ligar_agencia.bat primeiro.")
+        return
+    d = json.loads(ARQ_SIM.read_text(encoding="utf-8"))
+    agora = int(time.time() * 1000)
+    L = []
+    salvo = d.get("salvo_em") or 0
+    L.append(f"RESUMO DA AGÊNCIA — {time.strftime('%d/%m/%Y %H:%M')}")
+    L.append(f"Última atualização da simulação: {hhmm(salvo)} ({(agora - salvo) / 60000:.0f} min atrás)"
+             + ("  ⚠️ a agência parece DESLIGADA" if agora - salvo > 5 * 60000 else "  ✅ ligada"))
+    temp = d.get("temporada") or {}
+    L.append(f"Temporada {temp.get('numero')} desde {hhmm(temp.get('inicio', 0))} · próxima rodada {hhmm(temp.get('proxima_rodada', 0))}")
+    L.append("")
+    for tm in sorted(d.get("times", []), key=lambda x: x.get("lugar") or 99):
+        trs = [t for t in d["traders"] if t["time"] == tm["id"]]
+        ops24 = sum(1 for t in trs for o in t.get("trades", []) if agora - o["t_saida"] < 86_400_000)
+        abertos = sum(1 for t in trs if t.get("posicao"))
+        L.append(f"{tm['emoji']} {tm['nome']} ({tm['intervalo']}) {'TITULAR' if tm.get('titular') else ''}: patrimônio US$ {tm['patrimonio']:.2f} "
+                 f"({tm['resultado_pct']:+.2f}%) · operações nas últimas 24h: {ops24} · comprados agora: {abertos}/{len(trs)}")
+        if tm.get("modo") == "grade":
+            for t in trs:
+                g = t.get("grade_estado") or {}
+                c = g.get("centro")
+                var = (t["ultimo_preco"] / c - 1) * 100 if c and t.get("ultimo_preco") else None
+                L.append(f"    {t['nome']}: lotes comprados {len(g.get('lotes', {}))} · vendas {t['vitorias'] + t['derrotas']} · "
+                         f"preço vs centro da grade {'%+.2f%%' % var if var is not None else '(grade ainda não começou)'} · {t.get('gatilho') or ''}")
+    sp = d.get("sprint_atual")
+    if sp:
+        tt = sp["total"]
+        L.append("")
+        L.append(f"Sprint {sp['numero']} (dia {sp['dias']}): {tt['operacoes']} operações dos times · resultado {tt['lucro_pct']:+.2f}% · taxas US$ {tt['taxas']:.2f}")
+        for x in sp["times"]:
+            if x["especial"]:
+                L.append(f"  {x['emoji']} {x['nome']}: {x['operacoes']} operações · resultado {x['lucro_pct']:+.2f}% · taxas US$ {x['taxas']:.2f}")
+    L.append("")
+    L.append("Últimos 10 eventos:")
+    for e in d.get("eventos", [])[-10:]:
+        L.append(f"  [{hhmm(e['t'])}] {e['emoji']} {e['texto']}")
+    texto = "\n".join(L)
+    print(texto)
+    (DADOS / "resumo_para_o_claude.txt").write_text(texto, encoding="utf-8")
+    print(f"\n(Salvo em {DADOS / 'resumo_para_o_claude.txt'} — pode mandar esse arquivo ou colar o texto pro Claude.)")
+
+
 def cmd_painel(args):
     painel.iniciar(ARQ_SIM, bloquear=True)
 
@@ -306,12 +352,13 @@ def main():
     s.add_argument("--sem-navegador", action="store_true")
     sub.add_parser("painel", help="abre o escritório/painel")
     sub.add_parser("zerar", help="apaga a simulação")
+    sub.add_parser("resumo", help="mostra um resumo em texto (pra mandar pro Claude)")
     args = ap.parse_args()
     preparar_dados()
     cmd = args.cmd or menu()
     if cmd == "simular" and not hasattr(args, "segundos"):
         args.segundos, args.sem_navegador = 20, False
-    acoes = {"escola": cmd_escola, "backtest": cmd_escola, "simular": cmd_simular, "painel": cmd_painel, "zerar": cmd_zerar}
+    acoes = {"escola": cmd_escola, "backtest": cmd_escola, "simular": cmd_simular, "painel": cmd_painel, "zerar": cmd_zerar, "resumo": cmd_resumo}
     if cmd not in acoes:
         print("Opção inválida.")
         return

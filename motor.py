@@ -187,7 +187,8 @@ class Trader:
         else:
             self.posicao = None
         prox = next((g["centro"] * (1 - k * esp) for k in range(1, niveis + 1) if str(k) not in lotes and g["centro"] * (1 - k * esp) < c), None)
-        self.gatilho = (f"cair até {prox:,.4g} (próximo degrau de compra)" if prox else "o preço voltar pra faixa da grade") + \
+        fmt = (lambda x: f"{x:,.2f}" if x >= 1 else f"{x:.5f}")
+        self.gatilho = (f"cair até {fmt(prox)} (próximo degrau de compra, {(prox / c - 1) * 100:+.2f}%)" if prox else "o preço voltar pra faixa da grade") + \
                        (f"; {len(lotes)} lotes esperando subir {esp:.1%} pra vender" if lotes else "")
         self.distancia = None
 

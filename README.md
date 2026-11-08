@@ -39,6 +39,7 @@ O projeto mora em https://github.com/wengcarlos005/Escritoriotrade (privado).
 | `4_so_abrir_painel.bat` | Só abre o escritório/painel, sem ligar os robôs |
 | `5_testar_gerente.bat` | Testa a conexão com o Claude e mostra o motivo exato se falhar |
 | `atualizar.bat` | Baixa a versão mais nova do GitHub (feche a agência antes) |
+| `6_ver_resultados.bat` | Mostra um resumo em texto e salva em `dados/resumo_para_o_claude.txt` (pra mandar pro Claude) |
 
 No navegador (http://127.0.0.1:8000): **🏢 Escritório** (planta vista de cima: sala do titular, mesas dos times da reserva, escola, gerência e lounge — clique num trader pra ver o que falta pra ele comprar),
 **📊 Visão geral** (classificação, times, rodadas), **🎓 Escola** (boletim e botão de nova temporada) e **🧠 Gerente**.
