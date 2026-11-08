@@ -78,7 +78,11 @@ def testar():
     try:
         resp = _chamar([{"role": "user", "content": "Responda só: 'Olá, CEO! Estou conectado.'"}])
         limpar_erro()
-        return {"ok": True, "texto": resp, "rede": rede, "aviso": aviso}
+        # deu certo: o que parecia problema na rede foi contornado — vira só informação
+        rede = [{"ok": None if x["ok"] is False else x["ok"],
+                 "texto": x["texto"].split(". Se você não usa")[0] + " — o gerente ignora isso e fala direto com a Anthropic."
+                 if "variável de ambiente" in x["texto"] else x["texto"]} for x in rede]
+        return {"ok": True, "texto": resp, "rede": rede, "aviso": None}
     except Exception as e:
         return {"ok": False, "texto": str(e), "rede": rede, "aviso": aviso}
 
