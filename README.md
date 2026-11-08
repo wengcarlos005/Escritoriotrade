@@ -23,6 +23,8 @@ O projeto mora em https://github.com/wengcarlos005/Escritoriotrade (privado).
 - **Primeira vez:** instale o Git (https://git-scm.com/download/win, tudo padrão). Coloque o
   `instalar_do_github.bat` na pasta onde quer a agência (se tiver a pasta antiga `agencia-de-trade`, ao lado
   dela) e dê dois cliques. Ele baixa tudo na pasta `Escritoriotrade` e copia seus dados da pasta antiga.
+- **Já tem a pasta instalada (do zip)?** Coloque o `conectar_ao_github.bat` **dentro** dela e dê dois cliques: a pasta passa a
+  atualizar pelo GitHub, sem perder nada.
 - **Atualizar:** feche a agência e dê dois cliques em `atualizar.bat`. Pronto.
 - **Seus dados nunca vão pro GitHub nem são apagados:** a pasta `dados/` (temporada, chave do gerente,
   histórico) e o seu `config.json` ficam só no seu PC.
