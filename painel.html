@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel da Agência</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Playfair+Display:ital,wght@1,700;1,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0c0f; --card:#13171c; --card2:#191e25; --linha:#262d36;
+  --texto:#eef1f5; --suave:#8a94a2; --verde:#2ee59d; --vermelho:#ff5a5f;
+  --amarelo:#ffd23f; --laranja:#ff8a3d; --ciano:#35d0c8; --roxo:#b79cff;
+  --serif:'Playfair Display',Georgia,serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;color:var(--texto);font-family:Inter,system-ui,sans-serif;min-height:100vh;overflow-x:hidden;
+  background:radial-gradient(1100px 600px at 0% -10%,#3b1215 0%,transparent 60%),
+             radial-gradient(1000px 700px at 100% 110%,#0c3a35 0%,transparent 60%),var(--bg);
+  background-attachment:fixed}
+button{font:inherit;cursor:pointer}
+a{color:var(--ciano)}
+.wrap{max-width:1200px;margin:0 auto;padding:0 16px 48px}
+/* navegação */
+nav{position:sticky;top:0;z-index:10;background:rgba(10,12,15,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--linha)}
+nav .in{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.marca{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--suave);margin-right:auto;white-space:nowrap}
+.rec{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--vermelho);margin-right:8px;animation:pisca 1.4s infinite;vertical-align:middle}
+.rec.off{background:#555;animation:none}
+@keyframes pisca{50%{opacity:.2}}
+.abas{display:flex;gap:4px;flex-wrap:wrap}
+.abas a{color:var(--texto);text-decoration:none;font-size:14px;font-weight:600;padding:7px 12px;border-radius:10px;background:transparent;border:1px solid transparent;white-space:nowrap}
+.abas a:hover{background:var(--card2)}
+.abas a.on{background:var(--card2);border-color:var(--linha);color:var(--amarelo)}
+.abas a.tres{background:linear-gradient(90deg,#3a2a0a,#123a36);border-color:#4a4020}
+/* geral */
+h1{font-family:var(--serif);font-style:italic;font-weight:800;font-size:clamp(32px,6vw,56px);margin:22px 0 4px;line-height:1.05}
+h1 span{color:var(--amarelo)}
+h2{font-family:var(--serif);font-style:italic;font-size:26px;margin:28px 0 12px;color:var(--amarelo)}
+h3{margin:0 0 8px;font-size:16px}
+.sub{color:var(--suave);margin:0 0 18px}
+.aviso-top{margin-top:14px;padding:12px 14px;border-radius:12px;background:#2a1c0c;border:1px solid #5a3b10;color:#ffd9a0;font-size:14px;display:none}
+.grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi,.card,.painel{background:var(--card);border:1px solid var(--linha);border-radius:16px}
+.kpi{padding:14px 16px}
+.r{font-size:11px;color:var(--suave);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono)}
+.kpi .v{font-size:24px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--suave);margin-top:2px}
+.pos{color:var(--verde)} .neg{color:var(--vermelho)}
+.estr{margin-top:12px;padding:14px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.estr .grande{font-size:34px}
+.selo{display:inline-block;font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em}
+.selo.ok{background:#0f3326;color:var(--verde)} .selo.nao{background:#3a1416;color:#ff9a9d} .selo.info{background:#1e2c33;color:var(--ciano)}
+.meta{margin-top:12px;padding:16px;background:linear-gradient(90deg,#1a1410,#13171c);border:1px solid #3a3020;border-radius:16px}
+.linha-meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.meta b{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--amarelo)}
+.barra{height:12px;background:#262016;border-radius:99px;overflow:hidden;margin-top:10px}
+.barra i{display:block;height:100%;background:linear-gradient(90deg,var(--amarelo),var(--laranja));border-radius:99px;transition:width .6s}
+.equipe{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+#times{grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr))}
+.card{padding:16px;position:relative;overflow:hidden}
+.cab{display:flex;gap:12px;align-items:center}
+.avatar{font-size:36px;width:56px;height:56px;display:grid;place-items:center;background:var(--card2);border-radius:14px;flex:none}
+.nome{font-weight:800;font-size:18px}
+.cargo{font-family:var(--serif);font-style:italic;color:var(--amarelo);font-size:15px}
+.status{margin-top:12px;font-size:13px;padding:8px 10px;border-radius:10px;background:var(--card2)}
+.status.jogando{background:#1d1736;color:#c9b8ff}
+.status.operando{background:#0f2a22;color:var(--verde)}
+.humor{display:flex;gap:4px;margin-top:12px}
+.humor span{flex:1;text-align:center;font-family:var(--mono);font-size:10px;font-weight:600;padding:5px 0;border-radius:6px;background:#1c2128;color:#5d6673;text-transform:uppercase}
+.humor .on.perigo{background:var(--vermelho);color:#fff}
+.humor .on.alerta{background:var(--laranja);color:#1a0d00}
+.humor .on.normal{background:var(--ciano);color:#00201e}
+.humor .on.confiante{background:var(--verde);color:#00241a}
+.nums{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:12px;font-size:13px}
+.nums .v{font-weight:700;font-variant-numeric:tabular-nums}
+.placar{margin-top:12px;font-size:12px;color:var(--suave)}
+.pontos{display:flex;gap:5px;margin:6px 0 8px;flex-wrap:wrap}
+.pontos i{width:13px;height:13px;border-radius:50%;border:2px solid #3a434f}
+.pontos i.v{background:var(--verde);border-color:var(--verde)}
+.pontos.d i{border-radius:3px}
+.pontos i.d{background:var(--vermelho);border-color:var(--vermelho)}
+.posicao{margin-top:10px;font-size:12px;font-family:var(--mono);color:var(--suave);line-height:1.6}
+.check{list-style:none;padding:0;margin:12px 0 0;font-size:13px}
+.check li{padding:6px 10px;background:var(--card2);border-radius:8px;margin-bottom:5px}
+.check li::before{content:"✓ ";color:var(--verde);font-weight:800}
+.painel{padding:14px}
+canvas{width:100%;height:260px;display:block}
+.legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--suave);margin:6px 2px 0}
+.legenda i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:6px}
+.duas{display:grid;grid-template-columns:1.2fr 1fr;gap:12px}
+.duas>*,.equipe>*,.grid-kpi>*{min-width:0}
+@media (max-width:820px){.duas{grid-template-columns:1fr}}
+.rolar{max-height:460px;overflow:auto}
+.ev{display:flex;gap:10px;padding:8px 4px;border-bottom:1px solid var(--linha);font-size:13px}
+.ev .q{font-family:var(--mono);font-size:11px;color:var(--suave);padding-top:2px}
+.tabela{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-family:var(--mono);font-weight:600;color:var(--suave);text-align:left;padding:8px 6px;border-bottom:1px solid var(--linha);font-size:10px;text-transform:uppercase;white-space:nowrap}
+td{padding:9px 6px;border-bottom:1px solid var(--linha);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.aluno{cursor:pointer}
+tr.aluno:hover td{background:#171c22}
+tr.aberto td{background:#171c22}
+tr.det td{white-space:normal;background:#11151a;padding:14px}
+.nota{display:flex;align-items:center;gap:8px}
+.nota .b{width:60px;height:6px;border-radius:99px;background:#252b33;overflow:hidden}
+.nota .b i{display:block;height:100%;background:linear-gradient(90deg,var(--ciano),var(--verde))}
+.vazio{color:var(--suave);padding:20px;text-align:center}
+.btn{border:0;border-radius:10px;padding:9px 14px;font-weight:700;background:var(--amarelo);color:#1a1400}
+.btn.sec{background:var(--card2);color:var(--texto);border:1px solid var(--linha)}
+.btn:disabled{opacity:.5;cursor:default}
+.botoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--card2);border:1px solid var(--linha);border-radius:99px;padding:6px 12px;font-size:13px;color:var(--texto)}
+.ref{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:12px 0}
+.log{font-family:var(--mono);font-size:11px;color:var(--suave);white-space:pre-wrap;margin-top:10px;max-height:160px;overflow:auto}
+details{background:var(--card);border:1px solid var(--linha);border-radius:16px;padding:12px 16px}
+details summary{cursor:pointer;font-weight:700}
+details p,details li{color:#c9d0da;font-size:14px;line-height:1.55}
+.md h3{color:var(--amarelo);font-family:var(--serif);font-style:italic;font-size:20px;margin:16px 0 6px}
+.md p,.md li{line-height:1.6;color:#dfe5ec}
+.chat{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow:auto;padding-right:4px}
+.bolha{padding:10px 14px;border-radius:14px;max-width:90%;font-size:14px}
+.bolha.eu{align-self:flex-end;background:#23303a}
+.bolha.ele{align-self:flex-start;background:var(--card2);border:1px solid var(--linha)}
+textarea,input[type=password],input[type=text]{width:100%;background:#0f1216;color:var(--texto);border:1px solid var(--linha);border-radius:10px;padding:10px;font:inherit}
+.erro{color:#ff9a9d;font-size:13px;margin-top:8px}
+.ok-msg{color:var(--verde);font-size:13px;margin-top:8px}
+.rodape{margin-top:30px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--suave)}
+.aviso{display:inline-block;background:var(--amarelo);color:#1a1400;font-weight:800;padding:8px 14px;border-radius:10px;font-family:Inter,sans-serif;font-size:13px;margin-bottom:8px}
+.oculto{display:none!important}
+.time{padding:0}
+.time .topo-time{padding:14px 16px;display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--linha)}
+.time.titular{border-color:#7a6420;box-shadow:0 0 0 1px #7a6420,0 10px 40px rgba(255,210,63,.08)}
+.time.titular .topo-time{background:linear-gradient(90deg,#2b220a,#13171c)}
+.time .membros{padding:6px 10px 12px}
+.membro{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:7px 6px;border-bottom:1px dashed #222830;font-size:13px}
+.membro:last-child{border-bottom:0}
+.membro .st{font-size:11px;color:var(--suave)}
+.bolinha{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.lugar{font-family:var(--serif);font-style:italic;font-size:26px;color:var(--amarelo);width:34px;text-align:center}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <div class="marca"><span class="rec off" id="rec"></span>AGÊNCIA DE TRADE</div>
+  <div class="abas">
+    <a href="/" class="tres">🏢 Escritório</a>
+    <a href="#geral" data-aba="geral">📊 Visão geral</a>
+    <a href="#escola" data-aba="escola">🎓 Escola</a>
+    <a href="#gerente" data-aba="gerente">🧠 Gerente</a>
+  </div>
+</div></nav>
+
+<div class="wrap">
+  <div class="aviso-top" id="desligada">⏸️ A agência está desligada. Para ligar: dê dois cliques em <b>2_ligar_agencia.bat</b> (ou rode <code>python rodar.py simular</code>).</div>
+
+  <!-- ===================== VISÃO GERAL ===================== -->
+  <section id="aba-geral">
+    <h1>Liga de <span>traders</span></h1>
+    <p class="sub" id="sub">Dinheiro de mentira, preços de verdade.</p>
+    <div class="grid-kpi" id="kpis"></div>
+    <h2>classificação</h2>
+    <p class="sub">Toda segunda-feira à meia-noite, o time com a melhor pontuação das últimas 4 semanas (retorno − metade da maior queda) vira o <b>titular</b> — o que operaria com dinheiro real no futuro. Os outros ficam na reserva, em simulação.</p>
+    <div class="painel tabela" id="classificacao"></div>
+    <h2>resultado dos times</h2>
+    <div class="painel">
+      <canvas id="grafico"></canvas>
+      <div class="legenda" id="legenda-times"></div>
+    </div>
+    <h2>os times</h2>
+    <div class="equipe" id="times"></div>
+    <h2>a agência</h2>
+    <div class="equipe" id="equipe"></div>
+    <h2>rodadas</h2>
+    <div class="painel tabela" id="rodadas"></div>
+    <div class="duas">
+      <div><h2>diário da agência</h2><div class="painel rolar" id="diario"></div></div>
+      <div><h2>últimas operações</h2><div class="painel tabela" id="trades"></div></div>
+    </div>
+  </section>
+
+  <!-- ===================== ESCOLA ===================== -->
+  <section id="aba-escola" class="oculto">
+    <h1>Escola de <span>traders</span></h1>
+    <p class="sub">Cada aluno é uma estratégia inspirada num trader famoso. Eles fazem provas em períodos que nunca viram — e os 5 melhores viram os times da liga.</p>
+    <details>
+      <summary>Como a escola avalia (clique pra entender)</summary>
+      <ul>
+        <li><b>Walk-forward:</b> 8 provas de 6 meses. Antes de cada prova o aluno estuda os 2 anos anteriores e escolhe seus parâmetros. A nota vem só das provas — dados que ele nunca viu.</li>
+        <li><b>Carteira:</b> opera BTC, ETH, SOL e BNB (25% em cada), pagando 0,1% de taxa + 0,05% de derrapagem por ordem. Também refazemos tudo com <b>custo dobrado</b>.</li>
+        <li><b>Sharpe:</b> retorno dividido pelo "sacolejo" do caminho. Acima de 1 é muito bom em cripto.</li>
+        <li><b>Queda máxima:</b> o pior tombo do pico ao fundo. É o quanto você teria que aguentar sem desistir.</li>
+        <li><b>Consistência:</b> em quantas provas (por moeda) o aluno não perdeu dinheiro.</li>
+        <li><b>Confiança (Deflated Sharpe):</b> como testamos muitos alunos, um deles pode ir bem por sorte. Esse número desconta isso. Exigimos 90%.</li>
+        <li><b>Régua:</b> compare sempre com "comprar e segurar" e com o "DCA semanal" no mesmo período.</li>
+      </ul>
+    </details>
+    <div class="ref" id="refs"></div>
+    <div class="painel" style="margin-bottom:12px">
+      <div class="botoes" style="justify-content:space-between">
+        <div id="info-escola" class="sub" style="margin:0"></div>
+        <div class="botoes">
+          <button class="btn sec" id="btn-temporada">⚽ Nova temporada com o top 5</button>
+          <button class="btn" id="btn-rodar">▶ Rodar a escola agora</button>
+        </div>
+      </div>
+      <div class="log oculto" id="log-escola"></div>
+      <div id="msg-escola"></div>
+    </div>
+    <div class="painel" style="margin-bottom:12px">
+      <canvas id="grafico-escola"></canvas>
+      <div class="legenda" id="legenda-escola"></div>
+    </div>
+    <div class="painel tabela" id="ranking"></div>
+
+  </section>
+
+  <!-- ===================== GERENTE ===================== -->
+  <section id="aba-gerente" class="oculto">
+    <h1>O <span>gerente</span></h1>
+    <p class="sub">O Claude lê a simulação e o boletim da escola, escreve um relatório por dia e responde suas perguntas. Ele aconselha — quem decide é você, o CEO.</p>
+    <div id="gerente-config" class="card oculto"></div>
+    <div id="gerente-chave" class="card oculto" style="margin-bottom:12px"></div>
+    <div class="duas">
+      <div>
+        <h2>relatório do dia</h2>
+        <div class="painel">
+          <div class="botoes" style="justify-content:space-between;margin-bottom:8px">
+            <span class="sub" style="margin:0" id="rel-data">—</span>
+            <button class="btn" id="btn-relatorio">📝 Escrever agora</button>
+          </div>
+          <div class="md" id="relatorio"><div class="vazio">Ainda não tem relatório.</div></div>
+          <div class="erro" id="rel-erro"></div>
+        </div>
+      </div>
+      <div>
+        <h2>pergunte ao gerente</h2>
+        <div class="painel">
+          <div class="chat" id="chat"></div>
+          <div class="chips" style="margin:10px 0" id="sugestoes"></div>
+          <textarea id="pergunta" rows="3" placeholder="Ex.: Por que o titular mudou nesta semana?"></textarea>
+          <div class="botoes" style="margin-top:8px"><button class="btn" id="btn-perguntar">Perguntar</button><span class="sub" style="margin:0" id="pensando"></span></div>
+          <div class="erro" id="chat-erro"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="rodape">
+    <div class="aviso">Simulação — nenhum dinheiro real é usado. Não é recomendação de investimento.</div>
+    <div>Trade é risco: dá pra perder e não existe lucro garantido. Resultado passado não garante o futuro.</div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const num = (v, c=2) => (v == null || isNaN(v)) ? '—' : Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:c, maximumFractionDigits:c});
+const usd = v => (v < 0 ? '-' : '') + 'US$ ' + num(v);
+const brl = v => (v < 0 ? '-' : '') + 'R$ ' + num(v);
+const sinal = v => (v >= 0 ? '+' : '-');
+const pct = (v, c=1) => v == null ? '—' : sinal(v) + num(v, c) + '%';
+const cls = v => v >= 0 ? 'pos' : 'neg';
+const hora = t => new Date(t).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+const data = t => new Date(t).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'});
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const moeda = p => p && p.endsWith('USDT') ? p.slice(0, -4) : p;
+const HUMORES = ['perigo', 'alerta', 'normal', 'confiante'];
+let ESTADO = null, ESCOLA = null, GERENTE = null, ABA = 'geral', ALUNO_ABERTO = null, TIMES_ATUAIS = [];
+
+async function api(caminho, corpo) {
+  const r = await fetch(caminho, corpo === undefined ? {cache:'no-store'} :
+    {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(corpo)});
+  return r.json();
+}
+function patrimonio(tr) {
+  if (!tr.posicao) return tr.caixa;
+  return tr.caixa + tr.posicao.qtd * (tr.ultimo_preco || tr.posicao.preco);
+}
+function md(texto) {
+  const linhas = esc(texto).split('\n'); let html = '', lista = false;
+  const inl = s => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|\s)_(.+?)_/g, '$1<i>$2</i>');
+  for (const l of linhas) {
+    const t = l.trim();
+    if (/^[-*] /.test(t)) { if (!lista) { html += '<ul>'; lista = true; } html += '<li>' + inl(t.slice(2)) + '</li>'; continue; }
+    if (lista) { html += '</ul>'; lista = false; }
+    if (/^#{1,4} /.test(t)) html += '<h3>' + inl(t.replace(/^#+ /, '')) + '</h3>';
+    else if (/^\d+\. /.test(t)) html += '<p>' + inl(t) + '</p>';
+    else if (t) html += '<p>' + inl(t) + '</p>';
+  }
+  if (lista) html += '</ul>';
+  return html;
+}
+
+/* ---------------- abas ---------------- */
+function trocarAba() {
+  ABA = (location.hash || '#geral').slice(1);
+  if (!['geral', 'escola', 'gerente'].includes(ABA)) ABA = 'geral';
+  for (const a of ['geral', 'escola', 'gerente']) $('aba-' + a).classList.toggle('oculto', a !== ABA);
+  document.querySelectorAll('.abas a[data-aba]').forEach(a => a.classList.toggle('on', a.dataset.aba === ABA));
+  if (ABA === 'escola') atualizarEscola();
+  if (ABA === 'gerente') atualizarGerente();
+  if (ABA === 'geral' && ESTADO) desenharTimes(ESTADO);
+}
+window.addEventListener('hashchange', trocarAba);
+
+/* ---------------- visão geral ---------------- */
+const COR_HUMOR = {perigo: '#ff5a5f', alerta: '#ff8a3d', normal: '#35d0c8', confiante: '#2ee59d'};
+const CORES_TIMES = ['#ffd23f', '#35d0c8', '#b79cff', '#2ee59d', '#ff8a3d'];
+const corTime = (d, id) => CORES_TIMES[d.times.findIndex(t => t.id === id) % CORES_TIMES.length];
+function falta(t) {
+  const s = Math.max(0, Math.floor((t - Date.now()) / 1000)), dd = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return dd ? `${dd}d ${h}h` : `${h}h ${m}min`;
+}
+function linhaMembro(tr) {
+  const p = patrimonio(tr);
+  let st = tr.gatilho ? `🎯 compra se ${esc(tr.nome.replace('Bebê ', ''))}: ${esc(tr.gatilho)}` : '👀 esperando sinal';
+  if (tr.pausado_ate) st = '🎮 no videogame';
+  else if (tr.posicao) {
+    const v = ((tr.ultimo_preco || tr.posicao.preco) / tr.posicao.preco - 1) * 100;
+    st = `📈 comprado <span class="${cls(v)}">${pct(v, 2)}</span>`;
+  }
+  return `<div class="membro"><div style="font-size:18px">${esc(tr.emoji)}</div>
+    <div><b>${esc(tr.nome)}</b> <span class="st"><span class="bolinha" style="background:${COR_HUMOR[tr.humor]}"></span>${tr.humor} · ${tr.vitorias}V/${tr.derrotas}D</span><div class="st">${st}</div></div>
+    <div style="text-align:right;font-variant-numeric:tabular-nums">${usd(p)}<div class="st ${cls(tr.lucro_realizado)}">${sinal(tr.lucro_realizado)}${usd(Math.abs(tr.lucro_realizado))}</div></div></div>`;
+}
+function renderGeral(d) {
+  const cfg = d.cfg, taxa = d.cotacao_brl || cfg.cotacao_brl_padrao, temp = d.temporada || {};
+  const times = [...d.times].sort((a, b) => (a.lugar || 9) - (b.lugar || 9));
+  const total = d.traders.reduce((s, t) => s + patrimonio(t), 0), lucro = total - d.aportes_ceo;
+  const tit = d.times.find(t => t.titular) || times[0];
+  const bebes = d.traders.filter(t => t.tipo === 'bebe').length;
+  $('sub').innerHTML = `Temporada <b>${temp.numero}</b> · começou em ${hora(temp.inicio)} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · dinheiro de mentira, preços de verdade.`;
+  $('kpis').innerHTML = [
+    ['🏆 time titular', `<span style="font-size:20px">${esc(tit.emoji)} ${esc(tit.nome)}</span>`, `pontuação ${sinal(tit.pontuacao_agora)}${num(tit.pontuacao_agora)} · ${pct(tit.resultado_pct, 2)} na temporada`, ''],
+    ['⏱️ próxima rodada', falta(temp.proxima_rodada), 'segunda-feira, 00:00', ''],
+    ['patrimônio total', usd(total), brl(total * taxa), ''],
+    ['resultado', sinal(lucro) + usd(Math.abs(lucro)), `${pct(lucro / d.aportes_ceo * 100, 2)} · ${d.traders.length} traders`, cls(lucro)],
+    ['👶 bebês traders', String(bebes), `1 a cada R$ ${num(cfg.bebes.lucro_brl_por_bebe, 0)} de lucro de um time`, ''],
+  ].map(([r, v, s, c]) => `<div class="kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join('');
+
+  $('classificacao').innerHTML = `<table><tr><th></th><th>time</th><th>papel</th><th>pontuação</th><th>4 semanas</th><th>patrimônio</th><th>temporada</th><th>traders</th><th>rumo ao bebê</th></tr>${
+    times.map(t => `<tr><td><span class="lugar">${t.lugar}º</span></td>
+      <td><b>${esc(t.emoji)} ${esc(t.nome)}</b><div class="sub" style="margin:0;font-size:12px">${esc(t.estrategia_nome)} · ${esc(t.intervalo)} · nota ${num(t.nota_escola, 1)}</div></td>
+      <td>${t.titular ? '<span class="selo ok">🏆 titular</span>' : '<span class="selo info">reserva</span>'}</td>
+      <td><b class="${cls(t.pontuacao_agora)}">${sinal(t.pontuacao_agora)}${num(t.pontuacao_agora)}</b></td>
+      <td><span class="${cls(t.retorno_4s_pct)}">${pct(t.retorno_4s_pct, 2)}</span> <span class="sub" style="font-size:12px">queda ${pct(t.queda_4s_pct, 1)}</span></td>
+      <td>${usd(t.patrimonio)}</td><td class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</td>
+      <td>${d.traders.filter(x => x.time === t.id).length}${t.bebes ? ` <span class="sub">(${t.bebes}👶)</span>` : ''}</td>
+      <td><div class="nota"><div class="b" style="width:80px"><i style="width:${t.meta_bebe_pct}%;background:linear-gradient(90deg,var(--amarelo),var(--laranja))"></i></div><span class="sub" style="font-size:12px">${num(t.meta_bebe_pct, 0)}%</span></div></td></tr>`).join('')}</table>`;
+
+  desenharTimes(d);
+  $('times').innerHTML = times.map(t => {
+    const membros = d.traders.filter(x => x.time === t.id);
+    return `<div class="card time${t.titular ? ' titular' : ''}">
+      <div class="topo-time"><div class="avatar" style="border:2px solid ${corTime(d, t.id)}">${esc(t.emoji)}</div>
+        <div style="flex:1"><div class="nome">${esc(t.nome)}</div><div class="cargo">${t.titular ? '🏆 titular — operaria com dinheiro real' : 'reserva · simulação'}</div>
+        <div class="sub" style="margin:2px 0 0;font-size:12px">${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)}</div></div>
+        <div style="text-align:right"><div class="v" style="font-weight:800">${usd(t.patrimonio)}</div><div class="${cls(t.resultado_pct)}" style="font-size:12px">${pct(t.resultado_pct, 2)}</div></div></div>
+      <div class="membros">${membros.map(linhaMembro).join('')}</div></div>`;
+  }).join('');
+
+  const m = cfg.mascote || {}, frases = m.frases || [];
+  const frase = frases.length ? frases[Math.floor(Date.now() / 60000) % frases.length] : '';
+  const rel = d.gerente && d.gerente.relatorio;
+  $('equipe').innerHTML =
+    `<div class="card"><div class="cab"><div class="avatar">😎</div><div><div class="nome">Você</div><div class="cargo">o CEO</div></div></div>
+      <ul class="check"><li>dono da agência e da liga</li><li>decide quando começa nova temporada</li><li>colocou ${usd(d.aportes_ceo)} (de mentira)</li></ul></div>` +
+    `<div class="card"><div class="cab"><div class="avatar">🧠</div><div><div class="nome">Claude</div><div class="cargo">o gerente</div></div></div>
+      <div class="status">${rel ? '📝 relatório de ' + hora(rel.t) : 'ainda sem relatório'}</div>
+      <div class="botoes" style="margin-top:10px"><a class="btn sec" href="#gerente" style="text-decoration:none">ler / perguntar →</a></div></div>` +
+    (m.nome ? `<div class="card"><div class="cab"><div class="avatar">${esc(m.emoji || '🐶')}</div><div><div class="nome">${esc(m.nome)}</div><div class="cargo">o segurança</div></div></div>
+      <div class="status">${esc(frase)}</div><ul class="check"><li>salário: biscoito</li></ul></div>` : '');
+
+  const rods = (temp.rodadas || []).slice().reverse();
+  const nomeT = id => { const t = d.times.find(x => x.id === id); return t ? `${t.emoji} ${t.nome}` : id; };
+  $('rodadas').innerHTML = rods.length ? `<table><tr><th>quando</th><th>vencedor</th><th>pontuações</th></tr>${rods.slice(0, 12).map(r => `<tr><td>${hora(r.t)}</td><td><b>${esc(nomeT(r.vencedor))}</b></td>
+      <td>${r.ranking.map(x => `${esc((d.times.find(t => t.id === x.id) || {}).emoji || '')} ${sinal(x.pontuacao)}${num(x.pontuacao)}`).join(' · ')}</td></tr>`).join('')}</table>`
+    : `<div class="vazio">A primeira rodada é ${hora(temp.proxima_rodada)}. Até lá, o titular é o time de melhor nota na escola.</div>`;
+
+  const evs = d.eventos.slice(-60).reverse();
+  $('diario').innerHTML = evs.length ? evs.map(e => `<div class="ev"><div>${esc(e.emoji)}</div><div><div>${esc(e.texto)}</div><div class="q">${hora(e.t)}</div></div></div>`).join('')
+    : '<div class="vazio">Nada aconteceu ainda.</div>';
+  const ops = d.traders.flatMap(t => t.trades.map(o => ({...o, quem: t.nome, time: t.time}))).sort((a, b) => b.t_saida - a.t_saida).slice(0, 15);
+  $('trades').innerHTML = ops.length ? `<table><tr><th>quando</th><th>quem</th><th>saída</th><th>resultado</th></tr>${
+    ops.map(o => `<tr><td>${hora(o.t_saida)}</td><td>${esc(o.quem)} · ${esc(nomeT(o.time))}</td><td>${esc(o.motivo)}</td><td class="${cls(o.lucro)}">${sinal(o.lucro)}${usd(Math.abs(o.lucro))} (${pct(o.pct, 2)})</td></tr>`).join('')}</table>`
+    : '<div class="vazio">Nenhuma operação fechada ainda. Estratégias de velas diárias e de 4h operam pouco — paciência faz parte.</div>';
+}
+function desenharTimes(d) {
+  const cv = $('grafico');
+  if (cv.clientWidth === 0) return;
+  const [g, w, h] = prepararCanvas(cv);
+  const series = d.times.map(t => ({t, pts: (t.curva || []).map(([x, p, a]) => [x, a ? (p / a - 1) * 100 : 0])})).filter(s => s.pts.length > 1);
+  if (!series.length) { g.fillText('o gráfico aparece com o tempo…', 12, h / 2); $('legenda-times').innerHTML = ''; return; }
+  let lo = 0, hi = 0, t0 = Infinity, t1 = -Infinity;
+  for (const s of series) for (const [x, v] of s.pts) { lo = Math.min(lo, v); hi = Math.max(hi, v); t0 = Math.min(t0, x); t1 = Math.max(t1, x); }
+  const f = (hi - lo) * 0.1 || 1; lo -= f; hi += f;
+  const [X, Y] = eixos(g, w, h, t0, t1, lo, hi, v => pct(v, 1));
+  g.strokeStyle = '#3a434f'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(X(t0), Y(0)); g.lineTo(X(t1), Y(0)); g.stroke(); g.setLineDash([]);
+  for (const s of series) {
+    g.strokeStyle = corTime(d, s.t.id); g.lineWidth = s.t.titular ? 3 : 1.6;
+    g.beginPath(); s.pts.forEach(([x, v], i) => i ? g.lineTo(X(x), Y(v)) : g.moveTo(X(x), Y(v))); g.stroke();
+  }
+  $('legenda-times').innerHTML = d.times.map(t => `<span><i style="background:${corTime(d, t.id)}"></i>${esc(t.emoji)} ${esc(t.nome)}${t.titular ? ' 🏆' : ''}</span>`).join('') + '<span>· resultado % de cada time</span>';
+}
+
+/* ---------------- gráficos ---------------- */
+function prepararCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  g.font = '11px JetBrains Mono, monospace'; g.fillStyle = '#8a94a2';
+  return [g, w, h];
+}
+function eixos(g, w, h, t0, t1, lo, hi, fmt) {
+  const L = 64, R = 12, T = 10, B = 24;
+  const X = t => L + (t - t0) / ((t1 - t0) || 1) * (w - L - R);
+  const Y = v => T + (1 - (v - lo) / ((hi - lo) || 1)) * (h - T - B);
+  g.strokeStyle = '#232a33'; g.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * i / 4, y = Y(v);
+    g.beginPath(); g.moveTo(L, y); g.lineTo(w - R, y); g.stroke(); g.fillText(fmt(v), 4, y + 4);
+  }
+  g.fillText(data(t0), L, h - 6);
+  const fim = data(t1); g.fillText(fim, w - R - g.measureText(fim).width, h - 6);
+  return [X, Y, T, B];
+}
+function desenharCurva(cv, curva) {
+  if (cv.clientWidth === 0) return;
+  const [g, w, h] = prepararCanvas(cv);
+  if (!curva || curva.length < 2) { g.fillText('o gráfico aparece com o tempo…', 12, h / 2); return; }
+  const t0 = curva[0][0], t1 = curva[curva.length - 1][0];
+  let lo = Infinity, hi = -Infinity;
+  for (const [, p, a] of curva) { lo = Math.min(lo, p, a); hi = Math.max(hi, p, a); }
+  const f = (hi - lo) * 0.1 || 1; lo -= f; hi += f;
+  const [X, Y, T, B] = eixos(g, w, h, t0, t1, lo, hi, v => '$' + v.toFixed(2));
+  g.strokeStyle = '#ffd23f'; g.setLineDash([5, 4]); g.lineWidth = 1.5; g.beginPath();
+  curva.forEach(([t, , a], i) => { if (!i) g.moveTo(X(t), Y(a)); else { g.lineTo(X(t), Y(curva[i - 1][2])); g.lineTo(X(t), Y(a)); } });
+  g.stroke(); g.setLineDash([]);
+  const grad = g.createLinearGradient(0, T, 0, h - B);
+  grad.addColorStop(0, 'rgba(53,208,200,.28)'); grad.addColorStop(1, 'rgba(53,208,200,0)');
+  g.beginPath(); curva.forEach(([t, p], i) => i ? g.lineTo(X(t), Y(p)) : g.moveTo(X(t), Y(p)));
+  g.lineTo(X(t1), h - B); g.lineTo(X(t0), h - B); g.closePath(); g.fillStyle = grad; g.fill();
+  g.strokeStyle = '#35d0c8'; g.lineWidth = 2; g.beginPath();
+  curva.forEach(([t, p], i) => i ? g.lineTo(X(t), Y(p)) : g.moveTo(X(t), Y(p))); g.stroke();
+}
+const CORES = ['#35d0c8', '#2ee59d', '#b79cff', '#ff8a3d'];
+function desenharEscola() {
+  const cv = $('grafico-escola');
+  if (!ESCOLA || !ESCOLA.resultados || cv.clientWidth === 0) return;
+  const [g, w, h] = prepararCanvas(cv);
+  const sel = ALUNO_ABERTO ? ESCOLA.resultados.filter(r => r.id === ALUNO_ABERTO) : ESCOLA.resultados.slice(0, 3);
+  const series = [{nome: 'Comprar e segurar', cor: '#6b7480', curva: ESCOLA.referencias.segurar.curva, tracejado: true},
+                  {nome: 'DCA semanal', cor: '#ffd23f', curva: ESCOLA.referencias.dca.curva, tracejado: true},
+                  ...sel.map((r, i) => ({nome: r.emoji + ' ' + r.nome, cor: CORES[i], curva: r.curva}))];
+  // escala logarítmica: mostra justo as quedas e as subidas
+  let lo = Infinity, hi = -Infinity, t0 = Infinity, t1 = -Infinity;
+  for (const s of series) for (const [t, v] of s.curva) { lo = Math.min(lo, Math.log(v)); hi = Math.max(hi, Math.log(v)); t0 = Math.min(t0, t); t1 = Math.max(t1, t); }
+  const f = (hi - lo) * 0.08; lo -= f; hi += f;
+  const [X, Y] = eixos(g, w, h, t0, t1, lo, hi, v => pct((Math.exp(v) - 1) * 100, 0));
+  for (const s of series) {
+    g.strokeStyle = s.cor; g.lineWidth = s.tracejado ? 1.5 : 2.2; g.setLineDash(s.tracejado ? [5, 4] : []);
+    g.beginPath(); s.curva.forEach(([t, v], i) => i ? g.lineTo(X(t), Y(Math.log(v))) : g.moveTo(X(t), Y(Math.log(v)))); g.stroke();
+  }
+  g.setLineDash([]);
+  $('legenda-escola').innerHTML = series.map(s => `<span><i style="background:${s.cor}"></i>${esc(s.nome)}</span>`).join('') +
+    `<span>· escala logarítmica · ${ALUNO_ABERTO ? 'clique no aluno de novo pra ver o top 3' : 'clique num aluno pra comparar'}</span>`;
+}
+
+/* ---------------- escola ---------------- */
+function renderEscola() {
+  const E = ESCOLA;
+  $('btn-rodar').disabled = !!E.rodando;
+  $('btn-rodar').textContent = E.rodando ? '⏳ A escola está fazendo as provas…' : '▶ Rodar a escola agora';
+  const log = $('log-escola');
+  log.classList.toggle('oculto', !(E.rodando && E.log));
+  if (E.log) log.textContent = E.log.join('\n');
+  if (!E.resultados) {
+    $('info-escola').textContent = 'A escola ainda não fez nenhuma prova. Clique em "Rodar a escola agora" (leva de 1 a 15 minutos na primeira vez).';
+    $('ranking').innerHTML = ''; $('refs').innerHTML = ''; return;
+  }
+  const [a, b] = E.periodo_oos;
+  $('info-escola').innerHTML = `Boletim de ${hora(E.gerado_em)} · provas de <b>${data(a)}</b> a <b>${data(b)}</b> · ${E.alunos_testados} alunos · ${E.combinacoes_testadas} combinações testadas`;
+  const s = E.referencias.segurar, dca = E.referencias.dca, aprov = E.resultados.filter(r => r.aprovada);
+  $('refs').innerHTML = `
+    <div class="kpi"><div class="r">📌 comprar e segurar</div><div class="v ${cls(s.retorno_pct)}">${pct(s.retorno_pct)}</div><div class="s">queda máx ${pct(s.max_dd_pct, 0)} · Sharpe ${num(s.sharpe)}</div></div>
+    <div class="kpi"><div class="r">🪙 DCA semanal</div><div class="v ${cls(dca.retorno_pct)}">${pct(dca.retorno_pct)}</div><div class="s">queda máx ${pct(dca.max_dd_pct, 0)} · Sharpe ${num(dca.sharpe)}</div></div>
+    <div class="kpi"><div class="r">🏅 aprovados</div><div class="v">${aprov.length} de ${E.resultados.length}</div><div class="s">${aprov.length ? 'campeã: ' + esc(aprov[0].emoji + ' ' + aprov[0].nome) : 'ninguém passou em tudo — os times são as maiores notas'}</div></div>`;
+
+  let html = `<table><tr><th>#</th><th>aluno</th><th>nota</th><th>situação</th><th>retorno</th><th>queda máx</th><th>Sharpe</th><th>ops</th><th>consistência</th><th>custo x2</th><th>confiança</th></tr>`;
+  E.resultados.forEach((r, k) => {
+    const o = r.oos, aberto = ALUNO_ABERTO === r.id;
+    html += `<tr class="aluno${aberto ? ' aberto' : ''}" data-id="${r.id}">
+      <td>${k + 1}</td>
+      <td><b>${esc(r.emoji)} ${esc(r.nome)}</b>${TIMES_ATUAIS.includes(r.id) ? ' <span class="selo info">⚽ time</span>' : (k < 5 ? ' <span class="selo ok">top 5</span>' : '')}<div class="sub" style="margin:0;font-size:12px">${esc(r.inspiracao)} · ${esc(r.intervalo)}</div></td>
+      <td><div class="nota"><b>${num(r.nota, 1)}</b><div class="b"><i style="width:${r.nota * 10}%"></i></div></div></td>
+      <td>${r.aprovada ? '<span class="selo ok">✓ aprovada</span>' : '<span class="selo nao">reprovada</span>'}</td>
+      <td class="${cls(o.retorno_pct)}">${pct(o.retorno_pct)}</td>
+      <td class="neg">${pct(o.max_dd_pct, 0)}</td>
+      <td>${num(o.sharpe)}</td><td>${o.trades}</td><td>${num(o.consistencia_pct, 0)}%</td>
+      <td class="${cls(o.retorno_custo_dobrado_pct)}">${pct(o.retorno_custo_dobrado_pct)}</td>
+      <td>${num((o.dsr || 0) * 100, 0)}%</td></tr>`;
+    if (aberto) {
+      const pares = Object.entries(r.por_par_pct).map(([p, v]) => `${moeda(p)} <span class="${cls(v)}">${pct(v)}</span>`).join(' · ');
+      const params = Object.entries(r.params_atuais).filter(([k2]) => k2 !== 'intervalo').map(([k2, v]) => `${k2}=${v}`).join(', ');
+      html += `<tr class="det"><td colspan="11">
+        <p style="margin-top:0">${esc(r.descricao)}</p>
+        ${r.motivos.length ? '<p><b>Por que não passou:</b> ' + r.motivos.map(esc).join('; ') + '</p>' : '<p class="pos"><b>Passou em todos os critérios.</b></p>'}
+        <p class="sub">Crescimento anual ${pct(o.cagr_pct)} · ganhos/perdas (PF) ${num(o.profit_factor)} · acerto ${num(o.acerto_pct, 0)}% · tempo comprado ${num(o.exposicao_pct, 0)}% · por moeda: ${pares}</p>
+        <p class="sub">Parâmetros de hoje (estudou os últimos 2 anos): velas de ${esc(r.params_atuais.intervalo)}${params ? ', ' + esc(params) : ''}</p>
+        ${TIMES_ATUAIS.includes(r.id) ? '<p class="pos"><b>⚽ Este aluno é um dos times da temporada atual.</b></p>' : ''}
+      </td></tr>`;
+    }
+  });
+  $('ranking').innerHTML = html + '</table>';
+  desenharEscola();
+}
+
+$('ranking').addEventListener('click', async ev => {
+  const tr = ev.target.closest('tr.aluno');
+  if (tr) { ALUNO_ABERTO = ALUNO_ABERTO === tr.dataset.id ? null : tr.dataset.id; renderEscola(); }
+});
+$('btn-rodar').onclick = async () => {
+  const r = await api('/api/escola/rodar', {});
+  $('msg-escola').innerHTML = `<div class="${r.ok ? 'ok-msg' : 'erro'}">${esc(r.msg)}</div>`;
+  atualizarEscola();
+};
+$('btn-temporada').onclick = async () => {
+  if (!confirm('Começar uma nova temporada? Os 5 melhores alunos do boletim atual viram os times e o dinheiro de mentira volta pra US$ 100 por trader. A temporada atual será encerrada.')) return;
+  const r = await api('/api/comando', {acao: 'nova_temporada'});
+  $('msg-escola').innerHTML = r.ok ? `<div class="ok-msg">${esc(r.msg)}</div>` : `<div class="erro">${esc(r.erro)}</div>`;
+};
+
+/* ---------------- gerente ---------------- */
+const SUGESTOES = ['Qual time está melhor e por quê?', 'Vale começar uma nova temporada?', 'Quem é o melhor aluno da escola?', 'Explique o Sharpe como se eu tivesse 10 anos',
+                   'Por que comprar e segurar rendeu mais?', 'O que falta pra eu pensar em dinheiro real?'];
+function renderGerente() {
+  const G = GERENTE, cfgBox = $('gerente-config');
+  if (!G.disponivel) {
+    cfgBox.classList.remove('oculto');
+    cfgBox.innerHTML = G.motivo === 'sem_biblioteca'
+      ? `<h3>🔧 Falta instalar a biblioteca do Claude</h3><p class="sub">Dê dois cliques em <b>3_instalar_gerente.bat</b> (ou rode <code>pip install anthropic</code>) e depois reinicie a agência.</p>`
+      : `<h3>🔑 Conecte o gerente (uma vez só)</h3>
+         <ol class="sub" style="line-height:1.7"><li>Entre em <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> e crie uma conta.</li>
+         <li>Em <b>Billing</b>, coloque alguns dólares de crédito (o relatório diário custa centavos).</li>
+         <li>Em <b>API Keys</b>, clique em <b>Create Key</b> e copie a chave (começa com <code>sk-ant-</code>).</li>
+         <li>Cole aqui embaixo. Ela fica salva só no seu PC, na pasta <code>dados</code>.</li></ol>
+         <div class="botoes"><input type="password" id="chave" placeholder="sk-ant-..." style="max-width:420px"><button class="btn" id="btn-chave">Salvar chave</button></div>
+         <div id="chave-msg"></div>`;
+    const b = $('btn-chave');
+    if (b) b.onclick = async () => {
+      const r = await api('/api/gerente/chave', {chave: $('chave').value});
+      $('chave-msg').innerHTML = r.ok ? '<div class="ok-msg">Chave salva! O gerente está pronto.</div>' : `<div class="erro">${esc(r.erro)}</div>`;
+      if (r.ok) atualizarGerente();
+    };
+  } else cfgBox.classList.add('oculto');
+  const ch = $('gerente-chave');
+  if (G.disponivel) {
+    ch.classList.remove('oculto');
+    if (!ch.dataset.montado) {
+      ch.dataset.montado = '1';
+      ch.innerHTML = `<div class="botoes" style="justify-content:space-between">
+          <div>🔑 <b>Chave salva:</b> <code id="ch-mask"></code></div>
+          <div class="botoes"><button class="btn sec" id="ch-trocar">Trocar chave</button><button class="btn" id="ch-testar">🔌 Testar conexão</button></div></div>
+        <div id="ch-form" class="oculto" style="margin-top:10px">
+          <div class="botoes"><input type="password" id="ch-nova" placeholder="cole a chave nova (sk-ant-...)" style="max-width:420px"><button class="btn" id="ch-salvar">Salvar</button></div>
+          <p class="sub" style="margin:6px 0 0">Crie em console.anthropic.com → API Keys → Create Key. Nunca mande a chave por chat.</p></div>
+        <div id="ch-res"></div>`;
+      $('ch-trocar').onclick = () => { $('ch-form').classList.toggle('oculto'); $('ch-nova').focus(); };
+      $('ch-salvar').onclick = async () => {
+        const r = await api('/api/gerente/chave', {chave: $('ch-nova').value});
+        $('ch-res').innerHTML = r.ok ? '<div class="ok-msg">Chave nova salva! Clique em "Testar conexão".</div>' : `<div class="erro">${esc(r.erro)}</div>`;
+        if (r.ok) { $('ch-nova').value = ''; $('ch-form').classList.add('oculto'); atualizarGerente(); }
+      };
+      $('ch-testar').onclick = async () => {
+        $('ch-testar').disabled = true; $('ch-res').innerHTML = '<div class="sub">⏳ testando…</div>';
+        try {
+          const r = await api('/api/gerente/testar', {});
+          const rede = (r.rede || []).map(x => `<li>${x.ok === true ? '✅' : x.ok === false ? '❌' : 'ℹ️'} ${esc(x.texto)}</li>`).join('');
+          $('ch-res').innerHTML = `<div class="${r.ok ? 'ok-msg' : 'erro'}" style="margin-top:10px">${r.ok ? '✅ Conectado! ' : '❌ '}${esc(r.texto)}</div>` +
+            (r.aviso ? `<div class="sub" style="margin-top:6px">⚠️ ${esc(r.aviso)}</div>` : '') +
+            (rede ? `<ul class="sub" style="margin:8px 0 0;padding-left:18px;line-height:1.6">${rede}</ul>` : '');
+        } catch (e) { $('ch-res').innerHTML = '<div class="erro">Sem conexão com o programa — a agência está ligada?</div>'; }
+        $('ch-testar').disabled = false; atualizarGerente();
+      };
+    }
+    $('ch-mask').textContent = G.chave || '(variável ANTHROPIC_API_KEY)';
+  } else ch.classList.add('oculto');
+  $('btn-relatorio').disabled = !G.disponivel; $('btn-perguntar').disabled = !G.disponivel;
+  if (G.relatorio) { $('relatorio').innerHTML = md(G.relatorio.texto); $('rel-data').textContent = 'escrito em ' + hora(G.relatorio.t) + ' · ' + G.modelo; }
+  $('rel-erro').textContent = G.erro ? 'Último erro: ' + G.erro.texto : '';
+  const conv = G.conversa || [];
+  $('chat').innerHTML = conv.length ? conv.map(c => `<div class="bolha eu">${esc(c.pergunta)}</div><div class="bolha ele md">${md(c.resposta)}</div>`).join('')
+    : '<div class="vazio">Pergunte qualquer coisa sobre a agência, a escola ou trading.</div>';
+  $('chat').scrollTop = 1e9;
+  $('sugestoes').innerHTML = SUGESTOES.map(s => `<button class="chip">${esc(s)}</button>`).join('');
+}
+$('sugestoes').addEventListener('click', ev => { const c = ev.target.closest('.chip'); if (c) { $('pergunta').value = c.textContent; $('pergunta').focus(); } });
+$('btn-perguntar').onclick = async () => {
+  const q = $('pergunta').value.trim(); if (!q) return;
+  $('btn-perguntar').disabled = true; $('pensando').textContent = '🧠 o gerente está pensando…'; $('chat-erro').textContent = '';
+  $('chat').insertAdjacentHTML('beforeend', `<div class="bolha eu">${esc(q)}</div>`); $('chat').scrollTop = 1e9;
+  try {
+    const r = await api('/api/gerente/perguntar', {pergunta: q});
+    if (!r.ok) $('chat-erro').textContent = r.erro; else $('pergunta').value = '';
+  } catch (e) { $('chat-erro').textContent = 'Sem conexão com o programa.'; }
+  $('pensando').textContent = ''; $('btn-perguntar').disabled = false;
+  atualizarGerente();
+};
+$('pergunta').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('btn-perguntar').click(); });
+$('btn-relatorio').onclick = async () => {
+  $('btn-relatorio').disabled = true; $('btn-relatorio').textContent = '⏳ escrevendo…';
+  try { const r = await api('/api/gerente/relatorio', {}); $('rel-erro').textContent = r.ok ? '' : r.erro; }
+  catch (e) { $('rel-erro').textContent = 'Sem conexão com o programa.'; }
+  $('btn-relatorio').textContent = '📝 Escrever agora';
+  atualizarGerente();
+};
+
+/* ---------------- atualização ---------------- */
+async function atualizarEstado() {
+  try {
+    const d = await api('/api/estado');
+    const vivo = d && !d.vazio && d.simulacao_rodando && d.salvo_em && Date.now() - d.salvo_em < 120000;
+    $('rec').className = 'rec' + (vivo ? '' : ' off');
+    $('desligada').style.display = vivo ? 'none' : 'block';
+    if (d.vazio) return;
+    ESTADO = d; TIMES_ATUAIS = (d.times || []).map(t => t.id);
+    renderGeral(d);
+  } catch (e) { $('rec').className = 'rec off'; $('desligada').style.display = 'block'; }
+}
+async function atualizarEscola() { try { ESCOLA = await api('/api/escola'); renderEscola(); if (ESTADO) renderGeral(ESTADO); } catch (e) {} }
+async function atualizarGerente() { try { GERENTE = await api('/api/gerente'); renderGerente(); } catch (e) {} }
+
+window.addEventListener('resize', () => { if (ESTADO) desenharTimes(ESTADO); desenharEscola(); });
+trocarAba();
+atualizarEscola(); atualizarEstado();
+setInterval(atualizarEstado, 5000);
+setInterval(() => { if (ABA === 'escola' || (ESCOLA && ESCOLA.rodando)) atualizarEscola(); }, 4000);
+setInterval(() => { if (ABA === 'gerente') atualizarGerente(); }, 15000);
+</script>
+</body>
+</html>

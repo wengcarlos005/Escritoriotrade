@@ -1,0 +1,6 @@
+# Seus dados ficam só no seu PC (nunca vão pro GitHub nem são apagados ao atualizar)
+dados/
+config.json
+__pycache__/
+*.pyc
+*.tmp

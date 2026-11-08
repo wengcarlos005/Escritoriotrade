@@ -1,0 +1,64 @@
+{
+  "taxa": 0.001,
+  "ordem_minima_usd": 5,
+  "cotacao_brl_padrao": 5.6,
+
+  "liga": {
+    "times": 5,
+    "moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"],
+    "capital_por_trader_usd": 100,
+    "semanas_para_pontuar": 4,
+    "emoji_trader": "🤖",
+    "so_alunos_aprovados": false,
+    "sincronizar_ao_comecar": true
+  },
+
+  "bebes": {
+    "ativo": true,
+    "lucro_brl_por_bebe": 500,
+    "max_bebes_por_time": 5,
+    "moedas": ["ADAUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT", "LTCUSDT"],
+    "bonus_ceo_brl": 500
+  },
+
+  "mascote": {
+    "nome": "Rex",
+    "emoji": "🐶",
+    "frases": [
+      "cheirando a mesa do gerente",
+      "pedindo biscoito na copa",
+      "dormindo no tapete do chefe",
+      "latindo pro gráfico",
+      "torcendo pelo time titular",
+      "assistindo a aula da escola"
+    ]
+  },
+
+  "humor": {
+    "muda_tamanho_da_aposta": false,
+    "derrotas_para_perigo": 3,
+    "vitorias_para_confiante": 3,
+    "fracao_do_caixa": { "perigo": 0.25, "alerta": 0.5, "normal": 0.75, "confiante": 1.0 }
+  },
+
+  "regras": {
+    "ativo": false,
+    "vitorias_para_bonus": 10,
+    "bonus_usd": 50,
+    "derrotas_para_corte": 5,
+    "corte_usd": 50,
+    "capital_minimo_usd": 50
+  },
+
+  "cansaco": {
+    "ativo": false,
+    "derrotas_seguidas": 3,
+    "pausa_minutos": 120,
+    "max_trades_dia": 12
+  },
+
+  "gerente": {
+    "relatorio_automatico": true,
+    "horas_entre_relatorios": 24
+  }
+}
