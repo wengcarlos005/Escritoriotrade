@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from estrategias import POR_ID, checar_saida, fracao_entrada, niveis_de_entrada, pode_entrar
 
 FUSO = timezone(timedelta(hours=-3))  # horário de Brasília
-TAMANHO_BUFFER = 700
+TAMANHO_BUFFER = 1400
 SEMANA = 7 * 86_400_000
 
 NOMES_TIME = {
@@ -157,12 +157,16 @@ class Trader:
                 taxa = cfg["taxa"]
                 if delta > 0:
                     delta = min(delta, self.caixa)
+                    self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + delta * taxa
+                    self.volume = getattr(self, "volume", 0.0) + delta
                     self.caixa -= delta
                     self.posicao["qtd"] += delta * (1 - taxa) / c
                     self.posicao["custo"] += delta
                 else:
                     vende = min(self.posicao["qtd"], -delta / c)
                     receita = vende * c * (1 - taxa)
+                    self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + vende * c * taxa
+                    self.volume = getattr(self, "volume", 0.0) + vende * c
                     self.caixa += receita
                     self.posicao["qtd"] -= vende
                     self.posicao["custo"] -= receita
@@ -183,6 +187,8 @@ class Trader:
         if valor < cfg["ordem_minima_usd"]:
             return
         self.caixa -= valor
+        self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + valor * cfg["taxa"]
+        self.volume = getattr(self, "volume", 0.0) + valor
         self.posicao = {"qtd": valor * (1 - cfg["taxa"]) / preco, "preco": preco, "custo": valor, "t": t,
                         "alvo": alvo, "stop": stop, "humor": self.humor, "barras": 0, "maxc": preco}
         self.trades_hoje += 1
@@ -192,6 +198,8 @@ class Trader:
     def _fechar(self, preco, motivo, t, cfg, ag):
         p, self.posicao = self.posicao, None
         receita = p["qtd"] * preco * (1 - cfg["taxa"])
+        self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + p["qtd"] * preco * cfg["taxa"]
+        self.volume = getattr(self, "volume", 0.0) + p["qtd"] * preco
         lucro = receita - p["custo"]
         pct = lucro / p["custo"] * 100 if p["custo"] > 0 else 0.0
         self.caixa += receita
@@ -263,6 +271,8 @@ class Agencia:
         self.times = []
         self.traders = []
         self.temporada = None
+        self.sprint = None
+        self.sprints = []
         self._iniciar_temporarios()
 
     def _iniciar_temporarios(self):
@@ -274,6 +284,8 @@ class Agencia:
         d = {k: v for k, v in self.__dict__.items() if not k.startswith("_") and k not in ("traders", "ao_evento", "times")}
         d["traders"] = [tr.para_dict() for tr in self.traders]
         d["times"] = [self.resumo_time(tm) for tm in self.times]
+        if self.sprint:
+            d["sprint_atual"] = self.resumo_sprint(self.salvo_em or self.sprint["inicio"])
         return d
 
     @classmethod
@@ -285,6 +297,8 @@ class Agencia:
         campos = ("id", "nome", "emoji", "inspiracao", "estrategia", "estrategia_nome", "params", "intervalo", "titular",
                   "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial")
         o.times = [{k: tm.get(k) for k in campos} for tm in d.get("times", [])]
+        o.sprint = d.get("sprint")
+        o.sprints = d.get("sprints", [])
         o._iniciar_temporarios()
         return o
 
@@ -328,6 +342,7 @@ class Agencia:
         if self.curva and t - self.curva[-1][0] < 15 * 60_000:
             return
         self.curva.append([t, round(self.patrimonio(), 4), round(self.aportes_ceo, 4)])
+        self._amostrar_sprint()
         for tm in self.times:
             tm["curva"].append([t, round(self.patrimonio(tm["id"]), 4), round(tm["aportes"], 4)])
             if len(tm["curva"]) > 4000:
@@ -363,6 +378,7 @@ class Agencia:
         # 1ª rodada: a primeira segunda-feira depois de pelo menos 1 semana inteira de jogo
         self.temporada = {"numero": numero, "inicio": t, "proxima_rodada": proxima_segunda(t + 6 * 86_400_000),
                           "titular": self.times[0]["id"], "rodadas": []}
+        self.abrir_sprint(t)
         self.evento(t, None, "🏁", f"Começou a temporada {numero}! Titular da 1ª semana: {self.times[0]['emoji']} {self.times[0]['nome']}")
 
     def adicionar_mesa_rapida(self, t):
@@ -383,6 +399,130 @@ class Agencia:
             self.traders.append(tr)
             self.aporte(tr, mr.get("capital_por_trader_usd", 100))
         self.evento(t, None, "⚡", "Chegaram os estagiários da Mesa Rápida (velas curtas, fora da disputa)")
+
+    # ------------------------------------------------------------------ sprints
+    def _foto(self):
+        f = {}
+        for tm in self.times:
+            trs = self.do_time(tm["id"])
+            patr = self.patrimonio(tm["id"])
+            f[tm["id"]] = {"lucro": patr - tm["aportes"], "patr": patr,
+                           "taxas": sum(getattr(t, "taxas_pagas", 0.0) for t in trs),
+                           "volume": sum(getattr(t, "volume", 0.0) for t in trs),
+                           "vit": sum(t.vitorias for t in trs), "der": sum(t.derrotas for t in trs)}
+        return f
+
+    def abrir_sprint(self, t):
+        n = self.sprints[-1]["numero"] + 1 if self.sprints else 1
+        fim = self.temporada["proxima_rodada"] if self.temporada else t + SEMANA
+        self.sprint = {"numero": n, "inicio": t, "fim": fim, "base": self._foto(), "exp": {}, "amostras": 0, "pico": {}, "queda": {}}
+
+    def _amostrar_sprint(self):
+        sp = self.sprint
+        if not sp:
+            return
+        sp["amostras"] += 1
+        for tm in self.times:
+            tid = tm["id"]
+            patr = self.patrimonio(tid)
+            dentro = sum(t.posicao["qtd"] * (t.ultimo_preco or t.posicao["preco"]) for t in self.do_time(tid) if t.posicao)
+            sp["exp"][tid] = sp["exp"].get(tid, 0.0) + (dentro / patr if patr > 0 else 0.0)
+            base = sp["base"].get(tid) or {"lucro": patr - tm["aportes"], "patr": patr}
+            lucro = (patr - tm["aportes"]) - base["lucro"]
+            sp["pico"][tid] = max(sp["pico"].get(tid, 0.0), lucro)
+            queda = (lucro - sp["pico"][tid]) / (base["patr"] or 1) * 100
+            sp["queda"][tid] = min(sp["queda"].get(tid, 0.0), queda)
+
+    def resumo_sprint(self, t):
+        sp = self.sprint
+        agora = self._foto()
+        metas_cfg = self.cfg["liga"].get("sprint", {}).get("metas", {})
+        linhas = []
+        for tm in self.times:
+            tid = tm["id"]
+            a = agora[tid]
+            b = sp["base"].get(tid) or dict(a, lucro=a["lucro"], taxas=a["taxas"], volume=a["volume"], vit=a["vit"], der=a["der"])
+            cap = b["patr"] or a["patr"] or 1
+            lucro = a["lucro"] - b["lucro"]
+            taxas = a["taxas"] - b["taxas"]
+            ops = (a["vit"] - b["vit"]) + (a["der"] - b["der"])
+            linhas.append({"id": tid, "nome": tm["nome"], "emoji": tm["emoji"], "especial": bool(tm.get("especial")),
+                           "lucro": round(lucro, 4), "lucro_pct": round(lucro / cap * 100, 3), "taxas": round(taxas, 4),
+                           "bruto": round(lucro + taxas, 4), "volume": round(a["volume"] - b["volume"], 2),
+                           "giro": round((a["volume"] - b["volume"]) / cap, 3), "operacoes": ops,
+                           "vitorias": a["vit"] - b["vit"], "derrotas": a["der"] - b["der"],
+                           "exposicao_pct": round(sp["exp"].get(tid, 0.0) / max(sp["amostras"], 1) * 100, 1),
+                           "queda_pct": round(sp["queda"].get(tid, 0.0), 2)})
+        principais = [x for x in linhas if not x["especial"]]
+        cap_total = sum((sp["base"].get(x["id"]) or {}).get("patr", 0) or 1 for x in principais) or 1
+
+        def soma(campo, lista=principais):
+            return sum(x[campo] for x in lista)
+        total = {"lucro": round(soma("lucro"), 4), "lucro_pct": round(soma("lucro") / cap_total * 100, 3),
+                 "taxas": round(soma("taxas"), 4), "bruto": round(soma("bruto"), 4), "volume": round(soma("volume"), 2),
+                 "giro": round(soma("volume") / cap_total, 3), "operacoes": soma("operacoes"),
+                 "vitorias": soma("vitorias"), "derrotas": soma("derrotas"),
+                 "exposicao_pct": round(sum(x["exposicao_pct"] for x in principais) / max(len(principais), 1), 1),
+                 "queda_pct": min([x["queda_pct"] for x in principais] or [0])}
+        metas = []
+        if "operacoes_min" in metas_cfg:
+            metas.append({"meta": f"pelo menos {metas_cfg['operacoes_min']} operações dos times", "valor": str(total["operacoes"]),
+                          "ok": total["operacoes"] >= metas_cfg["operacoes_min"]})
+        if "lucro_min_pct" in metas_cfg:
+            metas.append({"meta": f"resultado dos times ≥ {metas_cfg['lucro_min_pct']:+.1f}%", "valor": f"{total['lucro_pct']:+.2f}%",
+                          "ok": total["lucro_pct"] >= metas_cfg["lucro_min_pct"]})
+        if "taxas_max_pct_do_bruto" in metas_cfg:
+            pct_t = total["taxas"] / total["bruto"] * 100 if total["bruto"] > 0 else (0 if total["taxas"] == 0 else 999)
+            metas.append({"meta": f"taxas ≤ {metas_cfg['taxas_max_pct_do_bruto']}% do lucro bruto",
+                          "valor": "sem taxas" if total["taxas"] == 0 else (f"{pct_t:.0f}%" if pct_t < 999 else "lucro bruto negativo"),
+                          "ok": pct_t <= metas_cfg["taxas_max_pct_do_bruto"]})
+        if "queda_max_pct" in metas_cfg:
+            metas.append({"meta": f"nenhum time cair mais de {metas_cfg['queda_max_pct']}%", "valor": f"{total['queda_pct']:.2f}%",
+                          "ok": total["queda_pct"] >= -metas_cfg["queda_max_pct"]})
+        dias = max((t - sp["inicio"]) / 86_400_000, 0)
+        return {"numero": sp["numero"], "inicio": sp["inicio"], "fim": sp["fim"], "dias": round(dias, 1),
+                "times": linhas, "total": total, "metas": metas, "diagnosticos": self._diagnosticos(linhas, total)}
+
+    def _diagnosticos(self, linhas, total):
+        d = []
+        principais = [x for x in linhas if not x["especial"]]
+        if total["operacoes"] == 0:
+            d.append("Os times não fecharam nenhuma operação: o mercado não deu sinal de tendência. Isso é esperado das "
+                     "estratégias lentas — pra girar mais sem perder assertividade, o caminho é dar mais moedas pra cada time.")
+        if total["exposicao_pct"] < 20:
+            d.append(f"O dinheiro dos times ficou parado em média {100 - total['exposicao_pct']:.0f}% do tempo.")
+        if total["bruto"] > 0 and total["taxas"] > 0.3 * total["bruto"]:
+            d.append(f"As taxas comeram {total['taxas'] / total['bruto'] * 100:.0f}% do lucro bruto (US$ {total['taxas']:.2f}).")
+        elif total["bruto"] <= 0 and total["taxas"] > 0:
+            d.append(f"Os times perderam US$ {abs(total['bruto']):.2f} antes das taxas e ainda pagaram US$ {total['taxas']:.2f} de taxa.")
+        if total["operacoes"] >= 5:
+            acerto = total["vitorias"] / total["operacoes"] * 100
+            if acerto < 35:
+                d.append(f"Acerto de {acerto:.0f}% — normal pra tendência, desde que os ganhos sejam bem maiores que as perdas.")
+        com_ops = [x for x in principais if x["operacoes"] > 0 or abs(x["lucro"]) > 0.01]
+        if len(com_ops) >= 2:
+            m = max(com_ops, key=lambda x: x["lucro_pct"]); p = min(com_ops, key=lambda x: x["lucro_pct"])
+            d.append(f"Melhor da sprint: {m['emoji']} {m['nome']} ({m['lucro_pct']:+.2f}%). Pior: {p['emoji']} {p['nome']} ({p['lucro_pct']:+.2f}%).")
+        for x in linhas:
+            if x["especial"] and x["operacoes"] > 0:
+                d.append(f"Mesa Rápida: {x['operacoes']} operações, girou US$ {x['volume']:.0f} e pagou US$ {x['taxas']:.2f} de taxa — "
+                         f"resultado {x['lucro_pct']:+.2f}% ({'as taxas pesaram' if x['taxas'] > abs(x['bruto']) else 'resultado veio do mercado'}).")
+        return d
+
+    def fechar_sprint(self, t):
+        if not self.sprint:
+            self.abrir_sprint(t)
+            return None
+        r = self.resumo_sprint(t)
+        r["fim"] = t
+        r["temporada"] = (self.temporada or {}).get("numero")
+        self.sprints.append(r)
+        self.sprints = self.sprints[-52:]
+        tot = r["total"]
+        self.evento(t, None, "🏃", f"Sprint {r['numero']} fechada: {tot['operacoes']} operações, resultado {tot['lucro_pct']:+.2f}%, "
+                                  f"taxas US$ {tot['taxas']:.2f}. Veja a retrospectiva na aba Sprints")
+        self.abrir_sprint(t)
+        return r
 
     def disputando(self):
         return [tm for tm in self.times if not tm.get("especial")]
@@ -422,6 +562,7 @@ class Agencia:
         self.temporada["rodadas"].append({"t": t, "vencedor": vencedor, "ranking": ranking})
         self.temporada["rodadas"] = self.temporada["rodadas"][-60:]
         self.temporada["proxima_rodada"] = proxima_segunda(t)
+        self.fechar_sprint(t)
         v = self.time(vencedor)
         if vencedor == antigo:
             self.evento(t, None, "🏆", f"{v['emoji']} {v['nome']} continua TITULAR ({ranking[0]['pontuacao']:+.2f} pts)")

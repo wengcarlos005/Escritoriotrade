@@ -57,6 +57,10 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório** (planta vista de cima
   volta), essas estratégias **perderam de 23% a 88%** em 4 meses, mesmo acertando a direção sem taxas. Servem pra dar
   movimento e mostrar o efeito das taxas. Desligue em `config.json` com `{"liga": {"mesa_rapida": {"ativo": false}}}`.
 - **🎯 Falta X%:** cada trader mostra quanto o preço precisa subir até o gatilho de compra da estratégia dele.
+- **🏃 Sprints:** cada semana (de segunda a segunda) é uma sprint. A agência mede operações, dinheiro girado,
+  resultado, taxas pagas e tempo parado de cada time, confere as metas (em `liga.sprint.metas`) e escreve um
+  diagnóstico do que melhorar. Com a chave de API, o gerente escreve a retrospectiva com 3 experimentos pra próxima.
+  A aba **Laboratório** lista o que já testamos (e o resultado) e os próximos experimentos.
 - **Nova temporada:** quando a escola gerar um boletim novo, use o botão na aba Escola pra montar os times
   com o top 5 atualizado (o dinheiro de mentira recomeça).
 - **Dinheiro real:** ainda **não** está ligado — de propósito. A estrutura de titular/reserva já está pronta pra isso.

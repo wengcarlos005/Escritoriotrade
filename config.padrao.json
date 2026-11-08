@@ -11,6 +11,9 @@
     "emoji_trader": "🤖",
     "so_alunos_aprovados": false,
     "sincronizar_ao_comecar": true,
+    "sprint": {
+      "metas": {"operacoes_min": 5, "lucro_min_pct": 0.0, "taxas_max_pct_do_bruto": 30, "queda_max_pct": 5}
+    },
     "mesa_rapida": {
       "ativo": true,
       "capital_por_trader_usd": 100,

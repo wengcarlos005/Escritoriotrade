@@ -91,6 +91,7 @@ canvas{display:block;width:100%;height:auto;image-rendering:pixelated;image-rend
   <div class="abas">
     <a href="/" class="on">🏢 Escritório</a>
     <a href="/painel#geral">📊 Painel</a>
+    <a href="/painel#sprints">🏃 Sprints</a>
     <a href="/painel#escola">🎓 Escola</a>
     <a href="/painel#gerente">🧠 Gerente</a>
   </div>
@@ -1040,7 +1041,9 @@ function renderTopo(vivo) {
   $('sub').innerHTML = vivo ? `Temporada ${temp.numero} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · titular: <b>${esc(tit.emoji)} ${esc(tit.nome)}</b>`
                             : 'A agência está desligada — mostrando os últimos dados salvos';
   $('kpis').innerHTML = [['patrimônio', usd(total), ''], ['resultado', `${sinal(lucro)}${usd(Math.abs(lucro))}`, cls(lucro)],
-    ['comprados agora', `${comprados} de ${D.traders.length}`, ''], ['próxima rodada', falta(temp.proxima_rodada), '']]
+    ['comprados agora', `${comprados} de ${D.traders.length}`, ''],
+    ...(D.sprint_atual ? [['sprint ' + D.sprint_atual.numero, `${D.sprint_atual.total.operacoes} ops · ${pct(D.sprint_atual.total.lucro_pct, 2)}`, cls(D.sprint_atual.total.lucro_pct)]] : []),
+    ['próxima rodada', falta(temp.proxima_rodada), '']]
     .map(([r, v, c]) => `<div class="px kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div></div>`).join('');
 }
 

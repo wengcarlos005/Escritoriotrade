@@ -1,0 +1,19 @@
+{
+  "atualizado_em": "2026-11-08",
+  "experimentos": [
+    {"titulo": "Robôs rápidos (velas de 5 e 15 min)", "status": "reprovado",
+     "resultado": "Fazem 1 a 13 operações por dia, mas com as taxas perderam de 23% a 88% em 4 meses fora da amostra (sem taxas, alguns ganhariam até 19%). Ficaram como Mesa Rápida, fora da disputa."},
+    {"titulo": "Velas de 1h só a favor da tendência longa", "status": "reprovado",
+     "resultado": "Recuo na Tendência: −50% (1.671 operações). Rompimento com Filtro: −13% (1.109 operações). Operar mais no mesmo ativo não pagou."},
+    {"titulo": "Mesmas estratégias em 10 moedas (em vez de 5)", "status": "reprovado",
+     "resultado": "Dobrou as operações, mas piorou: Seykota +169% → +89%, Momentum +147% → +43% (queda 36% → 54%). As altcoins extras foram mal de 2022 a 2026."},
+    {"titulo": "Taxa menor (pagar com BNB + ordens limitadas) nos robôs rápidos", "status": "reprovado",
+     "resultado": "Melhora, mas não salva: ainda −3% a −75% em 4 meses."},
+    {"titulo": "Comitê: as 3 melhores estratégias dividindo o capital", "status": "a testar",
+     "resultado": "Hipótese: diversificar entre estilos reduz a queda e deixa o dinheiro menos tempo parado."},
+    {"titulo": "Tamanho da aposta pela volatilidade nos times", "status": "a testar",
+     "resultado": "Hipótese: apostar mais quando o mercado está calmo e menos quando está nervoso melhora o risco/retorno."},
+    {"titulo": "Pirâmide nas tendências (comprar mais quando já está ganhando)", "status": "a testar",
+     "resultado": "Regra original das Tartarugas: aumentar a posição a cada ½ ATR a favor. Pode aumentar o giro só quando está dando certo."}
+  ]
+}

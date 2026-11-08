@@ -148,6 +148,7 @@ textarea,input[type=password],input[type=text]{width:100%;background:#0f1216;col
   <div class="abas">
     <a href="/" class="tres">🏢 Escritório</a>
     <a href="#geral" data-aba="geral">📊 Visão geral</a>
+    <a href="#sprints" data-aba="sprints">🏃 Sprints</a>
     <a href="#escola" data-aba="escola">🎓 Escola</a>
     <a href="#gerente" data-aba="gerente">🧠 Gerente</a>
   </div>
@@ -179,6 +180,22 @@ textarea,input[type=password],input[type=text]{width:100%;background:#0f1216;col
       <div><h2>diário da agência</h2><div class="painel rolar" id="diario"></div></div>
       <div><h2>últimas operações</h2><div class="painel tabela" id="trades"></div></div>
     </div>
+  </section>
+
+  <!-- ===================== SPRINTS ===================== -->
+  <section id="aba-sprints" class="oculto">
+    <h1>Sprints <span>semanais</span></h1>
+    <p class="sub">Cada sprint dura uma semana (fecha junto com a rodada de segunda). No fim, a agência mede o que aconteceu, confere as metas e diz o que melhorar — e o gerente escreve a retrospectiva.</p>
+    <div class="painel" id="sp-atual"><div class="vazio">A sprint aparece quando a agência estiver ligada.</div></div>
+    <div class="duas" style="margin-top:12px">
+      <div><h2>metas e diagnóstico</h2><div class="painel" id="sp-diag"></div></div>
+      <div><h2>por time</h2><div class="painel tabela" id="sp-times"></div></div>
+    </div>
+    <h2>histórico</h2>
+    <div class="painel tabela" id="sp-hist"></div>
+    <h2>laboratório</h2>
+    <p class="sub">Experimentos que testamos pra ganhar giro sem perder assertividade — e os próximos da fila.</p>
+    <div class="painel" id="sp-lab"></div>
   </section>
 
   <!-- ===================== ESCOLA ===================== -->
@@ -297,8 +314,9 @@ function md(texto) {
 /* ---------------- abas ---------------- */
 function trocarAba() {
   ABA = (location.hash || '#geral').slice(1);
-  if (!['geral', 'escola', 'gerente'].includes(ABA)) ABA = 'geral';
-  for (const a of ['geral', 'escola', 'gerente']) $('aba-' + a).classList.toggle('oculto', a !== ABA);
+  if (!['geral', 'sprints', 'escola', 'gerente'].includes(ABA)) ABA = 'geral';
+  for (const a of ['geral', 'sprints', 'escola', 'gerente']) $('aba-' + a).classList.toggle('oculto', a !== ABA);
+  if (ABA === 'sprints') { renderSprints(); atualizarLab(); }
   document.querySelectorAll('.abas a[data-aba]').forEach(a => a.classList.toggle('on', a.dataset.aba === ABA));
   if (ABA === 'escola') atualizarEscola();
   if (ABA === 'gerente') atualizarGerente();
@@ -535,8 +553,47 @@ $('btn-temporada').onclick = async () => {
   $('msg-escola').innerHTML = r.ok ? `<div class="ok-msg">${esc(r.msg)}</div>` : `<div class="erro">${esc(r.erro)}</div>`;
 };
 
+/* ---------------- sprints ---------------- */
+let LAB = null, SP_ABERTA = null;
+async function atualizarLab() { try { LAB = await api('/api/laboratorio'); if (!GERENTE) GERENTE = await api('/api/gerente'); renderSprints(); } catch (e) {} }
+function linhaSprintTime(x) {
+  return `<tr><td>${esc(x.emoji)} ${esc(x.nome)}${x.especial ? ' <span class="selo nao">fora</span>' : ''}</td><td>${x.operacoes}</td>
+    <td class="${cls(x.lucro_pct)}">${pct(x.lucro_pct, 2)}</td><td>${usd(x.taxas)}</td><td>${num(x.giro, 1)}x</td><td>${num(x.exposicao_pct, 0)}%</td><td class="neg">${pct(x.queda_pct, 1)}</td></tr>`;
+}
+function renderSprints() {
+  if (!ESTADO || !ESTADO.sprint_atual) return;
+  const sp = ESTADO.sprint_atual, tot = sp.total, durac = Math.max(1, (sp.fim - sp.inicio) / 864e5), p = Math.min(100, sp.dias / durac * 100);
+  $('sp-atual').innerHTML = `<div class="linha-meta"><b style="font-family:var(--serif);font-style:italic;font-size:22px;color:var(--amarelo)">Sprint ${sp.numero}</b>
+      <span class="sub" style="margin:0">dia ${num(sp.dias, 1)} de ${num(durac, 0)} · fecha ${hora(sp.fim)}</span></div>
+    <div class="barra"><i style="width:${p}%"></i></div>
+    <div class="grid-kpi" style="margin-top:12px">
+      <div class="kpi"><div class="r">operações dos times</div><div class="v">${tot.operacoes}</div><div class="s">${tot.vitorias} V · ${tot.derrotas} D</div></div>
+      <div class="kpi"><div class="r">dinheiro girado</div><div class="v">${usd(tot.volume)}</div><div class="s">${num(tot.giro, 2)}x o capital</div></div>
+      <div class="kpi"><div class="r">resultado</div><div class="v ${cls(tot.lucro_pct)}">${pct(tot.lucro_pct, 2)}</div><div class="s">${sinal(tot.lucro)}${usd(Math.abs(tot.lucro))}</div></div>
+      <div class="kpi"><div class="r">taxas pagas</div><div class="v">${usd(tot.taxas)}</div><div class="s">bruto ${sinal(tot.bruto)}${usd(Math.abs(tot.bruto))}</div></div>
+      <div class="kpi"><div class="r">tempo comprado</div><div class="v">${num(tot.exposicao_pct, 0)}%</div><div class="s">parado ${num(100 - tot.exposicao_pct, 0)}%</div></div>
+    </div>`;
+  $('sp-diag').innerHTML = (sp.metas.length ? sp.metas.map(m => `<div class="ev"><div>${m.ok ? '✅' : '❌'}</div><div><div>${esc(m.meta)}</div><div class="q">agora: ${esc(m.valor)}</div></div></div>`).join('') : '') +
+    (sp.diagnosticos.length ? '<h3 style="margin:14px 0 6px">diagnóstico até agora</h3>' + sp.diagnosticos.map(d => `<div class="ev"><div>🔎</div><div>${esc(d)}</div></div>`).join('') : '<div class="vazio">Sem diagnóstico ainda.</div>');
+  $('sp-times').innerHTML = `<table><tr><th>time</th><th>ops</th><th>resultado</th><th>taxas</th><th>giro</th><th>comprado</th><th>queda</th></tr>${sp.times.map(linhaSprintTime).join('')}</table>`;
+  const hist = (ESTADO.sprints || []).slice().reverse(), retros = (GERENTE && GERENTE.retros) || {};
+  $('sp-hist').innerHTML = hist.length ? `<table><tr><th>sprint</th><th>período</th><th>ops</th><th>resultado</th><th>taxas</th><th>metas</th><th></th></tr>${hist.map(h => {
+      const ok = h.metas.filter(m => m.ok).length, aberta = SP_ABERTA === h.numero, r = retros[String(h.numero)];
+      let html = `<tr class="aluno" data-sp="${h.numero}"><td><b>#${h.numero}</b>${h.temporada ? ` <span class="sub">T${h.temporada}</span>` : ''}</td><td>${hora(h.inicio)} → ${hora(h.fim)}</td><td>${h.total.operacoes}</td>
+        <td class="${cls(h.total.lucro_pct)}">${pct(h.total.lucro_pct, 2)}</td><td>${usd(h.total.taxas)}</td><td>${ok}/${h.metas.length} ✅</td><td>${r ? '🧠' : ''} ${aberta ? '▲' : '▼'}</td></tr>`;
+      if (aberta) html += `<tr class="det"><td colspan="7">${h.diagnosticos.map(d => `<p>🔎 ${esc(d)}</p>`).join('')}
+          <table style="margin:8px 0"><tr><th>time</th><th>ops</th><th>resultado</th><th>taxas</th><th>giro</th><th>comprado</th><th>queda</th></tr>${h.times.map(linhaSprintTime).join('')}</table>
+          ${r ? `<div class="md" style="margin-top:10px">${md(r.texto)}</div>` : '<p class="sub">Sem retrospectiva do gerente (precisa da chave de API conectada).</p>'}</td></tr>`;
+      return html;
+    }).join('')}</table>` : '<div class="vazio">A primeira sprint fecha na próxima rodada (segunda-feira, 00:00).</div>';
+  const cor = {reprovado: 'nao', aprovado: 'ok', 'a testar': 'info'};
+  $('sp-lab').innerHTML = LAB && LAB.experimentos ? LAB.experimentos.map(x => `<div class="ev"><div><span class="selo ${cor[x.status] || 'info'}">${esc(x.status)}</span></div>
+      <div><b>${esc(x.titulo)}</b><div class="sub" style="margin:2px 0 0">${esc(x.resultado)}</div></div></div>`).join('') : '<div class="vazio">carregando…</div>';
+}
+$('sp-hist').addEventListener('click', ev => { const tr = ev.target.closest('[data-sp]'); if (tr) { SP_ABERTA = SP_ABERTA === +tr.dataset.sp ? null : +tr.dataset.sp; renderSprints(); } });
+
 /* ---------------- gerente ---------------- */
-const SUGESTOES = ['Qual time está melhor e por quê?', 'Vale começar uma nova temporada?', 'Quem é o melhor aluno da escola?', 'Explique o Sharpe como se eu tivesse 10 anos',
+const SUGESTOES = ['O que melhorar na próxima sprint?', 'Qual time está melhor e por quê?', 'Vale começar uma nova temporada?', 'Quem é o melhor aluno da escola?', 'Explique o Sharpe como se eu tivesse 10 anos',
                    'Por que comprar e segurar rendeu mais?', 'O que falta pra eu pensar em dinheiro real?'];
 function renderGerente() {
   const G = GERENTE, cfgBox = $('gerente-config');
@@ -629,7 +686,7 @@ async function atualizarEstado() {
     $('desligada').style.display = vivo ? 'none' : 'block';
     if (d.vazio) return;
     ESTADO = d; TIMES_ATUAIS = (d.times || []).map(t => t.id);
-    renderGeral(d);
+    renderGeral(d); if (ABA === 'sprints') renderSprints();
   } catch (e) { $('rec').className = 'rec off'; $('desligada').style.display = 'block'; }
 }
 async function atualizarEscola() { try { ESCOLA = await api('/api/escola'); renderEscola(); if (ESTADO) renderGeral(ESTADO); } catch (e) {} }

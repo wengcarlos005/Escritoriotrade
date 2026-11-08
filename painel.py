@@ -96,6 +96,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if ARQ_LOG_ESCOLA.exists():
                 d["log"] = ARQ_LOG_ESCOLA.read_text(encoding="utf-8", errors="replace").splitlines()[-12:]
             return self._responder(200, d)
+        if caminho == "/api/laboratorio":
+            return self._responder(200, _ler_json(AQUI / "laboratorio.json") or {"experimentos": []})
         if caminho == "/api/gerente":
             ok, motivo = gerente.status()
             g = gerente.carregar()

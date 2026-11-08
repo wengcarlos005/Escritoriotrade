@@ -457,6 +457,58 @@ class DonchianConjunto(Estrategia):
 
 
 
+
+class Pullback(Estrategia):
+    id, nome, emoji = "pullback", "Recuo na Tendência", "🎢"
+    inspiracao = "Linda Raschke / Larry Connors (com filtro de tendência longa)"
+    descricao = ("Opera velas de 1h, mas só quando a tendência de semanas está pra cima (preço acima da média de ~50 dias). "
+                 "Compra quando o preço dá uma recuada forte de curto prazo (RSI de 2 bem baixo) e sai no repique.")
+    params = {"intervalo": "1h", "longa": 1200, "limite": 10, "saida": "ema20", "stop_atr": 2.5, "max_barras": 24}
+    grade = {"intervalo": ["1h"], "longa": [600, 1200], "limite": [5, 10, 20], "max_barras": [12, 24]}
+
+    def indicadores(self, v, p):
+        c = v["c"]
+        return {"longa": ind_.sma(c, p["longa"]), "rsi": ind_.rsi(c, 2), "e20": ind_.ema(c, 20), "e50": ind_.ema(c, 50)}
+
+    def entrada(self, d, v, i, p):
+        return (_ok(d["longa"][i], d["rsi"][i], d["e50"][i]) and v["c"][i] > d["longa"][i]
+                and v["c"][i] > d["e50"][i] * 0.98 and d["rsi"][i] < p["limite"])
+
+    def saida(self, d, v, i, p):
+        return _ok(d["e20"][i]) and v["c"][i] > d["e20"][i] and v["c"][i] > v["c"][i - 1]
+
+    def gatilho(self, d, v, i, p):
+        if _ok(d["longa"][i]) and v["c"][i] < d["longa"][i]:
+            return f"voltar acima da média longa ({_f(d['longa'][i])}) e recuar forte"
+        return f"uma recuada forte de curto prazo (RSI(2) abaixo de {p['limite']})"
+
+    def distancia(self, d, v, i, p):
+        return (d["longa"][i] / v["c"][i] - 1) * 100 if _ok(d["longa"][i]) and v["c"][i] < d["longa"][i] else None
+
+
+class RompimentoFiltrado(Estrategia):
+    id, nome, emoji = "rompimento_filtrado", "Rompimento com Filtro", "🧲"
+    inspiracao = "Turtles / Darvas, com filtro de tendência longa"
+    descricao = ("Velas de 1h: compra quando o preço rompe a máxima dos últimos 1–3 dias, mas só se a tendência de semanas "
+                 "estiver pra cima. Sai com stop móvel que acompanha a alta.")
+    params = {"intervalo": "1h", "longa": 1200, "entrada_n": 48, "stop_atr": 2.0, "trail_atr": 3.0}
+    grade = {"intervalo": ["1h"], "longa": [600, 1200], "entrada_n": [24, 48, 72], "trail_atr": [2.5, 4.0]}
+
+    def indicadores(self, v, p):
+        return {"longa": ind_.sma(v["c"], p["longa"]), "max": ind_.maxima_anterior(v["h"], p["entrada_n"])}
+
+    def entrada(self, d, v, i, p):
+        return _ok(d["longa"][i], d["max"][i]) and v["c"][i] > d["longa"][i] and v["c"][i] > d["max"][i]
+
+    def gatilho(self, d, v, i, p):
+        if _ok(d["longa"][i]) and v["c"][i] < d["longa"][i]:
+            return f"voltar acima da média longa ({_f(d['longa'][i])})"
+        return f"fechar acima de {_f(d['max'][i])} (máxima de {p['entrada_n']} velas)" if _ok(d["max"][i]) else None
+
+    def distancia(self, d, v, i, p):
+        alvos = [x for x in (d["longa"][i], d["max"][i]) if x is not None]
+        return (max(alvos) / v["c"][i] - 1) * 100 if alvos else None
+
 def _gatilho_conjunto(self, d, v, i, p):
     return "o preço romper algum dos canais (máximas de " + ", ".join(str(x) for x in self.CONJUNTOS[p["conjunto"]]) + " velas)"
 
@@ -473,7 +525,7 @@ def _distancia_conjunto(self, d, v, i, p):
 
 DonchianConjunto.distancia = _distancia_conjunto
 
-TODAS = [DonchianConjunto(), Momentum(), Tartaruga(), Seykota(), PTJ200(), Weinstein(), Minervini(),
+TODAS = [DonchianConjunto(), Momentum(), Pullback(), RompimentoFiltrado(), Tartaruga(), Seykota(), PTJ200(), Weinstein(), Minervini(),
          Williams(), ConnorsRSI2(), Raschke(), Supertrend(), MACD(), Squeeze(), BollingerReversao(), Cruzamento()]
 POR_ID = {e.id: e for e in TODAS}
 

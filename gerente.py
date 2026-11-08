@@ -149,6 +149,12 @@ def contexto(estado, escola):
                     pos = f"comprado desde {_h(p['t'])} ({var:+.2f}%)"
                 linhas.append(f"- {t['nome']}: US$ {patr(t):.2f}, lucro realizado US$ {t['lucro_realizado']:+.2f}, "
                               f"{t['vitorias']}V/{t['derrotas']}D, {pos}")
+        sp = estado.get("sprint_atual")
+        if sp:
+            tt = sp["total"]
+            linhas.append(f"Sprint {sp['numero']} (dia {sp['dias']} de 7): {tt['operacoes']} operações dos times, resultado {tt['lucro_pct']:+.2f}%, "
+                          f"taxas US$ {tt['taxas']:.2f}, girou US$ {tt['volume']:.0f}, comprado {tt['exposicao_pct']}% do tempo. "
+                          "Metas: " + "; ".join(f"{m['meta']} → {m['valor']} {'OK' if m['ok'] else 'NÃO'}" for m in sp["metas"]))
         for r in temp.get("rodadas", [])[-4:]:
             linhas.append(f"Rodada {_h(r['t'])}: vencedor {r['vencedor']} — " +
                           ", ".join(f"{x['id']} {x['pontuacao']:+.2f}" for x in r["ranking"]))
@@ -311,6 +317,22 @@ def gerar_relatorio(estado, escola):
         g = carregar()
         g["relatorio"] = {"t": int(time.time() * 1000), "texto": texto}
         g["erro"] = None
+        _salvar(g)
+    return texto
+
+
+def gerar_retro(sprint, escola):
+    """Retrospectiva da sprint: o que funcionou, o que não, e o que testar na próxima."""
+    dados = json.dumps({k: v for k, v in sprint.items() if k != "times"} | {"times": sprint["times"]}, ensure_ascii=False)
+    pedido = ("Esta é a RETROSPECTIVA de uma sprint (1 semana) da liga simulada. Dados da sprint em JSON:\n" + dados +
+              "\n\nResumo do boletim da escola pra contexto:\n" + contexto(None, escola)[:3000] +
+              "\n\n---\nEscreva a retrospectiva pro CEO com estas seções: ## O que aconteceu (3 frases com números), "
+              "## O que funcionou, ## O que não funcionou (inclua o peso das taxas e o tempo parado), "
+              "## Próxima sprint: 3 experimentos concretos (o que mudar, como medir, qual meta). Máximo ~300 palavras.")
+    with _trava:
+        texto = _chamar([{"role": "user", "content": pedido}])
+        g = carregar()
+        g.setdefault("retros", {})[str(sprint["numero"])] = {"t": int(time.time() * 1000), "texto": texto}
         _salvar(g)
     return texto
 

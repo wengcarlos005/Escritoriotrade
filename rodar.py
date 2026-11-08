@@ -139,7 +139,7 @@ def preparar_velas(ag):
         par, itv = chave.split("@")
         passo = mercado.INTERVALOS_MS[itv]
         ultimo = ag.ultimo_t.get(chave)
-        desde = (ultimo or agora) - 700 * passo if chave not in ag._buf else ultimo + passo
+        desde = (ultimo or agora) - 1400 * passo if chave not in ag._buf else ultimo + passo
         for v in mercado.velas_desde(par, itv, desde):
             if ultimo is None or v["t"] <= ultimo:
                 ag.aquecer(chave, v)
@@ -181,6 +181,8 @@ def cmd_simular(args):
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
     ag.adicionar_mesa_rapida(agora)
+    if not ag.sprint:
+        ag.abrir_sprint(agora)
     ag.escola_aplicada = getattr(ag, "escola_aplicada", None) or esc.get("gerado_em")
 
     fila = queue.Queue()
@@ -217,6 +219,9 @@ def cmd_simular(args):
             if agora >= ag.temporada["proxima_rodada"]:
                 ag.rodada(agora)
                 resumo_liga(ag)
+                retro = ag.sprints[-1] if ag.sprints else None
+                if retro and gerente.status()[0]:
+                    threading.Thread(target=lambda r=retro: _retro(r), daemon=True).start()
             # 4) Preços e velas
             if time.time() >= proxima_busca:
                 if time.time() - ultima_cotacao > 600:
@@ -258,6 +263,14 @@ def cmd_simular(args):
             print(f"⚠️  Algo falhou ({e}). Tento de novo já já.")
             proxima_busca = time.time() + args.segundos
         time.sleep(1)
+
+
+def _retro(sprint):
+    try:
+        gerente.gerar_retro(sprint, escola_mod.carregar())
+        print(f"  🧠 O gerente escreveu a retrospectiva da sprint {sprint['numero']} (aba Sprints)")
+    except Exception as e:
+        print(f"  🧠 O gerente não conseguiu escrever a retrospectiva: {e}")
 
 
 def cmd_painel(args):
