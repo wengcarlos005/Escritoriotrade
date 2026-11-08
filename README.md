@@ -41,7 +41,7 @@ O projeto mora em https://github.com/wengcarlos005/Escritoriotrade (privado).
 | `atualizar.bat` | Baixa a versão mais nova do GitHub (feche a agência antes) |
 | `6_ver_resultados.bat` | Mostra um resumo em texto e salva em `dados/resumo_para_o_claude.txt` (pra mandar pro Claude) |
 
-No navegador (http://127.0.0.1:8000): **🏢 Escritório** (planta vista de cima: sala do titular, mesas dos times da reserva, escola, gerência e lounge — clique num trader pra ver o que falta pra ele comprar),
+No navegador (http://127.0.0.1:8000): **🏝️ Escritório 3D** (uma ilha ao ar livre: deck do time titular, mesas com guarda-sol dos times da reserva, escola, food truck do café, quiosque do gerente, lago e o Rex — arraste pra girar, roda/pinça pra zoom, clique num trader pra ver o que ele está fazendo e pensando; a versão pixel-art antiga continua em `/pixel`),
 **📊 Visão geral** (classificação, times, rodadas), **🎓 Escola** (boletim e botão de nova temporada) e **🧠 Gerente**.
 
 ## 2.1 Como funciona a liga
