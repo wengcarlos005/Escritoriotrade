@@ -525,9 +525,22 @@ def _distancia_conjunto(self, d, v, i, p):
 
 DonchianConjunto.distancia = _distancia_conjunto
 
+class Grade(Estrategia):
+    """Robô de grade: ordens de compra em degraus abaixo do preço; cada lote é vendido um degrau acima.
+    Não entra na escola (é outro tipo de robô); roda na Mesa de Grade."""
+    id, nome, emoji = "grade", "Robô de Grade", "🧮"
+    inspiracao = "robôs de grid (Pionex, Bitsgap, 3Commas)"
+    descricao = ("Espalha compras em degraus (ex.: a cada 0,5%) numa faixa de ±20%. Cada vez que o preço desce um degrau e sobe de "
+                 "volta, ele lucra a diferença. Faz muitas operações em mercado que oscila; sofre quando o mercado cai sem parar.")
+    tipo = "grade"
+    params = {"intervalo": "5m", "degrau": 0.005, "faixa": 0.20}
+    grade = {}
+
+
 TODAS = [DonchianConjunto(), Momentum(), Pullback(), RompimentoFiltrado(), Tartaruga(), Seykota(), PTJ200(), Weinstein(), Minervini(),
          Williams(), ConnorsRSI2(), Raschke(), Supertrend(), MACD(), Squeeze(), BollingerReversao(), Cruzamento()]
 POR_ID = {e.id: e for e in TODAS}
+POR_ID["grade"] = Grade()
 
 
 # ---------------------------------------------------------------------------

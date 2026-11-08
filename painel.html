@@ -376,7 +376,7 @@ function renderGeral(d) {
     const membros = d.traders.filter(x => x.time === t.id);
     return `<div class="card time${t.titular ? ' titular' : ''}">
       <div class="topo-time"><div class="avatar" style="border:2px solid ${corTime(d, t.id)}">${esc(t.emoji)}</div>
-        <div style="flex:1"><div class="nome">${esc(t.nome)}</div><div class="cargo">${t.titular ? '🏆 titular — operaria com dinheiro real' : t.especial ? '⚡ estagiários · fora da disputa' : 'reserva · simulação'}</div>
+        <div style="flex:1"><div class="nome">${esc(t.nome)}</div><div class="cargo">${t.titular ? '🏆 titular — operaria com dinheiro real' : t.especial ? (t.modo === 'grade' ? '🧮 robôs de grade · fora da disputa' : '⚡ estagiários · fora da disputa') : 'reserva · simulação'}</div>
         <div class="sub" style="margin:2px 0 0;font-size:12px">${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)}</div></div>
         <div style="text-align:right"><div class="v" style="font-weight:800">${usd(t.patrimonio)}</div><div class="${cls(t.resultado_pct)}" style="font-size:12px">${pct(t.resultado_pct, 2)}</div></div></div>
       <div class="membros">${membros.map(linhaMembro).join('')}</div></div>`;

@@ -80,6 +80,8 @@ class Trader:
         self.criado_em = t
         self.ultimo_preco = None
         self.trades = []
+        self.taxas_pagas = 0.0
+        self.volume = 0.0
         est = POR_ID[estrategia]
         self.estrategia = estrategia
         self.estrategia_nome = est.nome
@@ -119,6 +121,9 @@ class Trader:
         if dia != self.dia:
             self.dia, self.trades_hoje = dia, 0
 
+        if est.tipo == "grade":
+            self._processar_grade(v, i, cfg, ag)
+            return
         if est.tipo == "peso":
             self._processar_peso(est, v, d, i, cfg, ag)
         else:
@@ -132,6 +137,59 @@ class Trader:
                 stop, alvo = niveis_de_entrada(d, i, p, c)
                 self._abrir(self.caixa * fr, c, t, stop, alvo, cfg, ag)
         self.atualizar_gatilho(est, d, v, i)
+
+    def _processar_grade(self, v, i, cfg, ag):
+        o, h, l, c, t = v["o"][i], v["h"][i], v["l"][i], v["c"][i], v["t"][i]
+        p, taxa = self.params, cfg["taxa"]
+        esp, niveis = p["degrau"], max(2, int(round(p["faixa"] / p["degrau"])))
+        g = getattr(self, "grade_estado", None)
+        if not g:
+            g = self.grade_estado = {"centro": c, "lotes": {}, "cota": self.patrimonio() / niveis}
+        lotes = g["lotes"]
+        # 1) vende os lotes que subiram um degrau (comprados em velas anteriores)
+        for k in sorted(lotes, key=int):
+            lt = lotes[k]
+            alvo = lt["preco"] * (1 + esp)
+            if lt["t"] < t and h >= alvo * 1.0002:
+                receita = lt["qtd"] * alvo * (1 - taxa)
+                lucro = receita - lt["custo"]
+                self.caixa += receita
+                self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + lt["qtd"] * alvo * taxa
+                self.volume = getattr(self, "volume", 0.0) + lt["qtd"] * alvo
+                self.lucro_realizado += lucro
+                self.trades.append({"t_entrada": lt["t"], "t_saida": t, "entrada": lt["preco"], "saida": alvo, "valor": lt["custo"],
+                                    "lucro": lucro, "pct": lucro / lt["custo"] * 100, "motivo": "degrau", "humor": self.humor})
+                self.trades = self.trades[-60:]
+                if lucro > 0:
+                    self.vitorias += 1
+                else:
+                    self.derrotas += 1
+                del lotes[k]
+                ag.evento(t, self, "✅", f"{self.rotulo(ag)} vendeu um degrau: {'+' if lucro >= 0 else '-'}US$ {abs(lucro):.2f}")
+        # 2) compra nos degraus que o preço tocou
+        for k in range(1, niveis + 1):
+            nivel = g["centro"] * (1 - k * esp)
+            if str(k) not in lotes and l <= nivel * 0.9998 and o > nivel * 0.98:
+                gasto = min(g["cota"], self.caixa)
+                if gasto >= cfg["ordem_minima_usd"]:
+                    lotes[str(k)] = {"qtd": gasto * (1 - taxa) / nivel, "preco": nivel, "custo": gasto, "t": t}
+                    self.caixa -= gasto
+                    self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + gasto * taxa
+                    self.volume = getattr(self, "volume", 0.0) + gasto
+        # 3) se o preço subiu e não há nada comprado, a grade sobe junto
+        if not lotes and c > g["centro"] * (1 + esp):
+            g["centro"] = c
+        # posição "resumida" pro painel e o escritório
+        if lotes:
+            qtd = sum(x["qtd"] for x in lotes.values()); custo = sum(x["custo"] for x in lotes.values())
+            self.posicao = {"qtd": qtd, "preco": custo * (1 - taxa) / qtd, "custo": custo, "t": min(x["t"] for x in lotes.values()),
+                            "alvo": None, "stop": None, "humor": self.humor, "barras": 0, "maxc": c, "lotes": len(lotes)}
+        else:
+            self.posicao = None
+        prox = next((g["centro"] * (1 - k * esp) for k in range(1, niveis + 1) if str(k) not in lotes and g["centro"] * (1 - k * esp) < c), None)
+        self.gatilho = (f"cair até {prox:,.4g} (próximo degrau de compra)" if prox else "o preço voltar pra faixa da grade") + \
+                       (f"; {len(lotes)} lotes esperando subir {esp:.1%} pra vender" if lotes else "")
+        self.distancia = None
 
     def atualizar_gatilho(self, est, d, v, i):
         try:
@@ -295,7 +353,7 @@ class Agencia:
         o.cfg = cfg
         o.traders = [Trader.de_dict(x) for x in d["traders"]]
         campos = ("id", "nome", "emoji", "inspiracao", "estrategia", "estrategia_nome", "params", "intervalo", "titular",
-                  "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial")
+                  "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial", "modo")
         o.times = [{k: tm.get(k) for k in campos} for tm in d.get("times", [])]
         o.sprint = d.get("sprint")
         o.sprints = d.get("sprints", [])
@@ -384,9 +442,29 @@ class Agencia:
     def adicionar_mesa_rapida(self, t):
         """Mesa Rápida: estagiários com velas curtas, FORA da disputa (nunca viram titular, sem bebês)."""
         mr = self.cfg["liga"].get("mesa_rapida", {})
-        if not mr.get("ativo") or any(tm.get("especial") for tm in self.times):
+        modo = mr.get("modo", "grade") if mr.get("ativo") else None
+        atual = next((tm for tm in self.times if tm.get("especial")), None)
+        if atual and atual.get("modo", "estagiarios") != modo:
+            self.remover_mesa(t)
+            atual = None
+        if not modo or atual:
             return
-        tm = {"id": "rapida", "nome": "Mesa Rápida", "emoji": "⚡", "inspiracao": "estagiários (velas de 5 e 15 min)",
+        if modo == "grade":
+            gr = mr.get("grade", {})
+            tm = {"id": "rapida", "nome": "Mesa de Grade", "emoji": "🧮", "inspiracao": "robôs de grade (grid)", "modo": "grade",
+                  "estrategia": "grade", "estrategia_nome": f"grade de {gr.get('degrau', 0.005):.1%} em ±{gr.get('faixa', 0.2):.0%}",
+                  "params": {}, "intervalo": gr.get("intervalo", "5m"), "titular": False, "aportes": 0.0, "lucro_usado_bebes": 0.0,
+                  "bonus_bebe1_pago": True, "curva": [], "nota_escola": None, "criado_em": t, "pontuacao": 0.0, "lugar": None, "especial": True}
+            self.times.append(tm)
+            params = {"intervalo": gr.get("intervalo", "5m"), "degrau": gr.get("degrau", 0.005), "faixa": gr.get("faixa", 0.20)}
+            for par in gr.get("moedas", ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]):
+                tr = Trader(moeda(par), "🤖", par, 0.0, "trader", t, "rapida", "grade", params)
+                tr.ultimo_preco = self.ultimo_preco.get(par)
+                self.traders.append(tr)
+                self.aporte(tr, gr.get("capital_por_trader_usd", 250))  # cada degrau precisa de ≥ US$ 5 (mínimo da Binance)
+            self.evento(t, None, "🧮", "Chegou a Mesa de Grade: robôs que compram e vendem em degraus (fora da disputa)")
+            return
+        tm = {"id": "rapida", "nome": "Mesa Rápida", "emoji": "⚡", "inspiracao": "estagiários (velas de 5 e 15 min)", "modo": "estagiarios",
               "estrategia": None, "estrategia_nome": "várias, velas curtas", "params": {}, "intervalo": "5–15m", "titular": False,
               "aportes": 0.0, "lucro_usado_bebes": 0.0, "bonus_bebe1_pago": True, "curva": [], "nota_escola": None,
               "criado_em": t, "pontuacao": 0.0, "lugar": None, "especial": True}
@@ -524,6 +602,22 @@ class Agencia:
         self.abrir_sprint(t)
         return r
 
+    def remover_mesa(self, t):
+        """Fecha as posições da mesa especial a preço de mercado e tira ela do escritório."""
+        tm = next((x for x in self.times if x.get("especial")), None)
+        if not tm:
+            return
+        for tr in self.do_time(tm["id"]):
+            if tr.posicao:
+                preco = tr.ultimo_preco or tr.posicao["preco"]
+                tr.caixa += tr.posicao["qtd"] * preco * (1 - self.cfg["taxa"])
+                tr.posicao = None
+        resultado = self.patrimonio(tm["id"]) - tm["aportes"]
+        self.aportes_ceo -= tm["aportes"]
+        self.traders = [x for x in self.traders if x.time != tm["id"]]
+        self.times = [x for x in self.times if x is not tm]
+        self.evento(t, None, "👋", f"A {tm['nome']} foi encerrada com resultado de US$ {resultado:+.2f}")
+
     def disputando(self):
         return [tm for tm in self.times if not tm.get("especial")]
 
@@ -608,6 +702,8 @@ class Agencia:
                 continue
             tr.sincronizado = True
             est, p = POR_ID[tr.estrategia], tr.params
+            if est.tipo == "grade":
+                continue
             d = est.calcular(v, p)
             tr.atualizar_gatilho(est, d, v, n - 1)
             if est.tipo == "peso":
@@ -641,7 +737,7 @@ class Agencia:
                 continue
             k = (tr.estrategia, json.dumps(tr.params, sort_keys=True))
             if k not in cache:
-                cache[k] = POR_ID[tr.estrategia].calcular(v, tr.params)
+                cache[k] = {} if POR_ID[tr.estrategia].tipo == "grade" else POR_ID[tr.estrategia].calcular(v, tr.params)
             tr.processar(v, cache[k], self.cfg, self)
         for tm in self.disputando():
             self._checar_bebes(tm, vela["t"])

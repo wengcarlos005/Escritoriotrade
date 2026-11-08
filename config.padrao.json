@@ -16,7 +16,9 @@
     },
     "mesa_rapida": {
       "ativo": true,
+      "modo": "grade",
       "capital_por_trader_usd": 100,
+      "grade": {"moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"], "intervalo": "5m", "degrau": 0.005, "faixa": 0.20, "capital_por_trader_usd": 250},
       "estagiarios": [
         {"par": "BTCUSDT", "estrategia": "momentum",   "intervalo": "15m", "params": {"n": 24, "vol_alvo": null}},
         {"par": "ETHUSDT", "estrategia": "williams",   "intervalo": "15m", "params": {"k": 0.5, "max_barras": 4}},

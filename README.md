@@ -52,10 +52,12 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório** (planta vista de cima
 - **Bebês traders:** a cada **R$ 500 de lucro de um time**, nasce um bebê nesse time, pago só com o lucro,
   operando uma moeda nova (ADA, DOGE, LINK, AVAX, LTC). Até 5 bebês por time. Quando o 1º bebê de um time
   chega a R$ 500 de lucro, o CEO dá R$ 500 pra cada trader daquele time.
-- **⚡ Mesa Rápida (estagiários):** 4 robôs com velas de 5 e 15 minutos que operam várias vezes por dia, sentados na
-  Escola. Ficam **fora da disputa** (nunca viram titular): nos testes da escola, com as taxas da Binance (~0,2% ida e
-  volta), essas estratégias **perderam de 23% a 88%** em 4 meses, mesmo acertando a direção sem taxas. Servem pra dar
-  movimento e mostrar o efeito das taxas. Desligue em `config.json` com `{"liga": {"mesa_rapida": {"ativo": false}}}`.
+- **🧮 Mesa de Grade (20–40 operações/dia):** 4 robôs de grade (BTC, ETH, SOL, BNB) com velas de 5 min, US$ 250 de
+  mentira cada (cada degrau precisa de ≥ US$ 5, o mínimo da Binance). Compram em degraus de 0,5% numa faixa de ±20% e
+  vendem cada lote um degrau acima. Ficam **fora da disputa**. No passado: os degraus pagaram as taxas, mas o resultado
+  final ficou entre −2% e −5% por segurar moedas nas quedas — perde menos que comprar e segurar quando o mercado cai e fica
+  pra trás quando dispara. As sprints medem se vale a pena. Pra voltar aos estagiários de velas curtas:
+  `{"liga": {"mesa_rapida": {"modo": "estagiarios"}}}` no `config.json`; pra desligar: `"ativo": false`.
 - **🎯 Falta X%:** cada trader mostra quanto o preço precisa subir até o gatilho de compra da estratégia dele.
 - **🏃 Sprints:** cada semana (de segunda a segunda) é uma sprint. A agência mede operações, dinheiro girado,
   resultado, taxas pagas e tempo parado de cada time, confere as metas (em `liga.sprint.metas`) e escreve um

@@ -153,7 +153,7 @@ const COR_HUMOR = {perigo: '#ff4d57', alerta: '#ff9a3c', normal: '#45e0d6', conf
 const CORES = ['#e9b93a', '#31c2b8', '#a07cf0', '#43d686', '#ef7a3d', '#ff6fa8'];
 const CURTO = {seykota: 'SEYKOTA', tartaruga: 'TARTARUGAS', donchian_conjunto: 'CANAIS', momentum: 'MOMENTUM', weinstein: 'WEINSTEIN',
   ptj200: 'TUDOR JONES', minervini: 'MINERVINI', williams: 'WILLIAMS', connors: 'CONNORS', raschke: 'RASCHKE', supertrend: 'SUPERTREND',
-  macd: 'MACD', squeeze: 'EXPLOSÃO', bollinger: 'BOLLINGER', cruzamento: 'ORIGINAL'};
+  macd: 'MACD', squeeze: 'EXPLOSÃO', bollinger: 'BOLLINGER', cruzamento: 'ORIGINAL', rapida: 'MESA'};
 const nomeCurto = id => CURTO[id] || String(id).toUpperCase();
 function escurece(hex, f) {
   const n = parseInt(hex.slice(1), 16);
@@ -799,7 +799,7 @@ function desenharBolha(c, a, cx, topo, agora) {
    PAREDES COM INFORMAÇÃO (faixa do titular, placas, letreiro de preços)
    ===================================================================== */
 function placas(c) {
-  [['esc', D && D.times && D.times.some(t => t.especial) ? 'ESCOLA · RÁPIDA' : 'ESCOLA'], ['copa', 'COPA'], ['ger', 'GERÊNCIA'], ['dir', 'DIRETORIA'], ['lou', 'LOUNGE']].forEach(([k, n]) => {
+  [['esc', (() => { const m = D && D.times && D.times.find(t => t.especial); return m ? (m.modo === 'grade' ? 'ESCOLA · GRADE' : 'ESCOLA · RÁPIDA') : 'ESCOLA'; })()], ['copa', 'COPA'], ['ger', 'GERÊNCIA'], ['dir', 'DIRETORIA'], ['lou', 'LOUNGE']].forEach(([k, n]) => {
     const s = SALAS[k]; txt(c, n, (s.x + s.w / 2) * T, 13 * T - 4, '#9aa4b2', 'center');
   });
   if (!D || !D.times || !D.times.length) return;
@@ -981,7 +981,10 @@ function pensamento(a) {
     return `Estou comprado em ${tr.nome.replace('Bebê ', '')} (${pct(v, 2)}). ${p.stop ? `Se cair até ${num(p.stop, p.stop < 10 ? 4 : 2)}, eu saio.` : 'Vou ajustando conforme a tendência.'}`;
   }
   const falta = tr.distancia != null && tr.distancia > 0 ? ` Falta o preço subir ${num(tr.distancia, 1)}%.` : '';
-  const rapida = a.time === 'rapida' ? ' (Sou estagiário da Mesa Rápida: opero muito, e as taxas costumam me comer.)' : '';
+  const mesa = D.times.find(t => t.id === 'rapida');
+  const rapida = a.time !== 'rapida' ? '' : (mesa && mesa.modo === 'grade'
+    ? ` (Sou robô de grade: compro em degraus e vendo cada um ${num((tr.params && tr.params.degrau || 0.005) * 100, 1)}% acima. Ganho no vai-e-vem; sofro se o preço cair sem parar.)`
+    : ' (Sou estagiário da Mesa Rápida: opero muito, e as taxas costumam me comer.)');
   return (tr.gatilho ? `Só compro se ${tr.gatilho}.` : 'Esperando um sinal da minha estratégia.') + falta + rapida;
 }
 function renderLado() {
@@ -1000,7 +1003,7 @@ function renderDetalhe() {
   if (SEL.tipo === 'time') {
     const t = D.times.find(x => x.id === SEL.id); if (!t) return;
     $('det-t').textContent = `${t.emoji} ${t.nome}`;
-    $('det').innerHTML = linha('papel', t.titular ? '★ titular' : t.especial ? '⚡ estagiários, fora da disputa' : 'reserva') + linha('estratégia', esc(t.estrategia_nome)) +
+    $('det').innerHTML = linha('papel', t.titular ? '★ titular' : t.especial ? (t.modo === 'grade' ? '🧮 robôs de grade, fora da disputa' : '⚡ estagiários, fora da disputa') : 'reserva') + linha('estratégia', esc(t.estrategia_nome)) +
       linha('velas', esc(t.intervalo)) + linha('patrimônio', usd(t.patrimonio)) +
       linha('temporada', `<span class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</span>`) +
       linha('4 semanas', `${pct(t.retorno_4s_pct, 2)} (queda ${pct(t.queda_4s_pct, 1)})`) +
