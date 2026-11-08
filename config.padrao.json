@@ -10,7 +10,17 @@
     "semanas_para_pontuar": 4,
     "emoji_trader": "🤖",
     "so_alunos_aprovados": false,
-    "sincronizar_ao_comecar": true
+    "sincronizar_ao_comecar": true,
+    "mesa_rapida": {
+      "ativo": true,
+      "capital_por_trader_usd": 100,
+      "estagiarios": [
+        {"par": "BTCUSDT", "estrategia": "momentum",   "intervalo": "15m", "params": {"n": 24, "vol_alvo": null}},
+        {"par": "ETHUSDT", "estrategia": "williams",   "intervalo": "15m", "params": {"k": 0.5, "max_barras": 4}},
+        {"par": "SOLUSDT", "estrategia": "supertrend", "intervalo": "5m",  "params": {"mult": 2.0}},
+        {"par": "XRPUSDT", "estrategia": "squeeze",    "intervalo": "15m", "params": {"fator": 0.8}}
+      ]
+    }
   },
 
   "bebes": {

@@ -149,7 +149,7 @@ const corta = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pega = arr => arr[Math.floor(Math.random() * arr.length)];
 const COR_HUMOR = {perigo: '#ff4d57', alerta: '#ff9a3c', normal: '#45e0d6', confiante: '#4dff9a'};
-const CORES = ['#e9b93a', '#31c2b8', '#a07cf0', '#43d686', '#ef7a3d'];
+const CORES = ['#e9b93a', '#31c2b8', '#a07cf0', '#43d686', '#ef7a3d', '#ff6fa8'];
 const CURTO = {seykota: 'SEYKOTA', tartaruga: 'TARTARUGAS', donchian_conjunto: 'CANAIS', momentum: 'MOMENTUM', weinstein: 'WEINSTEIN',
   ptj200: 'TUDOR JONES', minervini: 'MINERVINI', williams: 'WILLIAMS', connors: 'CONNORS', raschke: 'RASCHKE', supertrend: 'SUPERTREND',
   macd: 'MACD', squeeze: 'EXPLOSÃO', bollinger: 'BOLLINGER', cruzamento: 'ORIGINAL'};
@@ -482,7 +482,11 @@ function moveis() {
       });
     } else txt(c, 'SEM PROVAS', 2 * T + 6, 15 * T + 20, '#d7e6dc');
   }});
-  [2, 4, 6, 8].forEach(x => lista.push({y: 20 * T + 14, d: c => { mesaRet(c, x * T, 20 * T + 2, T, 12, '#9a7048'); c.fillStyle = '#f4f6f8'; c.fillRect(x * T + 4, 20 * T + 4, 6, 4); }}));
+  [2, 4, 6, 8].forEach((x, j) => lista.push({y: 20 * T + 14, d: c => {
+    mesaRet(c, x * T, 20 * T + 2, T, 12, '#9a7048');
+    const tr = OCUPA_ASSENTO.get(`esc${j}`);
+    if (tr) telaStatus(c, x * T + 2, 20 * T + 1, 12, 7, tr, true, j); else { c.fillStyle = '#f4f6f8'; c.fillRect(x * T + 4, 20 * T + 4, 6, 4); }
+  }}));
   lista.push({y: 16 * T + 15, d: c => {
     c.fillStyle = '#6b7380'; c.fillRect(11 * T, 16 * T, 4 * T, 12); c.fillStyle = '#8a929e'; c.fillRect(11 * T, 16 * T, 4 * T, 3);
     c.fillStyle = '#4a5160'; c.fillRect(11 * T, 16 * T + 12, 4 * T, 3);
@@ -657,10 +661,11 @@ function sincronizar() {
   if (!D || !D.times) return;
   const times = [...D.times].sort((a, b) => (a.lugar || 9) - (b.lugar || 9));
   const tit = D.times.find(t => t.titular) || times[0];
-  TIME_DO_POD = times.filter(t => t.id !== tit.id).slice(0, 4);
+  TIME_DO_POD = times.filter(t => t.id !== tit.id && !t.especial).slice(0, 4);
   REL_NOVO = !!(D.gerente && D.gerente.relatorio && Date.now() - D.gerente.relatorio.t < 6 * 3600e3);
   const vistos = new Set();
   const assento = (tm, j) => {
+    if (tm.especial) return j < LUGAR.carteira.length ? {x: LUGAR.carteira[j][0], y: LUGAR.carteira[j][1], face: 'cima', chave: `esc${j}`} : null;
     if (tm.id === tit.id) return j < ASSENTOS_OPS.length ? {...ASSENTOS_OPS[j], chave: `ops${j}`} : null;
     const k = TIME_DO_POD.findIndex(t => t.id === tm.id), lista = assentosPod(POD_X[k] ?? POD_X[0]);
     return j < lista.length ? {...lista[j], chave: `pod${k}_${j}`} : null;
@@ -793,7 +798,7 @@ function desenharBolha(c, a, cx, topo, agora) {
    PAREDES COM INFORMAÇÃO (faixa do titular, placas, letreiro de preços)
    ===================================================================== */
 function placas(c) {
-  [['esc', 'ESCOLA'], ['copa', 'COPA'], ['ger', 'GERÊNCIA'], ['dir', 'DIRETORIA'], ['lou', 'LOUNGE']].forEach(([k, n]) => {
+  [['esc', D && D.times && D.times.some(t => t.especial) ? 'ESCOLA · RÁPIDA' : 'ESCOLA'], ['copa', 'COPA'], ['ger', 'GERÊNCIA'], ['dir', 'DIRETORIA'], ['lou', 'LOUNGE']].forEach(([k, n]) => {
     const s = SALAS[k]; txt(c, n, (s.x + s.w / 2) * T, 13 * T - 4, '#9aa4b2', 'center');
   });
   if (!D || !D.times || !D.times.length) return;
@@ -915,6 +920,8 @@ function mesaEm(wx, wy) {
   if (!D) return null;
   const tx = Math.floor(wx / T), ty = Math.floor(wy / T), tit = (D.times.find(t => t.titular) || {}).id;
   if ((ty <= 1 && tx >= 6 && tx <= 11) || (tx >= 3 && tx <= 13 && ty >= 6 && ty <= 7)) return tit;
+  const mr = D.times.find(t => t.especial);
+  if (mr && ty >= 19 && ty <= 21 && tx >= 2 && tx <= 8) return mr.id;
   for (let k = 0; k < POD_X.length; k++) {
     const x = POD_X[k];
     if (TIME_DO_POD[k] && ((tx >= x && tx <= x + 1 && ty >= 5 && ty <= 6) || (ty <= 1 && tx >= x - 1 && tx <= x + 2))) return TIME_DO_POD[k].id;
@@ -933,7 +940,8 @@ tela.addEventListener('pointermove', ev => {
   if (a && !arrasto) {
     const r = tela.getBoundingClientRect(), est = ROTINA[a.estado] || ROTINA.andando;
     const nome = a.tipo === 'cao' ? (D && D.cfg.mascote.nome) : a.tipo === 'gerente' ? 'Claude, o gerente' : a.tipo === 'ceo' ? 'Você, o CEO' : `${a.tr.nome} · ${nomeCurto(a.time)}`;
-    dica.innerHTML = `<b>${esc(nome)}</b> — ${est.em} ${esc(est.txt)}`;
+    const falta = a.tr && !a.tr.posicao && a.tr.distancia != null && a.tr.distancia > 0 ? ` · 🎯 falta ${num(a.tr.distancia, 1)}%` : '';
+    dica.innerHTML = `<b>${esc(nome)}</b> — ${est.em} ${esc(est.txt)}${falta}`;
     dica.style.left = Math.max(4, Math.min(ev.clientX - r.left + 14, r.width - dica.offsetWidth - 6)) + 'px'; dica.style.top = (ev.clientY - r.top + 14) + 'px'; dica.style.opacity = 1;
     tela.style.cursor = 'pointer';
   } else { dica.style.opacity = 0; tela.style.cursor = ''; }
@@ -971,13 +979,15 @@ function pensamento(a) {
     const p = tr.posicao, v = ((tr.ultimo_preco || p.preco) / p.preco - 1) * 100;
     return `Estou comprado em ${tr.nome.replace('Bebê ', '')} (${pct(v, 2)}). ${p.stop ? `Se cair até ${num(p.stop, p.stop < 10 ? 4 : 2)}, eu saio.` : 'Vou ajustando conforme a tendência.'}`;
   }
-  return tr.gatilho ? `Só compro se ${tr.gatilho}.` : 'Esperando um sinal da minha estratégia.';
+  const falta = tr.distancia != null && tr.distancia > 0 ? ` Falta o preço subir ${num(tr.distancia, 1)}%.` : '';
+  const rapida = a.time === 'rapida' ? ' (Sou estagiário da Mesa Rápida: opero muito, e as taxas costumam me comer.)' : '';
+  return (tr.gatilho ? `Só compro se ${tr.gatilho}.` : 'Esperando um sinal da minha estratégia.') + falta + rapida;
 }
 function renderLado() {
   const times = [...D.times].sort((a, b) => (a.lugar || 9) - (b.lugar || 9));
   $('rodada').textContent = D.temporada ? `rodada em ${falta(D.temporada.proxima_rodada)}` : '';
   $('liga').innerHTML = times.map(t => `<div class="liga-l${t.titular ? ' tit' : ''}${SEL && SEL.tipo === 'time' && SEL.id === t.id ? ' sel' : ''}" data-time="${t.id}">
-    <span class="n">${t.lugar}º</span><span class="c" style="background:${corTime(t.id)}"></span>
+    <span class="n">${t.especial ? '⚡' : t.lugar + 'º'}</span><span class="c" style="background:${corTime(t.id)}"></span>
     <span class="nome">${t.titular ? '★ ' : ''}${esc(t.emoji)} ${esc(t.nome.replace('Time ', ''))}</span>
     <span class="n">${sinal(t.pontuacao_agora)}${num(t.pontuacao_agora, 1)}</span><span class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 1)}</span></div>`).join('');
   const evs = (D.eventos || []).slice(-6).reverse();
@@ -989,7 +999,7 @@ function renderDetalhe() {
   if (SEL.tipo === 'time') {
     const t = D.times.find(x => x.id === SEL.id); if (!t) return;
     $('det-t').textContent = `${t.emoji} ${t.nome}`;
-    $('det').innerHTML = linha('papel', t.titular ? '★ titular' : 'reserva') + linha('estratégia', esc(t.estrategia_nome)) +
+    $('det').innerHTML = linha('papel', t.titular ? '★ titular' : t.especial ? '⚡ estagiários, fora da disputa' : 'reserva') + linha('estratégia', esc(t.estrategia_nome)) +
       linha('velas', esc(t.intervalo)) + linha('patrimônio', usd(t.patrimonio)) +
       linha('temporada', `<span class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</span>`) +
       linha('4 semanas', `${pct(t.retorno_4s_pct, 2)} (queda ${pct(t.queda_4s_pct, 1)})`) +

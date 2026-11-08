@@ -12,7 +12,7 @@ import mercado
 PASTA = Path(__file__).resolve().parent / "dados" / "historico"
 
 # Quantos anos de história guardar por intervalo
-ANOS = {"15m": 1, "1h": 6.2, "4h": 6.2, "1d": 6.2}
+ANOS = {"5m": 0.6, "15m": 1.2, "1h": 6.2, "4h": 6.2, "1d": 6.2}
 
 
 def _arquivo(par, intervalo):

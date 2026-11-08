@@ -261,6 +261,7 @@ const usd = v => (v < 0 ? '-' : '') + 'US$ ' + num(v);
 const brl = v => (v < 0 ? '-' : '') + 'R$ ' + num(v);
 const sinal = v => (v >= 0 ? '+' : '-');
 const pct = (v, c=1) => v == null ? '—' : sinal(v) + num(v, c) + '%';
+const corta = (s, n) => String(s).length > n ? String(s).slice(0, n - 1) + '…' : String(s);
 const cls = v => v >= 0 ? 'pos' : 'neg';
 const hora = t => new Date(t).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
 const data = t => new Date(t).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'});
@@ -307,7 +308,7 @@ window.addEventListener('hashchange', trocarAba);
 
 /* ---------------- visão geral ---------------- */
 const COR_HUMOR = {perigo: '#ff5a5f', alerta: '#ff8a3d', normal: '#35d0c8', confiante: '#2ee59d'};
-const CORES_TIMES = ['#ffd23f', '#35d0c8', '#b79cff', '#2ee59d', '#ff8a3d'];
+const CORES_TIMES = ['#ffd23f', '#35d0c8', '#b79cff', '#2ee59d', '#ff8a3d', '#ff6fa8'];
 const corTime = (d, id) => CORES_TIMES[d.times.findIndex(t => t.id === id) % CORES_TIMES.length];
 function falta(t) {
   const s = Math.max(0, Math.floor((t - Date.now()) / 1000)), dd = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
@@ -315,7 +316,9 @@ function falta(t) {
 }
 function linhaMembro(tr) {
   const p = patrimonio(tr);
-  let st = tr.gatilho ? `🎯 compra se ${esc(tr.nome.replace('Bebê ', ''))}: ${esc(tr.gatilho)}` : '👀 esperando sinal';
+  let st = tr.distancia != null ? `<span title="${esc(tr.gatilho || '')}">🎯 falta ${tr.distancia > 0 ? num(tr.distancia, 1) + '% de alta' : 'pouco'} pra comprar</span>`
+         : tr.gatilho ? `<span title="${esc(tr.gatilho)}">🎯 esperando: ${esc(corta(tr.gatilho, 46))}</span>` : '👀 esperando sinal';
+  if (tr.time === 'rapida') st = `${esc(tr.estrategia_emoji)} ${esc(tr.intervalo)} · ` + st;
   if (tr.pausado_ate) st = '🎮 no videogame';
   else if (tr.posicao) {
     const v = ((tr.ultimo_preco || tr.posicao.preco) / tr.posicao.preco - 1) * 100;
@@ -341,9 +344,9 @@ function renderGeral(d) {
   ].map(([r, v, s, c]) => `<div class="kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join('');
 
   $('classificacao').innerHTML = `<table><tr><th></th><th>time</th><th>papel</th><th>pontuação</th><th>4 semanas</th><th>patrimônio</th><th>temporada</th><th>traders</th><th>rumo ao bebê</th></tr>${
-    times.map(t => `<tr><td><span class="lugar">${t.lugar}º</span></td>
+    times.map(t => `<tr><td><span class="lugar">${t.especial ? '⚡' : t.lugar + 'º'}</span></td>
       <td><b>${esc(t.emoji)} ${esc(t.nome)}</b><div class="sub" style="margin:0;font-size:12px">${esc(t.estrategia_nome)} · ${esc(t.intervalo)} · nota ${num(t.nota_escola, 1)}</div></td>
-      <td>${t.titular ? '<span class="selo ok">🏆 titular</span>' : '<span class="selo info">reserva</span>'}</td>
+      <td>${t.titular ? '<span class="selo ok">🏆 titular</span>' : t.especial ? '<span class="selo nao">fora da disputa</span>' : '<span class="selo info">reserva</span>'}</td>
       <td><b class="${cls(t.pontuacao_agora)}">${sinal(t.pontuacao_agora)}${num(t.pontuacao_agora)}</b></td>
       <td><span class="${cls(t.retorno_4s_pct)}">${pct(t.retorno_4s_pct, 2)}</span> <span class="sub" style="font-size:12px">queda ${pct(t.queda_4s_pct, 1)}</span></td>
       <td>${usd(t.patrimonio)}</td><td class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</td>
@@ -355,7 +358,7 @@ function renderGeral(d) {
     const membros = d.traders.filter(x => x.time === t.id);
     return `<div class="card time${t.titular ? ' titular' : ''}">
       <div class="topo-time"><div class="avatar" style="border:2px solid ${corTime(d, t.id)}">${esc(t.emoji)}</div>
-        <div style="flex:1"><div class="nome">${esc(t.nome)}</div><div class="cargo">${t.titular ? '🏆 titular — operaria com dinheiro real' : 'reserva · simulação'}</div>
+        <div style="flex:1"><div class="nome">${esc(t.nome)}</div><div class="cargo">${t.titular ? '🏆 titular — operaria com dinheiro real' : t.especial ? '⚡ estagiários · fora da disputa' : 'reserva · simulação'}</div>
         <div class="sub" style="margin:2px 0 0;font-size:12px">${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)}</div></div>
         <div style="text-align:right"><div class="v" style="font-weight:800">${usd(t.patrimonio)}</div><div class="${cls(t.resultado_pct)}" style="font-size:12px">${pct(t.resultado_pct, 2)}</div></div></div>
       <div class="membros">${membros.map(linhaMembro).join('')}</div></div>`;

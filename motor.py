@@ -136,8 +136,10 @@ class Trader:
     def atualizar_gatilho(self, est, d, v, i):
         try:
             self.gatilho = None if self.posicao else est.gatilho(d, v, i, self.params)
+            dist = None if self.posicao else est.distancia(d, v, i, self.params)
+            self.distancia = None if dist is None else round(dist, 2)
         except Exception:
-            self.gatilho = None
+            self.gatilho, self.distancia = None, None
 
     def _processar_peso(self, est, v, d, i, cfg, ag):
         t, c = v["t"][i], v["c"][i]
@@ -281,7 +283,7 @@ class Agencia:
         o.cfg = cfg
         o.traders = [Trader.de_dict(x) for x in d["traders"]]
         campos = ("id", "nome", "emoji", "inspiracao", "estrategia", "estrategia_nome", "params", "intervalo", "titular",
-                  "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar")
+                  "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial")
         o.times = [{k: tm.get(k) for k in campos} for tm in d.get("times", [])]
         o._iniciar_temporarios()
         return o
@@ -355,12 +357,35 @@ class Agencia:
                 self.traders.append(tr)
                 self.aporte(tr, capital)
         self.times[0]["titular"] = True  # na semana 1, o titular é o de melhor nota na escola
-        for k, tm in enumerate(self.times, 1):
+        self.adicionar_mesa_rapida(t)
+        for k, tm in enumerate(self.disputando(), 1):
             tm["lugar"] = k
         # 1ª rodada: a primeira segunda-feira depois de pelo menos 1 semana inteira de jogo
         self.temporada = {"numero": numero, "inicio": t, "proxima_rodada": proxima_segunda(t + 6 * 86_400_000),
                           "titular": self.times[0]["id"], "rodadas": []}
         self.evento(t, None, "🏁", f"Começou a temporada {numero}! Titular da 1ª semana: {self.times[0]['emoji']} {self.times[0]['nome']}")
+
+    def adicionar_mesa_rapida(self, t):
+        """Mesa Rápida: estagiários com velas curtas, FORA da disputa (nunca viram titular, sem bebês)."""
+        mr = self.cfg["liga"].get("mesa_rapida", {})
+        if not mr.get("ativo") or any(tm.get("especial") for tm in self.times):
+            return
+        tm = {"id": "rapida", "nome": "Mesa Rápida", "emoji": "⚡", "inspiracao": "estagiários (velas de 5 e 15 min)",
+              "estrategia": None, "estrategia_nome": "várias, velas curtas", "params": {}, "intervalo": "5–15m", "titular": False,
+              "aportes": 0.0, "lucro_usado_bebes": 0.0, "bonus_bebe1_pago": True, "curva": [], "nota_escola": None,
+              "criado_em": t, "pontuacao": 0.0, "lugar": None, "especial": True}
+        self.times.append(tm)
+        for e in mr.get("estagiarios", []):
+            est = POR_ID[e["estrategia"]]
+            params = dict(est.params); params.update(e.get("params", {})); params["intervalo"] = e["intervalo"]
+            tr = Trader(moeda(e["par"]), "🤖", e["par"], 0.0, "trader", t, "rapida", e["estrategia"], params)
+            tr.ultimo_preco = self.ultimo_preco.get(e["par"])
+            self.traders.append(tr)
+            self.aporte(tr, mr.get("capital_por_trader_usd", 100))
+        self.evento(t, None, "⚡", "Chegaram os estagiários da Mesa Rápida (velas curtas, fora da disputa)")
+
+    def disputando(self):
+        return [tm for tm in self.times if not tm.get("especial")]
 
     def pontuar(self, tm, t):
         """Retorno das últimas N semanas menos metade da maior queda no período (em %)."""
@@ -380,6 +405,9 @@ class Agencia:
     def rodada(self, t):
         ranking = []
         for tm in self.times:
+            if tm.get("especial"):
+                tm["pontuacao"] = self.pontuar(tm, t)[0]
+        for tm in self.disputando():
             pts, ret, queda = self.pontuar(tm, t)
             tm["pontuacao"] = pts
             ranking.append({"id": tm["id"], "pontuacao": pts, "retorno_pct": ret, "queda_pct": queda})
@@ -389,7 +417,7 @@ class Agencia:
         vencedor = ranking[0]["id"]
         antigo = self.temporada["titular"]
         for tm in self.times:
-            tm["titular"] = tm["id"] == vencedor
+            tm["titular"] = tm["id"] == vencedor and not tm.get("especial")
         self.temporada["titular"] = vencedor
         self.temporada["rodadas"].append({"t": t, "vencedor": vencedor, "ranking": ranking})
         self.temporada["rodadas"] = self.temporada["rodadas"][-60:]
@@ -474,7 +502,7 @@ class Agencia:
             if k not in cache:
                 cache[k] = POR_ID[tr.estrategia].calcular(v, tr.params)
             tr.processar(v, cache[k], self.cfg, self)
-        for tm in self.times:
+        for tm in self.disputando():
             self._checar_bebes(tm, vela["t"])
 
     def _checar_bebes(self, tm, t):

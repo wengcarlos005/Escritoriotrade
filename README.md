@@ -52,6 +52,11 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório** (planta vista de cima
 - **Bebês traders:** a cada **R$ 500 de lucro de um time**, nasce um bebê nesse time, pago só com o lucro,
   operando uma moeda nova (ADA, DOGE, LINK, AVAX, LTC). Até 5 bebês por time. Quando o 1º bebê de um time
   chega a R$ 500 de lucro, o CEO dá R$ 500 pra cada trader daquele time.
+- **⚡ Mesa Rápida (estagiários):** 4 robôs com velas de 5 e 15 minutos que operam várias vezes por dia, sentados na
+  Escola. Ficam **fora da disputa** (nunca viram titular): nos testes da escola, com as taxas da Binance (~0,2% ida e
+  volta), essas estratégias **perderam de 23% a 88%** em 4 meses, mesmo acertando a direção sem taxas. Servem pra dar
+  movimento e mostrar o efeito das taxas. Desligue em `config.json` com `{"liga": {"mesa_rapida": {"ativo": false}}}`.
+- **🎯 Falta X%:** cada trader mostra quanto o preço precisa subir até o gatilho de compra da estratégia dele.
 - **Nova temporada:** quando a escola gerar um boletim novo, use o botão na aba Escola pra montar os times
   com o top 5 atualizado (o dinheiro de mentira recomeça).
 - **Dinheiro real:** ainda **não** está ligado — de propósito. A estrutura de titular/reserva já está pronta pra isso.

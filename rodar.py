@@ -150,10 +150,10 @@ def preparar_velas(ag):
 
 def resumo_liga(ag):
     print("\n⚽ LIGA — temporada", ag.temporada["numero"], "| próxima rodada:", hhmm(ag.temporada["proxima_rodada"]))
-    for tm in sorted(ag.times, key=lambda x: x["lugar"]):
+    for tm in sorted(ag.times, key=lambda x: x["lugar"] or 99):
         r = ag.resumo_time(tm)
-        papel = "🏆 TITULAR" if tm["titular"] else "   reserva"
-        print(f"  {tm['lugar']}º {papel}  {tm['emoji']} {tm['nome']:<18} {tm['intervalo']:>3}  patrimônio US$ {r['patrimonio']:8.2f}"
+        papel = "🏆 TITULAR" if tm["titular"] else ("⚡ fora   " if tm.get("especial") else "   reserva")
+        print(f"  {tm['lugar'] or '–'}º {papel}  {tm['emoji']} {tm['nome']:<18} {tm['intervalo']:>3}  patrimônio US$ {r['patrimonio']:8.2f}"
               f"  ({r['resultado_pct']:+.2f}%)  traders {len(ag.do_time(tm['id']))}")
     print()
 
@@ -180,6 +180,7 @@ def cmd_simular(args):
     ag.ao_evento = imprimir_evento
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
+    ag.adicionar_mesa_rapida(agora)
     ag.escola_aplicada = getattr(ag, "escola_aplicada", None) or esc.get("gerado_em")
 
     fila = queue.Queue()

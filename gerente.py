@@ -136,7 +136,8 @@ def contexto(estado, escola):
                       "(o que operaria com dinheiro real no futuro); os outros ficam na reserva. Bebês nascem a cada R$ 500 de lucro do time.")
         linhas.append(f"Dólar: R$ {brl:.2f}. Patrimônio total: US$ {total:.2f} (colocado: US$ {estado['aportes_ceo']:.2f}).")
         for tm in sorted(estado.get("times", []), key=lambda x: x.get("lugar") or 9):
-            linhas.append(f"## {tm['lugar']}º {'TITULAR' if tm['titular'] else 'reserva'}: {tm['emoji']} {tm['nome']} "
+            papel = "TITULAR" if tm["titular"] else ("MESA RÁPIDA, fora da disputa (velas curtas — serve pra mostrar o efeito das taxas)" if tm.get("especial") else "reserva")
+            linhas.append(f"## {tm['lugar'] or '–'}º {papel}: {tm['emoji']} {tm['nome']} "
                           f"({tm['estrategia_nome']}, {tm['intervalo']}, nota na escola {tm.get('nota_escola')}) — patrimônio US$ {tm['patrimonio']:.2f} "
                           f"({tm['resultado_pct']:+.2f}%), pontuação 4 semanas {tm.get('pontuacao_agora')}, bebês {tm['bebes']}, "
                           f"rumo ao próximo bebê {tm['meta_bebe_pct']}%")

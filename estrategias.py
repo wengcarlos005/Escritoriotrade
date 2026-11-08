@@ -9,7 +9,7 @@ import math
 
 import indicadores as ind_
 
-BARRAS_POR_DIA = {"15m": 96, "1h": 24, "4h": 6, "1d": 1}
+BARRAS_POR_DIA = {"5m": 288, "15m": 96, "1h": 24, "4h": 6, "1d": 1}
 
 
 def volatilidade_anual(c, intervalo, dias=20):
@@ -77,6 +77,10 @@ class Estrategia:
         """Frase curta: o que precisa acontecer pra este aluno comprar."""
         return None
 
+    def distancia(self, d, v, i, p):
+        """Quanto (%) o preço precisa subir pra este aluno comprar. None = não dá pra medir."""
+        return None
+
     def entrada(self, d, v, i, p):
         return False
 
@@ -129,6 +133,9 @@ class Tartaruga(Estrategia):
     def gatilho(self, d, v, i, p):
         return f"fechar acima de {_f(d['max'][i])} (máxima de {p['entrada_n']} velas)" if _ok(d["max"][i]) else None
 
+    def distancia(self, d, v, i, p):
+        return (d["max"][i] / v["c"][i] - 1) * 100 if _ok(d["max"][i]) else None
+
 class Seykota(Estrategia):
     id, nome, emoji = "seykota", "Médias Exponenciais Longas", "📈"
     inspiracao = "Ed Seykota"
@@ -156,6 +163,11 @@ class Seykota(Estrategia):
             return f"média {p['rapida']} ({_f(d['r'][i])}) cruzar pra cima da média {p['lenta']} ({_f(d['l'][i])})"
         return "a tendência esfriar e virar de novo (já está acima — espera o próximo cruzamento)"
 
+    def distancia(self, d, v, i, p):
+        if not _ok(d["r"][i], d["l"][i]) or d["r"][i] >= d["l"][i]:
+            return None
+        return (d["l"][i] / d["r"][i] - 1) * 100
+
 class PTJ200(Estrategia):
     id, nome, emoji = "ptj200", "Acima da Média de 200", "🎩"
     inspiracao = "Paul Tudor Jones"
@@ -176,6 +188,9 @@ class PTJ200(Estrategia):
 
     def gatilho(self, d, v, i, p):
         return f"fechar acima de {_f(d['m'][i] * (1 + p['banda']))} (média de {p['n']})" if _ok(d["m"][i]) else None
+
+    def distancia(self, d, v, i, p):
+        return (d["m"][i] * (1 + p["banda"]) / v["c"][i] - 1) * 100 if _ok(d["m"][i]) else None
 
 class ConnorsRSI2(Estrategia):
     id, nome, emoji = "connors", "RSI(2) Reversão", "🎯"
@@ -317,6 +332,10 @@ class Momentum(Estrategia):
         n = p["n"]
         return f"fechar acima de {_f(v['c'][i - n + 1])} (preço de {n} velas atrás)" if i >= n else None
 
+    def distancia(self, d, v, i, p):
+        n = p["n"]
+        return (v["c"][i - n + 1] / v["c"][i] - 1) * 100 if i >= n else None
+
 class Minervini(Estrategia):
     id, nome, emoji = "minervini", "Molde de Tendência", "🏆"
     inspiracao = "Mark Minervini / Stan Weinstein"
@@ -391,6 +410,12 @@ class Weinstein(Estrategia):
             return f"a média de {p['n']} ({_f(m[i])}) virar pra cima"
         return f"fechar acima da média de {p['n']} ({_f(m[i])})" + ("" if sobe else " com ela subindo")
 
+    def distancia(self, d, v, i, p):
+        m = d["m"]
+        if not _ok(m[i]) or v["c"][i] > m[i]:
+            return None
+        return (m[i] / v["c"][i] - 1) * 100
+
 class DonchianConjunto(Estrategia):
     id, nome, emoji = "donchian_conjunto", "Conjunto de Canais", "🛰️"
     inspiracao = "Zarattini, Pagani & Barbon — \"Catching Crypto Trends\" (2025)"
@@ -437,6 +462,16 @@ def _gatilho_conjunto(self, d, v, i, p):
 
 
 DonchianConjunto.gatilho = _gatilho_conjunto
+
+
+def _distancia_conjunto(self, d, v, i, p):
+    import indicadores as _i
+    c = v["c"]
+    alvos = [x for x in (_i.maxima_anterior(v["h"], L)[i] for L in self.CONJUNTOS[p["conjunto"]]) if x is not None]
+    return (min(alvos) / c[i] - 1) * 100 if alvos else None
+
+
+DonchianConjunto.distancia = _distancia_conjunto
 
 TODAS = [DonchianConjunto(), Momentum(), Tartaruga(), Seykota(), PTJ200(), Weinstein(), Minervini(),
          Williams(), ConnorsRSI2(), Raschke(), Supertrend(), MACD(), Squeeze(), BollingerReversao(), Cruzamento()]
