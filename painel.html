@@ -184,8 +184,8 @@ textarea,input[type=password],input[type=text]{width:100%;background:#0f1216;col
 
   <!-- ===================== SPRINTS ===================== -->
   <section id="aba-sprints" class="oculto">
-    <h1>Sprints <span>semanais</span></h1>
-    <p class="sub">Cada sprint dura uma semana (fecha junto com a rodada de segunda). No fim, a agência mede o que aconteceu, confere as metas e diz o que melhorar — e o gerente escreve a retrospectiva.</p>
+    <h1>Sprints <span>diárias</span></h1>
+    <p class="sub">Cada sprint dura um dia (fecha à meia-noite, horário de Brasília). No fim, a agência mede o que aconteceu, confere as metas e diz o que melhorar — e o gerente escreve a retrospectiva.</p>
     <div class="painel" id="sp-atual"><div class="vazio">A sprint aparece quando a agência estiver ligada.</div></div>
     <div class="duas" style="margin-top:12px">
       <div><h2>metas e diagnóstico</h2><div class="painel" id="sp-diag"></div></div>
@@ -293,9 +293,17 @@ async function api(caminho, corpo) {
   return r.json();
 }
 function patrimonio(tr) {
-  if (!tr.posicao) return tr.caixa;
-  return tr.caixa + tr.posicao.qtd * (tr.ultimo_preco || tr.posicao.preco);
+  const p = tr.posicao;
+  if (!p) return tr.caixa;
+  const px = tr.ultimo_preco || p.preco;
+  if (p.lado) {
+    const g = tr.grade_estado;
+    if (g && g.futuros) return tr.caixa + Object.values(g.lotes).reduce((s, x) => s + x.lado * x.qtd * (px - x.preco), 0);
+    return tr.caixa + p.lado * p.qtd * (px - p.preco);
+  }
+  return tr.caixa + p.qtd * px;
 }
+const ladoTxt = l => l > 0 ? '<span class="pos">▲ LONG</span>' : '<span class="neg">▼ SHORT</span>';
 function md(texto) {
   const linhas = esc(texto).split('\n'); let html = '', lista = false;
   const inl = s => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|\s)_(.+?)_/g, '$1<i>$2</i>');
@@ -334,16 +342,20 @@ function falta(t) {
 }
 function linhaMembro(tr) {
   const p = patrimonio(tr);
-  let st = tr.distancia != null ? `<span title="${esc(tr.gatilho || '')}">🎯 falta ${tr.distancia > 0 ? num(tr.distancia, 1) + '% de alta' : 'pouco'} pra comprar</span>`
+  const fut = ESTADO && ESTADO.mercado === 'futuros';
+  let st = tr.distancia != null ? `<span title="${esc(tr.gatilho || '')}">🎯 falta ${fut ? num(Math.abs(tr.distancia), 1) + (tr.distancia > 0 ? '% de alta (LONG)' : '% de queda (SHORT)') : (tr.distancia > 0 ? num(tr.distancia, 1) + '% de alta' : 'pouco')} pra ${fut ? 'entrar' : 'comprar'}</span>`
          : tr.gatilho ? `<span title="${esc(tr.gatilho)}">🎯 esperando: ${esc(corta(tr.gatilho, 46))}</span>` : '👀 esperando sinal';
   if (tr.time === 'rapida') st = `${esc(tr.estrategia_emoji)} ${esc(tr.intervalo)} · ` + st;
   if (tr.pausado_ate) st = '🎮 no videogame';
   else if (tr.posicao) {
-    const v = ((tr.ultimo_preco || tr.posicao.preco) / tr.posicao.preco - 1) * 100;
-    st = `📈 comprado <span class="${cls(v)}">${pct(v, 2)}</span>`;
+    const p = tr.posicao, v = ((tr.ultimo_preco || p.preco) / p.preco - 1) * 100;
+    if (p.lado) {
+      const roe = v * p.lado * (p.alavancagem || 1);
+      st = `${ladoTxt(p.lado)} ${p.alavancagem}x <span class="${cls(roe)}">${pct(roe, 1)} na margem</span>${p.lotes ? ` · ${p.lotes} lotes` : ''}${p.preco_liquidacao ? ` · 💀 ${num(p.preco_liquidacao, p.preco_liquidacao >= 1 ? 2 : 5)}` : ''}`;
+    } else st = `📈 comprado <span class="${cls(v)}">${pct(v, 2)}</span>`;
   }
   return `<div class="membro"><div style="font-size:18px">${esc(tr.emoji)}</div>
-    <div><b>${esc(tr.nome)}</b> <span class="st"><span class="bolinha" style="background:${COR_HUMOR[tr.humor]}"></span>${tr.humor} · ${tr.vitorias}V/${tr.derrotas}D</span><div class="st">${st}</div></div>
+    <div><b>${esc(tr.nome)}</b> <span class="st"><span class="bolinha" style="background:${COR_HUMOR[tr.humor]}"></span>${tr.humor} · ${tr.vitorias}V/${tr.derrotas}D${tr.liquidacoes ? ` · 💀${tr.liquidacoes}` : ''}</span><div class="st">${st}</div></div>
     <div style="text-align:right;font-variant-numeric:tabular-nums">${usd(p)}<div class="st ${cls(tr.lucro_realizado)}">${sinal(tr.lucro_realizado)}${usd(Math.abs(tr.lucro_realizado))}</div></div></div>`;
 }
 function renderGeral(d) {
@@ -352,7 +364,7 @@ function renderGeral(d) {
   const total = d.traders.reduce((s, t) => s + patrimonio(t), 0), lucro = total - d.aportes_ceo;
   const tit = d.times.find(t => t.titular) || times[0];
   const bebes = d.traders.filter(t => t.tipo === 'bebe').length;
-  $('sub').innerHTML = `Temporada <b>${temp.numero}</b> · começou em ${hora(temp.inicio)} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · dinheiro de mentira, preços de verdade.`;
+  $('sub').innerHTML = `Temporada <b>${temp.numero}</b>${d.mercado === 'futuros' ? ' · <b>FUTUROS</b> (LONG e SHORT, 5x a 10x)' : ''} · começou em ${hora(temp.inicio)} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · dinheiro de mentira, preços de verdade.`;
   $('kpis').innerHTML = [
     ['🏆 time titular', `<span style="font-size:20px">${esc(tit.emoji)} ${esc(tit.nome)}</span>`, `pontuação ${sinal(tit.pontuacao_agora)}${num(tit.pontuacao_agora)} · ${pct(tit.resultado_pct, 2)} na temporada`, ''],
     ['⏱️ próxima rodada', falta(temp.proxima_rodada), 'segunda-feira, 00:00', ''],
@@ -363,7 +375,7 @@ function renderGeral(d) {
 
   $('classificacao').innerHTML = `<table><tr><th></th><th>time</th><th>papel</th><th>pontuação</th><th>4 semanas</th><th>patrimônio</th><th>temporada</th><th>traders</th><th>rumo ao bebê</th></tr>${
     times.map(t => `<tr><td><span class="lugar">${t.especial ? '⚡' : t.lugar + 'º'}</span></td>
-      <td><b>${esc(t.emoji)} ${esc(t.nome)}</b><div class="sub" style="margin:0;font-size:12px">${esc(t.estrategia_nome)} · ${esc(t.intervalo)} · nota ${num(t.nota_escola, 1)}</div></td>
+      <td><b>${esc(t.emoji)} ${esc(t.nome)}</b><div class="sub" style="margin:0;font-size:12px">${esc(t.estrategia_nome)} · ${esc(t.intervalo)}${t.alavancagem > 1 ? ` · <b>${t.alavancagem}x</b>` : ''} · nota ${num(t.nota_escola, 1)}</div></td>
       <td>${t.titular ? '<span class="selo ok">🏆 titular</span>' : t.especial ? '<span class="selo nao">fora da disputa</span>' : '<span class="selo info">reserva</span>'}</td>
       <td><b class="${cls(t.pontuacao_agora)}">${sinal(t.pontuacao_agora)}${num(t.pontuacao_agora)}</b></td>
       <td><span class="${cls(t.retorno_4s_pct)}">${pct(t.retorno_4s_pct, 2)}</span> <span class="sub" style="font-size:12px">queda ${pct(t.queda_4s_pct, 1)}</span></td>
@@ -377,7 +389,7 @@ function renderGeral(d) {
     return `<div class="card time${t.titular ? ' titular' : ''}">
       <div class="topo-time"><div class="avatar" style="border:2px solid ${corTime(d, t.id)}">${esc(t.emoji)}</div>
         <div style="flex:1"><div class="nome">${esc(t.nome)}</div><div class="cargo">${t.titular ? '🏆 titular — operaria com dinheiro real' : t.especial ? (t.modo === 'grade' ? '🧮 robôs de grade · fora da disputa' : '⚡ estagiários · fora da disputa') : 'reserva · simulação'}</div>
-        <div class="sub" style="margin:2px 0 0;font-size:12px">${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)}</div></div>
+        <div class="sub" style="margin:2px 0 0;font-size:12px">${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)}${t.alavancagem > 1 ? ` · <b>${t.alavancagem}x</b>` : ''}</div></div>
         <div style="text-align:right"><div class="v" style="font-weight:800">${usd(t.patrimonio)}</div><div class="${cls(t.resultado_pct)}" style="font-size:12px">${pct(t.resultado_pct, 2)}</div></div></div>
       <div class="membros">${membros.map(linhaMembro).join('')}</div></div>`;
   }).join('');
@@ -405,7 +417,7 @@ function renderGeral(d) {
     : '<div class="vazio">Nada aconteceu ainda.</div>';
   const ops = d.traders.flatMap(t => t.trades.map(o => ({...o, quem: t.nome, time: t.time}))).sort((a, b) => b.t_saida - a.t_saida).slice(0, 15);
   $('trades').innerHTML = ops.length ? `<table><tr><th>quando</th><th>quem</th><th>saída</th><th>resultado</th></tr>${
-    ops.map(o => `<tr><td>${hora(o.t_saida)}</td><td>${esc(o.quem)} · ${esc(nomeT(o.time))}</td><td>${esc(o.motivo)}</td><td class="${cls(o.lucro)}">${sinal(o.lucro)}${usd(Math.abs(o.lucro))} (${pct(o.pct, 2)})</td></tr>`).join('')}</table>`
+    ops.map(o => `<tr><td>${hora(o.t_saida)}</td><td>${esc(o.quem)} · ${esc(nomeT(o.time))}</td><td>${o.lado ? ladoTxt(o.lado) + ' ' + o.alavancagem + 'x · ' : ''}${esc(o.motivo)}</td><td class="${cls(o.lucro)}">${sinal(o.lucro)}${usd(Math.abs(o.lucro))} (${pct(o.pct, 2)})</td></tr>`).join('')}</table>`
     : '<div class="vazio">Nenhuma operação fechada ainda. Estratégias de velas diárias e de 4h operam pouco — paciência faz parte.</div>';
 }
 function desenharTimes(d) {
@@ -558,34 +570,36 @@ let LAB = null, SP_ABERTA = null;
 async function atualizarLab() { try { LAB = await api('/api/laboratorio'); if (!GERENTE) GERENTE = await api('/api/gerente'); renderSprints(); } catch (e) {} }
 function linhaSprintTime(x) {
   return `<tr><td>${esc(x.emoji)} ${esc(x.nome)}${x.especial ? ' <span class="selo nao">fora</span>' : ''}</td><td>${x.operacoes}</td>
-    <td class="${cls(x.lucro_pct)}">${pct(x.lucro_pct, 2)}</td><td>${usd(x.taxas)}</td><td>${num(x.giro, 1)}x</td><td>${num(x.exposicao_pct, 0)}%</td><td class="neg">${pct(x.queda_pct, 1)}</td></tr>`;
+    <td class="${cls(x.lucro_pct)}">${pct(x.lucro_pct, 2)}</td><td>${usd(x.taxas)}</td><td>${num(x.giro, 1)}x</td><td>${num(x.exposicao_pct, 0)}%</td><td class="neg">${pct(x.queda_pct, 1)}</td><td>${x.liquidacoes ? '💀 ' + x.liquidacoes : '–'}</td></tr>`;
 }
+const CAB_SP = '<tr><th>time</th><th>ops</th><th>resultado</th><th>taxas</th><th>giro</th><th>exposição</th><th>queda</th><th>liquid.</th></tr>';
 function renderSprints() {
   if (!ESTADO || !ESTADO.sprint_atual) return;
   const sp = ESTADO.sprint_atual, tot = sp.total, durac = Math.max(1, (sp.fim - sp.inicio) / 864e5), p = Math.min(100, sp.dias / durac * 100);
   $('sp-atual').innerHTML = `<div class="linha-meta"><b style="font-family:var(--serif);font-style:italic;font-size:22px;color:var(--amarelo)">Sprint ${sp.numero}</b>
-      <span class="sub" style="margin:0">dia ${num(sp.dias, 1)} de ${num(durac, 0)} · fecha ${hora(sp.fim)}</span></div>
+      <span class="sub" style="margin:0">${sp.duracao === 'dia' ? 'sprint do dia · ' + num(p, 0) + '% do dia' : 'dia ' + num(sp.dias, 1) + ' de ' + num(durac, 0)} · fecha ${hora(sp.fim)}</span></div>
     <div class="barra"><i style="width:${p}%"></i></div>
     <div class="grid-kpi" style="margin-top:12px">
-      <div class="kpi"><div class="r">operações dos times</div><div class="v">${tot.operacoes}</div><div class="s">${tot.vitorias} V · ${tot.derrotas} D</div></div>
+      <div class="kpi"><div class="r">operações (agência)</div><div class="v">${tot.operacoes_agencia ?? tot.operacoes}</div><div class="s">times: ${tot.operacoes} · ${tot.vitorias} V · ${tot.derrotas} D</div></div>
       <div class="kpi"><div class="r">dinheiro girado</div><div class="v">${usd(tot.volume)}</div><div class="s">${num(tot.giro, 2)}x o capital</div></div>
       <div class="kpi"><div class="r">resultado</div><div class="v ${cls(tot.lucro_pct)}">${pct(tot.lucro_pct, 2)}</div><div class="s">${sinal(tot.lucro)}${usd(Math.abs(tot.lucro))}</div></div>
       <div class="kpi"><div class="r">taxas pagas</div><div class="v">${usd(tot.taxas)}</div><div class="s">bruto ${sinal(tot.bruto)}${usd(Math.abs(tot.bruto))}</div></div>
-      <div class="kpi"><div class="r">tempo comprado</div><div class="v">${num(tot.exposicao_pct, 0)}%</div><div class="s">parado ${num(100 - tot.exposicao_pct, 0)}%</div></div>
+      <div class="kpi"><div class="r">exposição média</div><div class="v">${num(tot.exposicao_pct, 0)}%</div><div class="s">do patrimônio posicionado</div></div>
+      ${tot.liquidacoes != null ? `<div class="kpi"><div class="r">💀 liquidações</div><div class="v ${tot.liquidacoes ? 'neg' : ''}">${tot.liquidacoes}</div><div class="s">funding ${sinal(-tot.funding)}${usd(Math.abs(tot.funding))}</div></div>` : ''}
     </div>`;
   $('sp-diag').innerHTML = (sp.metas.length ? sp.metas.map(m => `<div class="ev"><div>${m.ok ? '✅' : '❌'}</div><div><div>${esc(m.meta)}</div><div class="q">agora: ${esc(m.valor)}</div></div></div>`).join('') : '') +
     (sp.diagnosticos.length ? '<h3 style="margin:14px 0 6px">diagnóstico até agora</h3>' + sp.diagnosticos.map(d => `<div class="ev"><div>🔎</div><div>${esc(d)}</div></div>`).join('') : '<div class="vazio">Sem diagnóstico ainda.</div>');
-  $('sp-times').innerHTML = `<table><tr><th>time</th><th>ops</th><th>resultado</th><th>taxas</th><th>giro</th><th>comprado</th><th>queda</th></tr>${sp.times.map(linhaSprintTime).join('')}</table>`;
+  $('sp-times').innerHTML = `<table>${CAB_SP}${sp.times.map(linhaSprintTime).join('')}</table>`;
   const hist = (ESTADO.sprints || []).slice().reverse(), retros = (GERENTE && GERENTE.retros) || {};
   $('sp-hist').innerHTML = hist.length ? `<table><tr><th>sprint</th><th>período</th><th>ops</th><th>resultado</th><th>taxas</th><th>metas</th><th></th></tr>${hist.map(h => {
       const ok = h.metas.filter(m => m.ok).length, aberta = SP_ABERTA === h.numero, r = retros[String(h.numero)];
-      let html = `<tr class="aluno" data-sp="${h.numero}"><td><b>#${h.numero}</b>${h.temporada ? ` <span class="sub">T${h.temporada}</span>` : ''}</td><td>${hora(h.inicio)} → ${hora(h.fim)}</td><td>${h.total.operacoes}</td>
+      let html = `<tr class="aluno" data-sp="${h.numero}"><td><b>#${h.numero}</b>${h.temporada ? ` <span class="sub">T${h.temporada}</span>` : ''}</td><td>${hora(h.inicio)} → ${hora(h.fim)}</td><td>${h.total.operacoes_agencia ?? h.total.operacoes}</td>
         <td class="${cls(h.total.lucro_pct)}">${pct(h.total.lucro_pct, 2)}</td><td>${usd(h.total.taxas)}</td><td>${ok}/${h.metas.length} ✅</td><td>${r ? '🧠' : ''} ${aberta ? '▲' : '▼'}</td></tr>`;
       if (aberta) html += `<tr class="det"><td colspan="7">${h.diagnosticos.map(d => `<p>🔎 ${esc(d)}</p>`).join('')}
-          <table style="margin:8px 0"><tr><th>time</th><th>ops</th><th>resultado</th><th>taxas</th><th>giro</th><th>comprado</th><th>queda</th></tr>${h.times.map(linhaSprintTime).join('')}</table>
+          <table style="margin:8px 0">${CAB_SP}${h.times.map(linhaSprintTime).join('')}</table>
           ${r ? `<div class="md" style="margin-top:10px">${md(r.texto)}</div>` : '<p class="sub">Sem retrospectiva do gerente (precisa da chave de API conectada).</p>'}</td></tr>`;
       return html;
-    }).join('')}</table>` : '<div class="vazio">A primeira sprint fecha na próxima rodada (segunda-feira, 00:00).</div>';
+    }).join('')}</table>` : '<div class="vazio">A primeira sprint fecha à meia-noite.</div>';
   const cor = {reprovado: 'nao', aprovado: 'ok', 'a testar': 'info'};
   $('sp-lab').innerHTML = LAB && LAB.experimentos ? LAB.experimentos.map(x => `<div class="ev"><div><span class="selo ${cor[x.status] || 'info'}">${esc(x.status)}</span></div>
       <div><b>${esc(x.titulo)}</b><div class="sub" style="margin:2px 0 0">${esc(x.resultado)}</div></div></div>`).join('') : '<div class="vazio">carregando…</div>';

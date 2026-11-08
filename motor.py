@@ -11,6 +11,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from estrategias import POR_ID, checar_saida, fracao_entrada, niveis_de_entrada, pode_entrar
+from motor_futuros import Futuros, espelho, passo_ms, tendencia
 
 FUSO = timezone(timedelta(hours=-3))  # horário de Brasília
 TAMANHO_BUFFER = 1400
@@ -58,7 +59,7 @@ def proxima_segunda(t):
     return int(alvo.timestamp() * 1000)
 
 
-class Trader:
+class Trader(Futuros):
     def __init__(self, nome, emoji, par, capital_usd, tipo, t, time_id, estrategia, params):
         self.nome = nome
         self.emoji = emoji
@@ -82,6 +83,9 @@ class Trader:
         self.trades = []
         self.taxas_pagas = 0.0
         self.volume = 0.0
+        self.alavancagem = 1
+        self.liquidacoes = 0
+        self.funding_pago = 0.0
         est = POR_ID[estrategia]
         self.estrategia = estrategia
         self.estrategia_nome = est.nome
@@ -103,15 +107,22 @@ class Trader:
         return dict(self.__dict__)
 
     def patrimonio(self):
-        if self.posicao:
-            return self.caixa + self.posicao["qtd"] * (self.ultimo_preco or self.posicao["preco"])
-        return self.caixa
+        p = self.posicao
+        if not p:
+            return self.caixa
+        px = self.ultimo_preco or p["preco"]
+        if "lado" in p:  # futuros: caixa + lucro/prejuízo em aberto
+            g = getattr(self, "grade_estado", None)
+            if g and g.get("futuros"):
+                return self.caixa + sum(x["lado"] * x["qtd"] * (px - x["preco"]) for x in g["lotes"].values())
+            return self.caixa + p["lado"] * p["qtd"] * (px - p["preco"])
+        return self.caixa + p["qtd"] * px
 
     def rotulo(self, ag):
         return f"{self.nome} do {ag.time(self.time)['nome']}"
 
     # ------------------------------------------------------------------
-    def processar(self, v, d, cfg, ag):
+    def processar(self, v, d, cfg, ag, ve=None, de=None):
         est = POR_ID[self.estrategia]
         p = self.params
         i = len(v["c"]) - 1
@@ -121,6 +132,17 @@ class Trader:
         if dia != self.dia:
             self.dia, self.trades_hoje = dia, 0
 
+        if ag.futuros():
+            if est.tipo == "grade":
+                self._grade_fut(v, i, cfg, ag)
+                return
+            self._funding(t + passo_ms(self.intervalo), c, cfg)
+            if est.tipo == "peso":
+                self._peso_fut(est, v, d, ve, de, i, cfg, ag)
+            else:
+                self._sinal_fut(est, v, d, ve, de, i, cfg, ag)
+            self.gatilho_fut(est, d, v, de, ve, i)
+            return
         if est.tipo == "grade":
             self._processar_grade(v, i, cfg, ag)
             return
@@ -262,20 +284,29 @@ class Trader:
         lucro = receita - p["custo"]
         pct = lucro / p["custo"] * 100 if p["custo"] > 0 else 0.0
         self.caixa += receita
+        self._registrar(p, preco, lucro, pct, motivo, t, cfg, ag, sufixo=f" ({pct:+.1f}%)")
+
+    def _registrar(self, p, preco, lucro, pct, motivo, t, cfg, ag, sufixo="", silencioso=False):
+        """Depois de fechar uma operação (à vista ou futuros): placar, humor e as regras do vídeo."""
         self.lucro_realizado += lucro
-        self.trades.append({"t_entrada": p["t"], "t_saida": t, "entrada": p["preco"], "saida": preco,
-                            "valor": p["custo"], "lucro": lucro, "pct": pct, "motivo": motivo, "humor": p["humor"]})
+        tr = {"t_entrada": p["t"], "t_saida": t, "entrada": p["preco"], "saida": preco,
+              "valor": p["custo"], "lucro": lucro, "pct": pct, "motivo": motivo, "humor": p["humor"]}
+        if "lado" in p:
+            tr.update(lado=p["lado"], alavancagem=p.get("alavancagem"))
+        self.trades.append(tr)
         self.trades = self.trades[-60:]
         if lucro > 0:
             self.vitorias += 1
             self.vit_bonus += 1
             self.seq = self.seq + 1 if self.seq > 0 else 1
-            ag.evento(t, self, "✅", f"{self.rotulo(ag)} ganhou US$ {lucro:.2f} ({pct:+.1f}%)")
+            if not silencioso:
+                ag.evento(t, self, "✅", f"{self.rotulo(ag)} ganhou US$ {lucro:.2f}{sufixo}")
         else:
             self.derrotas += 1
             self.der_corte += 1
             self.seq = self.seq - 1 if self.seq < 0 else -1
-            ag.evento(t, self, "❌", f"{self.rotulo(ag)} perdeu US$ {abs(lucro):.2f} ({pct:+.1f}%)")
+            if not silencioso:
+                ag.evento(t, self, "❌", f"{self.rotulo(ag)} perdeu US$ {abs(lucro):.2f}{sufixo}")
 
         antes = self.humor
         h = cfg["humor"]
@@ -332,11 +363,21 @@ class Agencia:
         self.temporada = None
         self.sprint = None
         self.sprints = []
+        self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self._iniciar_temporarios()
 
     def _iniciar_temporarios(self):
         self._buf = {}
+        self._tend = {}
         self.ao_evento = None
+
+    def futuros(self):
+        return getattr(self, "mercado", "spot") == "futuros"
+
+    def tendencia(self, par, filtro, t_fim):
+        if not filtro:
+            return 1
+        return tendencia(self._buf.get(f"{par}@{filtro['intervalo']}"), filtro, t_fim, self._tend)
 
     # --- salvar / carregar ------------------------------------------------
     def para_dict(self):
@@ -354,7 +395,7 @@ class Agencia:
         o.cfg = cfg
         o.traders = [Trader.de_dict(x) for x in d["traders"]]
         campos = ("id", "nome", "emoji", "inspiracao", "estrategia", "estrategia_nome", "params", "intervalo", "titular",
-                  "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial", "modo")
+                  "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial", "modo", "alavancagem")
         o.times = [{k: tm.get(k) for k in campos} for tm in d.get("times", [])]
         o.sprint = d.get("sprint")
         o.sprints = d.get("sprints", [])
@@ -385,7 +426,13 @@ class Agencia:
         return sum(tr.patrimonio() for tr in self.traders if time_id is None or tr.time == time_id)
 
     def chaves(self):
-        return sorted({tr.chave for tr in self.traders})
+        ks = {tr.chave for tr in self.traders}
+        if self.futuros():  # velas extras pro filtro de tendência da grade
+            for tr in self.traders:
+                filtro = tr.params.get("filtro")
+                if filtro:
+                    ks.add(f"{tr.par}@{filtro['intervalo']}")
+        return sorted(ks)
 
     def pares(self):
         return sorted({tr.par for tr in self.traders})
@@ -414,20 +461,25 @@ class Agencia:
         """escolhidos = lista de resultados da escola (id, nome, emoji, inspiracao, params_atuais, nota)."""
         numero = (self.temporada or {}).get("numero", 0) + 1
         self.times, self.traders, self.curva, self.aportes_ceo = [], [], [], 0.0
+        fut = self.cfg.get("futuros", {})
+        self.mercado = "futuros" if fut.get("ativo") else "spot"
+        alavs = fut.get("alavancagem_por_time", [5, 6, 7, 8, 10]) if self.futuros() else [1]
         moedas = self.cfg["liga"]["moedas"]
         capital = self.cfg["liga"]["capital_por_trader_usd"]
-        for r in escolhidos:
+        for k, r in enumerate(escolhidos):
             est = POR_ID[r["id"]]
             tm = {"id": r["id"], "nome": NOMES_TIME.get(r["id"], "Time " + est.nome),
                   "emoji": est.emoji, "inspiracao": r["inspiracao"], "estrategia": r["id"], "estrategia_nome": est.nome,
                   "params": r["params_atuais"], "intervalo": r["params_atuais"]["intervalo"], "titular": False,
                   "aportes": 0.0, "lucro_usado_bebes": 0.0, "bonus_bebe1_pago": False, "curva": [],
-                  "nota_escola": r.get("nota"), "criado_em": t, "pontuacao": 0.0, "lugar": None}
+                  "nota_escola": r.get("nota"), "criado_em": t, "pontuacao": 0.0, "lugar": None,
+                  "alavancagem": alavs[k % len(alavs)]}
             self.times.append(tm)
             for par in moedas:
                 tr = Trader(moeda(par), self.cfg["liga"].get("emoji_trader", "🤖"), par, 0.0, "trader", t,
                             tm["id"], r["id"], r["params_atuais"])
                 tr.ultimo_preco = self.ultimo_preco.get(par)
+                tr.alavancagem = tm["alavancagem"]
                 self.traders.append(tr)
                 self.aporte(tr, capital)
         self.times[0]["titular"] = True  # na semana 1, o titular é o de melhor nota na escola
@@ -438,7 +490,8 @@ class Agencia:
         self.temporada = {"numero": numero, "inicio": t, "proxima_rodada": proxima_segunda(t + 6 * 86_400_000),
                           "titular": self.times[0]["id"], "rodadas": []}
         self.abrir_sprint(t)
-        self.evento(t, None, "🏁", f"Começou a temporada {numero}! Titular da 1ª semana: {self.times[0]['emoji']} {self.times[0]['nome']}")
+        mercado = f" em FUTUROS ({min(alavs)}x a {max(alavs)}x, LONG e SHORT)" if self.futuros() else ""
+        self.evento(t, None, "🏁", f"Começou a temporada {numero}{mercado}! Titular da 1ª semana: {self.times[0]['emoji']} {self.times[0]['nome']}")
 
     def adicionar_mesa_rapida(self, t):
         """Mesa Rápida: estagiários com velas curtas, FORA da disputa (nunca viram titular, sem bebês)."""
@@ -451,19 +504,29 @@ class Agencia:
         if not modo or atual:
             return
         if modo == "grade":
-            gr = mr.get("grade", {})
+            gr = dict(mr.get("grade", {}))
+            fut = self.cfg.get("futuros", {})
+            alav = fut.get("alavancagem_mesa", 5) if self.futuros() else 1
+            if self.futuros():
+                gr.update(fut.get("grade", {}))
+            nome_est = f"grade de {gr.get('degrau', 0.005):.1%} em ±{gr.get('faixa', 0.2):.0%}"
+            if self.futuros():
+                nome_est = f"grade {alav}x a favor da tendência de 4h, degrau de {gr.get('degrau', 0.008):.1%}"
             tm = {"id": "rapida", "nome": "Mesa de Grade", "emoji": "🧮", "inspiracao": "robôs de grade (grid)", "modo": "grade",
-                  "estrategia": "grade", "estrategia_nome": f"grade de {gr.get('degrau', 0.005):.1%} em ±{gr.get('faixa', 0.2):.0%}",
+                  "alavancagem": alav, "estrategia": "grade", "estrategia_nome": nome_est,
                   "params": {}, "intervalo": gr.get("intervalo", "5m"), "titular": False, "aportes": 0.0, "lucro_usado_bebes": 0.0,
                   "bonus_bebe1_pago": True, "curva": [], "nota_escola": None, "criado_em": t, "pontuacao": 0.0, "lugar": None, "especial": True}
             self.times.append(tm)
             params = {"intervalo": gr.get("intervalo", "5m"), "degrau": gr.get("degrau", 0.005), "faixa": gr.get("faixa", 0.20)}
+            if self.futuros() and gr.get("filtro"):
+                params["filtro"] = gr["filtro"]
             for par in gr.get("moedas", ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]):
                 tr = Trader(moeda(par), "🤖", par, 0.0, "trader", t, "rapida", "grade", params)
                 tr.ultimo_preco = self.ultimo_preco.get(par)
+                tr.alavancagem = alav
                 self.traders.append(tr)
                 self.aporte(tr, gr.get("capital_por_trader_usd", 250))  # cada degrau precisa de ≥ US$ 5 (mínimo da Binance)
-            self.evento(t, None, "🧮", "Chegou a Mesa de Grade: robôs que compram e vendem em degraus (fora da disputa)")
+            self.evento(t, None, "🧮", "Chegou a Mesa de Grade: robôs que operam em degraus" + (f", {alav}x, LONG ou SHORT conforme a tendência" if self.futuros() else "") + " (fora da disputa)")
             return
         tm = {"id": "rapida", "nome": "Mesa Rápida", "emoji": "⚡", "inspiracao": "estagiários (velas de 5 e 15 min)", "modo": "estagiarios",
               "estrategia": None, "estrategia_nome": "várias, velas curtas", "params": {}, "intervalo": "5–15m", "titular": False,
@@ -475,6 +538,8 @@ class Agencia:
             params = dict(est.params); params.update(e.get("params", {})); params["intervalo"] = e["intervalo"]
             tr = Trader(moeda(e["par"]), "🤖", e["par"], 0.0, "trader", t, "rapida", e["estrategia"], params)
             tr.ultimo_preco = self.ultimo_preco.get(e["par"])
+            if self.futuros():
+                tr.alavancagem = self.cfg.get("futuros", {}).get("alavancagem_mesa", 5)
             self.traders.append(tr)
             self.aporte(tr, mr.get("capital_por_trader_usd", 100))
         self.evento(t, None, "⚡", "Chegaram os estagiários da Mesa Rápida (velas curtas, fora da disputa)")
@@ -488,13 +553,20 @@ class Agencia:
             f[tm["id"]] = {"lucro": patr - tm["aportes"], "patr": patr,
                            "taxas": sum(getattr(t, "taxas_pagas", 0.0) for t in trs),
                            "volume": sum(getattr(t, "volume", 0.0) for t in trs),
-                           "vit": sum(t.vitorias for t in trs), "der": sum(t.derrotas for t in trs)}
+                           "vit": sum(t.vitorias for t in trs), "der": sum(t.derrotas for t in trs),
+                           "funding": sum(getattr(t, "funding_pago", 0.0) for t in trs),
+                           "liq": sum(getattr(t, "liquidacoes", 0) for t in trs)}
         return f
 
     def abrir_sprint(self, t):
         n = self.sprints[-1]["numero"] + 1 if self.sprints else 1
-        fim = self.temporada["proxima_rodada"] if self.temporada else t + SEMANA
-        self.sprint = {"numero": n, "inicio": t, "fim": fim, "base": self._foto(), "exp": {}, "amostras": 0, "pico": {}, "queda": {}}
+        duracao = self.cfg["liga"].get("sprint", {}).get("duracao", "semana")
+        if duracao == "dia":
+            fim = proxima_meia_noite(t)
+        else:
+            fim = self.temporada["proxima_rodada"] if self.temporada else t + SEMANA
+        self.sprint = {"numero": n, "inicio": t, "fim": fim, "duracao": duracao, "base": self._foto(), "exp": {}, "amostras": 0,
+                       "pico": {}, "queda": {}}
 
     def _amostrar_sprint(self):
         sp = self.sprint
@@ -504,7 +576,7 @@ class Agencia:
         for tm in self.times:
             tid = tm["id"]
             patr = self.patrimonio(tid)
-            dentro = sum(t.posicao["qtd"] * (t.ultimo_preco or t.posicao["preco"]) for t in self.do_time(tid) if t.posicao)
+            dentro = sum(abs(t.posicao["qtd"]) * (t.ultimo_preco or t.posicao["preco"]) for t in self.do_time(tid) if t.posicao)
             sp["exp"][tid] = sp["exp"].get(tid, 0.0) + (dentro / patr if patr > 0 else 0.0)
             base = sp["base"].get(tid) or {"lucro": patr - tm["aportes"], "patr": patr}
             lucro = (patr - tm["aportes"]) - base["lucro"]
@@ -525,13 +597,16 @@ class Agencia:
             lucro = a["lucro"] - b["lucro"]
             taxas = a["taxas"] - b["taxas"]
             ops = (a["vit"] - b["vit"]) + (a["der"] - b["der"])
+            funding = a.get("funding", 0.0) - b.get("funding", 0.0)
+            liq = a.get("liq", 0) - b.get("liq", 0)
             linhas.append({"id": tid, "nome": tm["nome"], "emoji": tm["emoji"], "especial": bool(tm.get("especial")),
                            "lucro": round(lucro, 4), "lucro_pct": round(lucro / cap * 100, 3), "taxas": round(taxas, 4),
                            "bruto": round(lucro + taxas, 4), "volume": round(a["volume"] - b["volume"], 2),
                            "giro": round((a["volume"] - b["volume"]) / cap, 3), "operacoes": ops,
                            "vitorias": a["vit"] - b["vit"], "derrotas": a["der"] - b["der"],
                            "exposicao_pct": round(sp["exp"].get(tid, 0.0) / max(sp["amostras"], 1) * 100, 1),
-                           "queda_pct": round(sp["queda"].get(tid, 0.0), 2)})
+                           "queda_pct": round(sp["queda"].get(tid, 0.0), 2), "funding": round(funding, 4),
+                           "liquidacoes": liq, "alavancagem": tm.get("alavancagem")})
         principais = [x for x in linhas if not x["especial"]]
         cap_total = sum((sp["base"].get(x["id"]) or {}).get("patr", 0) or 1 for x in principais) or 1
 
@@ -542,11 +617,13 @@ class Agencia:
                  "giro": round(soma("volume") / cap_total, 3), "operacoes": soma("operacoes"),
                  "vitorias": soma("vitorias"), "derrotas": soma("derrotas"),
                  "exposicao_pct": round(sum(x["exposicao_pct"] for x in principais) / max(len(principais), 1), 1),
-                 "queda_pct": min([x["queda_pct"] for x in principais] or [0])}
+                 "queda_pct": min([x["queda_pct"] for x in principais] or [0]),
+                 "funding": round(soma("funding"), 4), "liquidacoes": soma("liquidacoes"),
+                 "operacoes_agencia": soma("operacoes", linhas)}
         metas = []
         if "operacoes_min" in metas_cfg:
-            metas.append({"meta": f"pelo menos {metas_cfg['operacoes_min']} operações dos times", "valor": str(total["operacoes"]),
-                          "ok": total["operacoes"] >= metas_cfg["operacoes_min"]})
+            metas.append({"meta": f"pelo menos {metas_cfg['operacoes_min']} operações (agência toda)", "valor": str(total["operacoes_agencia"]),
+                          "ok": total["operacoes_agencia"] >= metas_cfg["operacoes_min"]})
         if "lucro_min_pct" in metas_cfg:
             metas.append({"meta": f"resultado dos times ≥ {metas_cfg['lucro_min_pct']:+.1f}%", "valor": f"{total['lucro_pct']:+.2f}%",
                           "ok": total["lucro_pct"] >= metas_cfg["lucro_min_pct"]})
@@ -558,8 +635,13 @@ class Agencia:
         if "queda_max_pct" in metas_cfg:
             metas.append({"meta": f"nenhum time cair mais de {metas_cfg['queda_max_pct']}%", "valor": f"{total['queda_pct']:.2f}%",
                           "ok": total["queda_pct"] >= -metas_cfg["queda_max_pct"]})
+        if "liquidacoes_max" in metas_cfg and self.futuros():
+            liq_tot = soma("liquidacoes", linhas)
+            metas.append({"meta": f"no máximo {metas_cfg['liquidacoes_max']} liquidação(ões)", "valor": str(liq_tot),
+                          "ok": liq_tot <= metas_cfg["liquidacoes_max"]})
         dias = max((t - sp["inicio"]) / 86_400_000, 0)
         return {"numero": sp["numero"], "inicio": sp["inicio"], "fim": sp["fim"], "dias": round(dias, 1),
+                "duracao": sp.get("duracao", "semana"), "mercado": getattr(self, "mercado", "spot"),
                 "times": linhas, "total": total, "metas": metas, "diagnosticos": self._diagnosticos(linhas, total)}
 
     def _diagnosticos(self, linhas, total):
@@ -578,6 +660,12 @@ class Agencia:
             acerto = total["vitorias"] / total["operacoes"] * 100
             if acerto < 35:
                 d.append(f"Acerto de {acerto:.0f}% — normal pra tendência, desde que os ganhos sejam bem maiores que as perdas.")
+        if total.get("liquidacoes"):
+            d.append(f"{total['liquidacoes']} liquidação(ões) nos times: a alavancagem foi maior que o stop aguenta. "
+                     "Menos alavancagem ou menos margem por operação (futuros.margem_por_operacao) evita isso.")
+        if abs(total.get("funding", 0)) >= 0.01:
+            d.append(f"Funding: os times {'pagaram' if total['funding'] > 0 else 'receberam'} US$ {abs(total['funding']):.2f} "
+                     "(comprado paga e vendido recebe quando o mercado está otimista).")
         com_ops = [x for x in principais if x["operacoes"] > 0 or abs(x["lucro"]) > 0.01]
         if len(com_ops) >= 2:
             m = max(com_ops, key=lambda x: x["lucro_pct"]); p = min(com_ops, key=lambda x: x["lucro_pct"])
@@ -596,9 +684,9 @@ class Agencia:
         r["fim"] = t
         r["temporada"] = (self.temporada or {}).get("numero")
         self.sprints.append(r)
-        self.sprints = self.sprints[-52:]
+        self.sprints = self.sprints[-90:]
         tot = r["total"]
-        self.evento(t, None, "🏃", f"Sprint {r['numero']} fechada: {tot['operacoes']} operações, resultado {tot['lucro_pct']:+.2f}%, "
+        self.evento(t, None, "🏃", f"Sprint {r['numero']} fechada: {tot.get('operacoes_agencia', tot['operacoes'])} operações, resultado dos times {tot['lucro_pct']:+.2f}%, "
                                   f"taxas US$ {tot['taxas']:.2f}. Veja a retrospectiva na aba Sprints")
         self.abrir_sprint(t)
         return r
@@ -610,9 +698,7 @@ class Agencia:
             return
         for tr in self.do_time(tm["id"]):
             if tr.posicao:
-                preco = tr.ultimo_preco or tr.posicao["preco"]
-                tr.caixa += tr.posicao["qtd"] * preco * (1 - self.cfg["taxa"])
-                tr.posicao = None
+                tr.encerrar(tr.ultimo_preco or tr.posicao["preco"], t, self.cfg, self)
         resultado = self.patrimonio(tm["id"]) - tm["aportes"]
         self.aportes_ceo -= tm["aportes"]
         self.traders = [x for x in self.traders if x.time != tm["id"]]
@@ -657,7 +743,6 @@ class Agencia:
         self.temporada["rodadas"].append({"t": t, "vencedor": vencedor, "ranking": ranking})
         self.temporada["rodadas"] = self.temporada["rodadas"][-60:]
         self.temporada["proxima_rodada"] = proxima_segunda(t)
-        self.fechar_sprint(t)
         v = self.time(vencedor)
         if vencedor == antigo:
             self.evento(t, None, "🏆", f"{v['emoji']} {v['nome']} continua TITULAR ({ranking[0]['pontuacao']:+.2f} pts)")
@@ -706,6 +791,12 @@ class Agencia:
             if est.tipo == "grade":
                 continue
             d = est.calcular(v, p)
+            if self.futuros():
+                ve = espelho(v) if self.cfg.get("futuros", {}).get("vender_a_descoberto", True) else None
+                de = est.calcular(ve, p) if ve is not None else None
+                tr.sincronizar_fut(est, v, d, ve, de, t, self.cfg, self)
+                tr.gatilho_fut(est, d, v, de, ve, n - 1)
+                continue
             tr.atualizar_gatilho(est, d, v, n - 1)
             if est.tipo == "peso":
                 w = est.peso(d, v, n - 1, p)
@@ -733,13 +824,22 @@ class Agencia:
         v = self._buf[chave]
         self.ultimo_preco[chave.split("@")[0]] = vela["c"]
         cache = {}
+        shorts = self.futuros() and self.cfg.get("futuros", {}).get("vender_a_descoberto", True)
+        ve = None
         for tr in list(self.traders):
             if tr.chave != chave:
                 continue
+            est = POR_ID[tr.estrategia]
             k = (tr.estrategia, json.dumps(tr.params, sort_keys=True))
             if k not in cache:
-                cache[k] = {} if POR_ID[tr.estrategia].tipo == "grade" else POR_ID[tr.estrategia].calcular(v, tr.params)
-            tr.processar(v, cache[k], self.cfg, self)
+                if est.tipo == "grade":
+                    cache[k] = ({}, None)
+                else:
+                    if shorts and ve is None:
+                        ve = espelho(v)
+                    cache[k] = (est.calcular(v, tr.params), est.calcular(ve, tr.params) if shorts else None)
+            d, de = cache[k]
+            tr.processar(v, d, self.cfg, self, ve if shorts else None, de)
         for tm in self.disputando():
             self._checar_bebes(tm, vela["t"])
 
@@ -767,6 +867,7 @@ class Agencia:
                 par = b["moedas"][(n - 1) % len(b["moedas"])]
                 bebe = Trader(f"Bebê {moeda(par)}", "👶", par, custo_usd, "bebe", t, tm["id"], tm["estrategia"], tm["params"])
                 bebe.ultimo_preco = self.ultimo_preco.get(par)
+                bebe.alavancagem = tm.get("alavancagem") or 1
                 self.traders.append(bebe)
                 tm["lucro_usado_bebes"] += custo_usd
                 self.evento(t, bebe, "🍼", f"Nasceu um bebê no {tm['nome']}! Vai operar {moeda(par)}")

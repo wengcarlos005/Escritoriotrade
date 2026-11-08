@@ -153,7 +153,8 @@ def resumo_liga(ag):
     for tm in sorted(ag.times, key=lambda x: x["lugar"] or 99):
         r = ag.resumo_time(tm)
         papel = "🏆 TITULAR" if tm["titular"] else ("⚡ fora   " if tm.get("especial") else "   reserva")
-        print(f"  {tm['lugar'] or '–'}º {papel}  {tm['emoji']} {tm['nome']:<18} {tm['intervalo']:>3}  patrimônio US$ {r['patrimonio']:8.2f}"
+        alav = f"{tm.get('alavancagem') or 1:>2}x" if ag.futuros() else ""
+        print(f"  {tm['lugar'] or '–'}º {papel}  {tm['emoji']} {tm['nome']:<18} {tm['intervalo']:>3} {alav} patrimônio US$ {r['patrimonio']:8.2f}"
               f"  ({r['resultado_pct']:+.2f}%)  traders {len(ag.do_time(tm['id']))}")
     print()
 
@@ -176,6 +177,11 @@ def cmd_simular(args):
         else:
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
+            if cfg.get("futuros", {}).get("ativo") and not ag.futuros():
+                backup = DADOS / f"simulacao_a_vista_{time.strftime('%Y%m%d_%H%M')}.json"
+                shutil.copy2(ARQ_SIM, backup)
+                print(f"🔁 Reiniciando a agência em FUTUROS. A temporada à vista foi guardada em dados/{backup.name}.")
+                ag = None
     ag = ag or Agencia(cfg, agora)
     ag.ao_evento = imprimir_evento
     if not ag.times:
@@ -207,6 +213,7 @@ def cmd_simular(args):
                     resumo_liga(ag)
                 elif cmd.get("acao") == "rodada_agora":
                     ag.rodada(agora)
+                    ag.fechar_sprint(agora)
                     resumo_liga(ag)
             # 2) Saiu boletim novo da escola?
             novo = escola_mod.carregar()
@@ -215,11 +222,12 @@ def cmd_simular(args):
                 top = [r["id"] for r in escolher_times(cfg, esc)]
                 if sorted(top) != sorted(tm["id"] for tm in ag.times):
                     ag.evento(agora, None, "📜", "Novo boletim da escola: o top 5 mudou (veja na aba Escola)")
-            # 3) Rodada da semana
+            # 3) Rodada da semana e fim da sprint (de 1 dia, por padrão)
             if agora >= ag.temporada["proxima_rodada"]:
                 ag.rodada(agora)
                 resumo_liga(ag)
-                retro = ag.sprints[-1] if ag.sprints else None
+            if ag.sprint and agora >= ag.sprint["fim"]:
+                retro = ag.fechar_sprint(agora)
                 if retro and gerente.status()[0]:
                     threading.Thread(target=lambda r=retro: _retro(r), daemon=True).start()
             # 4) Preços e velas
@@ -292,8 +300,13 @@ def cmd_resumo(args):
         trs = [t for t in d["traders"] if t["time"] == tm["id"]]
         ops24 = sum(1 for t in trs for o in t.get("trades", []) if agora - o["t_saida"] < 86_400_000)
         abertos = sum(1 for t in trs if t.get("posicao"))
+        longs = sum(1 for t in trs if (t.get("posicao") or {}).get("lado") == 1)
+        shorts = sum(1 for t in trs if (t.get("posicao") or {}).get("lado") == -1)
+        liqs = sum(t.get("liquidacoes", 0) for t in trs)
         L.append(f"{tm['emoji']} {tm['nome']} ({tm['intervalo']}) {'TITULAR' if tm.get('titular') else ''}: patrimônio US$ {tm['patrimonio']:.2f} "
-                 f"({tm['resultado_pct']:+.2f}%) · operações nas últimas 24h: {ops24} · comprados agora: {abertos}/{len(trs)}")
+                 f"({tm['resultado_pct']:+.2f}%) · operações nas últimas 24h: {ops24} · "
+                 + (f"{tm.get('alavancagem')}x · LONG {longs} / SHORT {shorts} de {len(trs)} · liquidações {liqs}" if d.get("mercado") == "futuros"
+                    else f"comprados agora: {abertos}/{len(trs)}"))
         if tm.get("modo") == "grade":
             for t in trs:
                 g = t.get("grade_estado") or {}

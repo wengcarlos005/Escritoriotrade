@@ -2,9 +2,29 @@
   "atualizado_em": "2026-11-08",
   "experimentos": [
     {
-      "titulo": "Robô de grade (20–40 operações por dia)",
+      "titulo": "Futuros: as mesmas estratégias comprando E vendendo (sem alavancagem)",
+      "status": "reprovado",
+      "resultado": "4 anos fora da amostra, taxa de futuros 0,05%: Seykota long/short +88% (só comprado: +169%), Tartarugas +22%, Momentum +46%. O short ajuda nas quedas mas atrapalha num mercado que subiu muito. Velas de 15 min seguem perdendo (−12% a −45% em 4 meses)."
+    },
+    {
+      "titulo": "Futuros: grade neutra (compra nas quedas e vende nas altas)",
+      "status": "reprovado",
+      "resultado": "~70 operações/dia em 3 moedas, mas −8% a −11% em 200 dias. Com 2x: −15% (queda de 59%); com 3x: −23% (queda de 87%). Alavancagem só aumenta o estrago."
+    },
+    {
+      "titulo": "Futuros: grade a favor da tendência de 4h (LONG na alta, SHORT na baixa)",
       "status": "em teste ao vivo",
-      "resultado": "Velas de 5 min, degrau 0,5% em ±20%, US$ 250 por moeda. No passado: 21–31 operações/dia em 3 moedas; os degraus lucraram mais que as taxas, mas o resultado final ficou entre −2% e −5% (30 a 180 dias) por causa das moedas seguradas nas quedas. Perde menos que comprar e segurar quando o mercado cai (−4,3% contra −12,3% em 30 dias) e fica pra trás quando dispara (−4,8% contra +17,9% em 90 dias). Agora roda na Mesa de Grade, medida pelas sprints."
+      "resultado": "Últimos 200 dias (5 min): +5,5% com ~27 operações/dia, enquanto segurar deu −2,9%. Mas em 5 anos (velas de 1h, aproximado) perdeu: −10% a −51%. Ou seja: pode ter sido sorte do período. Agora roda na Mesa de Grade a 5x."
+    },
+    {
+      "titulo": "Liga em futuros 5x a 10x, sprints de 1 dia",
+      "status": "em teste ao vivo",
+      "resultado": "Simulando os últimos 30 dias com o motor de verdade: ~17 operações/dia na agência, 0 liquidações (margem de 25% do caixa por operação). Seykota 5x +8,4%, Momentum 8x −20,7%. 30 dias é pouco: é ruído."
+    },
+    {
+      "titulo": "Robô de grade (20–40 operações por dia)",
+      "status": "substituído",
+      "resultado": "Velas de 5 min, degrau 0,5% em ±20%, US$ 250 por moeda. No passado: 21–31 operações/dia em 3 moedas; os degraus lucraram mais que as taxas, mas o resultado final ficou entre −2% e −5% (30 a 180 dias) por causa das moedas seguradas nas quedas. Perde menos que comprar e segurar quando o mercado cai (−4,3% contra −12,3% em 30 dias) e fica pra trás quando dispara (−4,8% contra +17,9% em 90 dias). Agora roda na Mesa de Grade, medida pelas sprints. Foi trocado pela grade em futuros a favor da tendência."
     },
     {
       "titulo": "Robôs rápidos (velas de 5 e 15 min)",

@@ -45,6 +45,15 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório** (planta vista de cima
 **📊 Visão geral** (classificação, times, rodadas), **🎓 Escola** (boletim e botão de nova temporada) e **🧠 Gerente**.
 
 ## 2.1 Como funciona a liga
+- **💹 Tudo em FUTUROS (simulado):** os robôs operam futuros perpétuos, **comprando (LONG) e vendendo (SHORT)**.
+  Cada time tem uma alavancagem: **5x, 6x, 7x, 8x e 10x** (assim a liga também mostra qual alavancagem aguenta).
+  Margem isolada: cada operação usa **25% do caixa** do trader como margem (com 10x, a posição vale 2,5× o caixa).
+  Custos de futuros: taxa 0,05% (a mercado), 0,02% (ordens limitadas da grade) e **funding** a cada 8h
+  (comprado paga, vendido recebe; média ~0,005%). Se o preço bater no **preço de liquidação** antes do stop,
+  o trader é **💀 liquidado** e perde a margem inteira daquela operação.
+  O short usa o mesmo aluno da escola "de cabeça pra baixo": o sinal de compra no preço invertido vira sinal de venda.
+  Ao atualizar, a agência **reinicia sozinha em futuros** (a temporada antiga fica guardada em `dados/`).
+  Pra voltar ao à vista: `{"futuros": {"ativo": false}}` no `config.json`.
 - **5 times = os 5 melhores alunos da escola.** Cada time tem **5 traders** (BTC, ETH, SOL, BNB, XRP),
   com **US$ 100 de mentira** cada, todos usando a estratégia do time.
 - **Rodada toda segunda-feira, 00:00** (a 1ª depois de uma semana inteira). Pontuação = retorno das
@@ -53,14 +62,13 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório** (planta vista de cima
 - **Bebês traders:** a cada **R$ 500 de lucro de um time**, nasce um bebê nesse time, pago só com o lucro,
   operando uma moeda nova (ADA, DOGE, LINK, AVAX, LTC). Até 5 bebês por time. Quando o 1º bebê de um time
   chega a R$ 500 de lucro, o CEO dá R$ 500 pra cada trader daquele time.
-- **🧮 Mesa de Grade (20–40 operações/dia):** 4 robôs de grade (BTC, ETH, SOL, BNB) com velas de 5 min, US$ 250 de
-  mentira cada (cada degrau precisa de ≥ US$ 5, o mínimo da Binance). Compram em degraus de 0,5% numa faixa de ±20% e
-  vendem cada lote um degrau acima. Ficam **fora da disputa**. No passado: os degraus pagaram as taxas, mas o resultado
-  final ficou entre −2% e −5% por segurar moedas nas quedas — perde menos que comprar e segurar quando o mercado cai e fica
-  pra trás quando dispara. As sprints medem se vale a pena. Pra voltar aos estagiários de velas curtas:
-  `{"liga": {"mesa_rapida": {"modo": "estagiarios"}}}` no `config.json`; pra desligar: `"ativo": false`.
-- **🎯 Falta X%:** cada trader mostra quanto o preço precisa subir até o gatilho de compra da estratégia dele.
-- **🏃 Sprints:** cada semana (de segunda a segunda) é uma sprint. A agência mede operações, dinheiro girado,
+- **🧮 Mesa de Grade (futuros 5x):** 4 robôs de grade (BTC, ETH, SOL, BNB), velas de 5 min, US$ 250 de mentira cada,
+  **fora da disputa**. Olham a tendência das velas de 4h (média 20 × 150): em alta montam degraus de **compra (LONG)** abaixo
+  do preço; em baixa, degraus de **venda (SHORT)** acima. Cada lote fecha 0,8% a favor (ordem limitada, taxa maker 0,02%);
+  se o preço sair 16% contra, fecha tudo e recomeça. É quem mais opera (~15 operações/dia). Nos últimos 200 dias ganhou,
+  mas em 5 anos de teste perdeu — por isso fica fora da disputa e é medida pelas sprints.
+- **🎯 Falta X%:** cada trader mostra quanto o preço precisa subir (pra abrir LONG) ou cair (pra abrir SHORT).
+- **🏃 Sprints de 1 dia:** cada dia (meia-noite a meia-noite, Brasília) é uma sprint. A agência mede operações, dinheiro girado,
   resultado, taxas pagas e tempo parado de cada time, confere as metas (em `liga.sprint.metas`) e escreve um
   diagnóstico do que melhorar. Com a chave de API, o gerente escreve a retrospectiva com 3 experimentos pra próxima.
   A aba **Laboratório** lista o que já testamos (e o resultado) e os próximos experimentos.
@@ -111,7 +119,10 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório** (planta vista de cima
 ## 4. Configuração (`config.padrao.json` + o seu `config.json`)
 Os padrões ficam em `config.padrao.json` (vem nas atualizações). Pra mudar algo, crie um `config.json` com **só** o que quer mudar — por exemplo `{"mascote": {"nome": "Thor"}}` — ele vale por cima dos padrões e nunca é sobrescrito.
 
-- `liga`: número de times, moedas, US$ por trader, semanas usadas na pontuação, `so_alunos_aprovados`.
+- `futuros`: `ativo`, `alavancagem_por_time` ([5, 6, 7, 8, 10]), `alavancagem_mesa`, `margem_por_operacao` (0,25 = 25% do
+  caixa por operação; 1,0 = tudo — mais liquidações), `vender_a_descoberto` (shorts), taxas, funding e a grade.
+- `liga`: número de times, moedas, US$ por trader, semanas usadas na pontuação, `so_alunos_aprovados`,
+  `sprint.duracao` (`"dia"` ou `"semana"`) e `sprint.metas` (operações, lucro, taxas, queda, liquidações).
 - `bebes`: R$ de lucro por bebê, máximo por time, moedas dos bebês, bônus do CEO.
 - `humor.muda_tamanho_da_aposta`, `regras.ativo`, `cansaco.ativo`: as regras divertidas do vídeo
   (apostar menos depois de perder, bônus/corte de US$ 50, videogame depois de 3 derrotas).
@@ -124,6 +135,8 @@ Os padrões ficam em `config.padrao.json` (vem nas atualizações). Pra mudar al
 2. Um time titular formado por aluno **aprovado** na escola, e que continue aprovado quando a escola rodar de novo.
 3. Valores pequenos que você aceita perder; chave da Binance **sem permissão de saque** e com IP restrito.
 4. Este projeto ainda **não envia ordens reais** — de propósito.
+5. **Futuros com alavancagem é o jeito mais rápido de perder dinheiro de verdade.** Confira se você pode operar
+   futuros na sua corretora e no seu país antes de qualquer coisa, e comece sem alavancagem.
 
 ## 6. Referências usadas
 - freqtrade, nautilus_trader, QuantConnect Lean, vectorbt, jesse, hummingbot (frameworks open-source).

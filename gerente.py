@@ -27,7 +27,9 @@ Binance com DINHEIRO DE MENTIRA (simulação com preços reais). O dono (o "CEO"
 no futuro, lucrar de verdade. A agência é uma LIGA de 5 times: cada time é uma estratégia da Escola de Traders (alunos = \
 estratégias inspiradas em traders famosos, avaliadas com walk-forward fora da amostra, custos e Deflated Sharpe) com 5 \
 traders robôs, um por moeda. Toda segunda o melhor time das últimas 4 semanas vira titular; bebês traders nascem a cada \
-R$ 500 de lucro de um time.
+R$ 500 de lucro de um time. Quando o estado disser mercado "futuros", os robôs operam futuros perpétuos: LONG e SHORT, \
+alavancagem de 5x a 10x (cada time uma), margem isolada, taxas de futuros, funding a cada 8h e risco de LIQUIDAÇÃO — \
+fale disso com franqueza (alavancagem multiplica ganho E perda; liquidação é perder a margem inteira). As sprints duram 1 dia.
 
 Seu papel:
 - Ser o gerente honesto e disciplinado: explicar o que aconteceu com números, apontar riscos e dar recomendações claras.
@@ -125,7 +127,13 @@ def contexto(estado, escola):
         brl = estado.get("cotacao_brl") or 5.5
 
         def patr(t):
-            return t["caixa"] + (t["posicao"]["qtd"] * (t.get("ultimo_preco") or t["posicao"]["preco"]) if t.get("posicao") else 0)
+            p = t.get("posicao")
+            if not p:
+                return t["caixa"]
+            px = t.get("ultimo_preco") or p["preco"]
+            if "lado" in p:
+                return t["caixa"] + p["lado"] * p["qtd"] * (px - p["preco"])
+            return t["caixa"] + p["qtd"] * px
 
         temp = estado.get("temporada") or {}
         total = sum(patr(t) for t in estado["traders"])
@@ -134,12 +142,14 @@ def contexto(estado, escola):
         linhas.append("Regras: 5 times, cada um = 1 estratégia da escola com 5 traders (BTC, ETH, SOL, BNB, XRP, US$ 100 cada). "
                       "Toda segunda o time com melhor pontuação (retorno 4 semanas − metade da maior queda) vira TITULAR "
                       "(o que operaria com dinheiro real no futuro); os outros ficam na reserva. Bebês nascem a cada R$ 500 de lucro do time.")
+        if estado.get("mercado") == "futuros":
+            linhas.append("MERCADO: FUTUROS perpétuos (LONG e SHORT, alavancagem por time, margem isolada, liquidação possível). Sprints de 1 dia.")
         linhas.append(f"Dólar: R$ {brl:.2f}. Patrimônio total: US$ {total:.2f} (colocado: US$ {estado['aportes_ceo']:.2f}).")
         for tm in sorted(estado.get("times", []), key=lambda x: x.get("lugar") or 9):
             papel = "TITULAR" if tm["titular"] else (("MESA DE GRADE, fora da disputa (robôs de grid: 20–40 operações/dia, lucram no vai-e-vem e sofrem em queda contínua)"
                      if tm.get("modo") == "grade" else "MESA RÁPIDA, fora da disputa (velas curtas — serve pra mostrar o efeito das taxas)") if tm.get("especial") else "reserva")
             linhas.append(f"## {tm['lugar'] or '–'}º {papel}: {tm['emoji']} {tm['nome']} "
-                          f"({tm['estrategia_nome']}, {tm['intervalo']}, nota na escola {tm.get('nota_escola')}) — patrimônio US$ {tm['patrimonio']:.2f} "
+                          f"({tm['estrategia_nome']}, {tm['intervalo']}, {tm.get('alavancagem') or 1}x, nota na escola {tm.get('nota_escola')}) — patrimônio US$ {tm['patrimonio']:.2f} "
                           f"({tm['resultado_pct']:+.2f}%), pontuação 4 semanas {tm.get('pontuacao_agora')}, bebês {tm['bebes']}, "
                           f"rumo ao próximo bebê {tm['meta_bebe_pct']}%")
             for t in [x for x in estado["traders"] if x.get("time") == tm["id"]]:
@@ -147,13 +157,22 @@ def contexto(estado, escola):
                 if t.get("posicao"):
                     p = t["posicao"]
                     var = ((t.get("ultimo_preco") or p["preco"]) / p["preco"] - 1) * 100
-                    pos = f"comprado desde {_h(p['t'])} ({var:+.2f}%)"
+                    if "lado" in p:
+                        roe = var * p["lado"] * (p.get("alavancagem") or 1)
+                        lq = p.get("preco_liquidacao")
+                        liq = (f", liquidação em {lq:,.2f}" if lq >= 1 else f", liquidação em {lq:.5f}") if lq else ""
+                        pos = (f"{'LONG' if p['lado'] > 0 else 'SHORT'} {p.get('alavancagem')}x desde {_h(p['t'])} "
+                               f"(preço {var:+.2f}%, {roe:+.1f}% na margem{liq})")
+                    else:
+                        pos = f"comprado desde {_h(p['t'])} ({var:+.2f}%)"
                 linhas.append(f"- {t['nome']}: US$ {patr(t):.2f}, lucro realizado US$ {t['lucro_realizado']:+.2f}, "
-                              f"{t['vitorias']}V/{t['derrotas']}D, {pos}")
+                              f"{t['vitorias']}V/{t['derrotas']}D, liquidações {t.get('liquidacoes', 0)}, {pos}")
         sp = estado.get("sprint_atual")
         if sp:
             tt = sp["total"]
-            linhas.append(f"Sprint {sp['numero']} (dia {sp['dias']} de 7): {tt['operacoes']} operações dos times, resultado {tt['lucro_pct']:+.2f}%, "
+            dur = "sprint de 1 dia" if sp.get("duracao") == "dia" else f"dia {sp['dias']} de 7"
+            linhas.append(f"Sprint {sp['numero']} ({dur}): {tt.get('operacoes_agencia', tt['operacoes'])} operações na agência "
+                          f"({tt['operacoes']} dos times), liquidações {tt.get('liquidacoes', 0)}, funding US$ {tt.get('funding', 0):+.2f}, resultado {tt['lucro_pct']:+.2f}%, "
                           f"taxas US$ {tt['taxas']:.2f}, girou US$ {tt['volume']:.0f}, comprado {tt['exposicao_pct']}% do tempo. "
                           "Metas: " + "; ".join(f"{m['meta']} → {m['valor']} {'OK' if m['ok'] else 'NÃO'}" for m in sp["metas"]))
         for r in temp.get("rodadas", [])[-4:]:

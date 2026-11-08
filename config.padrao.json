@@ -12,7 +12,8 @@
     "so_alunos_aprovados": false,
     "sincronizar_ao_comecar": true,
     "sprint": {
-      "metas": {"operacoes_min": 5, "lucro_min_pct": 0.0, "taxas_max_pct_do_bruto": 30, "queda_max_pct": 5}
+      "duracao": "dia",
+      "metas": {"operacoes_min": 20, "lucro_min_pct": 0.0, "taxas_max_pct_do_bruto": 30, "queda_max_pct": 10, "liquidacoes_max": 0}
     },
     "mesa_rapida": {
       "ativo": true,
@@ -26,6 +27,19 @@
         {"par": "XRPUSDT", "estrategia": "squeeze",    "intervalo": "15m", "params": {"fator": 0.8}}
       ]
     }
+  },
+
+  "futuros": {
+    "ativo": true,
+    "alavancagem_por_time": [5, 6, 7, 8, 10],
+    "alavancagem_mesa": 5,
+    "margem_por_operacao": 0.25,
+    "vender_a_descoberto": true,
+    "taxa_taker": 0.0005,
+    "taxa_maker": 0.0002,
+    "funding_8h": 0.00005,
+    "margem_manutencao": 0.005,
+    "grade": {"degrau": 0.008, "faixa": 0.16, "filtro": {"intervalo": "4h", "rapida": 20, "lenta": 150}}
   },
 
   "bebes": {
