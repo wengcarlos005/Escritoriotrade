@@ -516,7 +516,7 @@ class Agencia:
         o.traders = [Trader.de_dict(x) for x in d["traders"]]
         campos = ("id", "nome", "emoji", "inspiracao", "estrategia", "estrategia_nome", "params", "intervalo", "titular",
                   "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial", "modo", "alavancagem", "confianca",
-                  "membros", "preco_inicial", "caixa_time", "contratados", "demitidos")
+                  "membros", "preco_inicial", "caixa_time", "contratados", "demitidos", "reforcos")
         o.times = [{k: tm.get(k) for k in campos} for tm in d.get("times", [])]
         o.sprint = d.get("sprint")
         o.sprints = d.get("sprints", [])
@@ -584,6 +584,25 @@ class Agencia:
         """Dinheiro que sai do time pro caixa da empresa (não conta como prejuízo do time no ranking)."""
         self.caixa_empresa = (getattr(self, "caixa_empresa", 0.0) or 0.0) + valor
         tm["aportes"] -= valor
+
+    def _reforcar_campeao(self, tm, t):
+        """Toda rodada, o caixa da empresa reforça o time campeão da semana: uma parte do caixa é dividida
+        entre os funcionários dele (dinheiro novo pra operar; não conta como lucro do time no ranking)."""
+        pct = self._empresa().get("reforco_campeao_pct", 0.5)
+        caixa = getattr(self, "caixa_empresa", 0.0) or 0.0
+        membros = self.do_time(tm["id"])
+        valor = caixa * pct
+        if not membros or valor < 1:
+            return
+        self.caixa_empresa = caixa - valor
+        cada = valor / len(membros)
+        for m in membros:
+            m.caixa += cada
+            m.capital_recebido = getattr(m, "capital_recebido", 0.0) + cada
+        tm["aportes"] += valor
+        tm["reforcos"] = (tm.get("reforcos") or 0.0) + valor
+        self.evento(t, None, "🏦", f"O caixa da empresa reforçou o campeão da semana: {tm['emoji']} {tm['nome']} recebeu "
+                                  f"US$ {valor:,.0f} (US$ {cada:,.0f} pra cada funcionário). Ficaram US$ {self.caixa_empresa:,.0f} no caixa.")
 
     def _contratar(self, tm, t):
         """Juntou US$ 500 no caixa do time: demite o pior, contrata 1 novo, o melhor ganha US$ 50,
@@ -1025,6 +1044,7 @@ class Agencia:
         self.temporada["rodadas"].append({"t": t, "vencedor": vencedor, "ranking": ranking})
         self.temporada["rodadas"] = self.temporada["rodadas"][-60:]
         self.temporada["proxima_rodada"] = proxima_segunda(t)
+        self._reforcar_campeao(self.time(vencedor), t)
         v = self.time(vencedor)
         if vencedor == antigo:
             self.evento(t, None, "🏆", f"{v['emoji']} {v['nome']} continua TITULAR ({ranking[0]['pontuacao']:+.2f} pts)")

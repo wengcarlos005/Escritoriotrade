@@ -82,7 +82,8 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório 3D** (um andar de escri
   time. **Cada contratação é uma troca:** o time demite quem teve o **pior desempenho** (resultado em % do que recebeu,
   contando o que já mandou pro caixa; quem entrou há menos de 7 dias está em experiência), o **melhor ganha US$ 50**,
   e a **contagem zera**: o que passar dos US$ 500, e o dinheiro de quem saiu, vai pro **🏦 caixa da empresa**
-  (essas transferências não contam como prejuízo do time no ranking). Configurável em `empresa` no `config.json`.
+  (essas transferências não contam como prejuízo do time no ranking). **Toda rodada de segunda, metade do caixa da
+  empresa reforça o time campeão da semana** (dividido entre os funcionários dele). Configurável em `empresa` no `config.json`.
 - **🧮 Mesa de Grade (alta frequência, fora da disputa):** 10 robôs de grade (BTC, ETH, SOL, BNB, XRP, ADA, DOGE, LINK,
   AVAX, LTC), velas de 5 min, US$ 1.000 cada, 5x. Seguem a tendência de 4h (média 20 × 150): em alta montam degraus de
   **compra (LONG)** abaixo do preço; em baixa, degraus de **venda (SHORT)** acima. Cada lote fecha 0,8% a favor (ordem
