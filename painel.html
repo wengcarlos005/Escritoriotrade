@@ -372,7 +372,7 @@ function renderGeral(d) {
     ['⏱️ próxima rodada', falta(temp.proxima_rodada), 'segunda-feira, 00:00', ''],
     ['patrimônio total', usd(total), brl(total * taxa), ''],
     ['resultado', sinal(lucro) + usd(Math.abs(lucro)), `${pct(lucro / d.aportes_ceo * 100, 2)} · ${d.traders.length} traders`, cls(lucro)],
-    ['🤝 contratações', String(contratados), `caixa dos times ${usd(caixaTimes)} · contrata a cada ${usd(emp.custo_contratacao_usd || 500)}`, ''],
+    ['🤝 contratações', String(contratados), `caixa dos times ${usd(caixaTimes)} · 🏦 caixa da empresa ${usd(d.caixa_empresa || 0)}`, ''],
   ].map(([r, v, s, c]) => `<div class="kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join('');
 
   $('classificacao').innerHTML = `<table><tr><th></th><th>time</th><th>papel</th><th>pontuação</th><th>4 semanas</th><th>patrimônio</th><th>temporada</th><th>segurar</th><th>funcionários</th><th>caixa do time</th></tr>${

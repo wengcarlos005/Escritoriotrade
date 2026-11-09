@@ -77,9 +77,12 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório 3D** (um andar de escri
   (Uma semana sozinha é ruído demais — por isso olhamos 4.)
 - **🏢 A empresa (minigame):** cada funcionário (trader) começa com **US$ 1.000** de mentira. A cada **US$ 50 de lucro
   realizado** (sempre um novo recorde — perdeu, precisa recuperar antes), ele fica com **US$ 20 de bônus** e manda
-  **US$ 30 pro caixa do time**. Quando o caixa do time chega a **US$ 500**, o time **contrata um funcionário novo**
+  **US$ 30 pro caixa do time**. Quando o caixa do time chega a **US$ 500**, o time **contrata 1 funcionário novo**
   (com esses US$ 500), numa moeda nova (ADA, DOGE, LINK, AVAX, LTC, DOT, TRX, NEAR, ATOM, APT), usando a estratégia do
-  time. Até 15 funcionários por time. Tudo configurável em `empresa` no `config.json`.
+  time. **Cada contratação é uma troca:** o time demite quem teve o **pior desempenho** (resultado em % do que recebeu,
+  contando o que já mandou pro caixa; quem entrou há menos de 7 dias está em experiência), o **melhor ganha US$ 50**,
+  e a **contagem zera**: o que passar dos US$ 500, e o dinheiro de quem saiu, vai pro **🏦 caixa da empresa**
+  (essas transferências não contam como prejuízo do time no ranking). Configurável em `empresa` no `config.json`.
 - **🧮 Mesa de Grade (alta frequência, fora da disputa):** 10 robôs de grade (BTC, ETH, SOL, BNB, XRP, ADA, DOGE, LINK,
   AVAX, LTC), velas de 5 min, US$ 1.000 cada, 5x. Seguem a tendência de 4h (média 20 × 150): em alta montam degraus de
   **compra (LONG)** abaixo do preço; em baixa, degraus de **venda (SHORT)** acima. Cada lote fecha 0,8% a favor (ordem

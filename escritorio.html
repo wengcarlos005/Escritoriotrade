@@ -1227,6 +1227,8 @@ function renderDetalhe() {
       (FUT() ? linha('liquidações', membros.reduce((s, x) => s + (x.liquidacoes || 0), 0)) : '') +
       linha('caixa do time', `<b>${usd(t.caixa_time || 0)}</b> / ${num(custoContratar(), 0)} ${barraHtml(caixaFrac(t), t.titular ? '#e2a72e' : corTime(t.id))}`) +
       linha('funcionários', `${nFunc(t)}${t.max_funcionarios ? ' / ' + t.max_funcionarios : ''}${t.contratados ? ` · ${t.contratados} contratado${t.contratados > 1 ? 's' : ''}` : ''}`) +
+      ((t.contratados || t.demitidos) ? linha('contratou / demitiu', `${t.contratados || 0} / ${t.demitidos || 0}`) : '') +
+      (t.pior ? linha('👋 próximo a sair', `${esc(t.pior.nome)} (${pct(t.pior.desempenho, 1)})`) : '') +
       (t.destaque ? linha('⭐ funcionário do mês', `${esc(t.destaque.nome)} · ${sinal(t.destaque.lucro)}${usd(Math.abs(t.destaque.lucro))}${t.destaque.metas ? ` · ${t.destaque.metas} metas` : ''}`) : '') +
       `<div class="acoes"><button class="bt" data-ver="pos">📋 ver posições</button><button class="bt" data-ver="hist">🕘 ver histórico</button></div>`;
     return;
@@ -1251,6 +1253,7 @@ function renderDetalhe() {
     linha('lucro realizado', `<span class="${cls(tr.lucro_realizado)}">${sinal(tr.lucro_realizado)}${usd(Math.abs(tr.lucro_realizado))}</span>`) +
     linha('vitórias / derrotas', `${tr.vitorias} / ${tr.derrotas}${n ? ` (${Math.round(tr.vitorias / n * 100)}%)` : ''}`) +
     (tr.liquidacoes != null ? linha('liquidações', tr.liquidacoes ? `💀 ${tr.liquidacoes}` : '0') : '') +
+    (tr.desempenho != null ? linha('desempenho', `<span class="${cls(tr.desempenho)}">${pct(tr.desempenho, 1)}</span> do que recebeu${tr.premios ? ` · ⭐ ${tr.premios}× melhor do time` : ''}`) : '') +
     linha('metas batidas', `${tr.metas_batidas || 0} × US$ ${num(metaEmp().meta_lucro_usd || 50, 0)}`) +
     linha('bônus recebido', usd(tr.bonus_recebido || 0)) +
     (tr.tipo === 'contratado' ? linha('crachá', '🧑‍💼 contratado com o caixa do time') : '') +
@@ -1384,8 +1387,9 @@ function renderTopo(vivo) {
   const sp = D.sprint_atual, liq = D.traders.reduce((s, t) => s + (t.liquidacoes || 0), 0);
   $('kpis').innerHTML = [['patrimônio', usd(total), ''], ['resultado', `${sinal(lucro)}${usd(Math.abs(lucro))}`, cls(lucro)],
     FUT() ? ['posições', `${longs}▲ ${shorts}▼ <small style="font-size:12px;color:var(--suave)">de ${D.traders.length}</small>`, ''] : ['comprados agora', `${abertos.length} de ${D.traders.length}`, ''],
-    ...(sp && sp.total ? [[sp.duracao === 'dia' ? 'sprint do dia' : 'sprint ' + sp.numero, `${sp.total.operacoes} ops · ${pct(sp.total.lucro_pct, 2)}`, cls(sp.total.lucro_pct)]] : []),
+    ...(sp && sp.total ? [[sp.duracao === 'dia' ? 'sprint do dia' : 'sprint ' + sp.numero, `${sp.total.operacoes_agencia ?? sp.total.operacoes} ops · ${pct(sp.total.lucro_pct, 2)}`, cls(sp.total.lucro_pct)]] : []),
     ...(FUT() ? [['liquidações', liq ? `💀 ${liq}` : '0', liq ? 'neg' : '']] : []),
+    ...(D.caixa_empresa != null ? [['🏦 caixa da empresa', usd(D.caixa_empresa || 0), '']] : []),
     ['próxima rodada', falta(temp.proxima_rodada), '']]
     .map(([r, v, c]) => `<div class="kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div></div>`).join('');
 }

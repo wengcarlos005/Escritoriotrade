@@ -33,7 +33,8 @@ do stop, pela confiança da escola e pela tendência de 200 dias; margem isolada
 Os robôs APRENDEM: cada operação fechada (medida em R = resultado ÷ risco) ajusta a confiança do time aos poucos, e a escola \
 reestuda toda semana. Há um Time Comitê (as 3 melhores estratégias dividindo o dinheiro). A agência é um MINIGAME DE EMPRESA: \
 a cada US$ 50 de lucro realizado (novo recorde) o funcionário fica com US$ 20 de bônus e manda US$ 30 pro caixa do time; \
-com US$ 500 no caixa o time contrata um funcionário novo (até 15). A Mesa de Grade opera 10 moedas e faz a maior parte \
+com US$ 500 no caixa o time contrata 1 funcionário novo E demite o de pior desempenho; o melhor ganha US$ 50; \
+a sobra e o dinheiro de quem saiu vão pro caixa da empresa. A Mesa de Grade opera 10 moedas e faz a maior parte \
 das operações do dia (dezenas), fora da disputa. Compare sempre com "segurar" \
 (comprar e segurar as mesmas moedas no mesmo período). Fale com franqueza: alavancagem multiplica ganho E perda; \
 poucas operações ao vivo são ruído. As sprints duram 1 dia.

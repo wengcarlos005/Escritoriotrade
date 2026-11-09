@@ -66,6 +66,8 @@
     "bonus_funcionario_usd": 20,
     "para_caixa_do_time_usd": 30,
     "custo_contratacao_usd": 500,
+    "premio_melhor_usd": 50,
+    "experiencia_dias": 7,
     "max_funcionarios_por_time": 15,
     "moedas_novas": ["ADAUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT", "LTCUSDT", "DOTUSDT", "TRXUSDT", "NEARUSDT", "ATOMUSDT", "APTUSDT"]
   },

@@ -374,6 +374,7 @@ class Agencia:
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self.versao = 4            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
+        self.caixa_empresa = 0.0
         self.funding_real = None
         self.fonte_dados = "spot"
         self._iniciar_temporarios()
@@ -499,7 +500,7 @@ class Agencia:
     # --- salvar / carregar ------------------------------------------------
     def para_dict(self):
         d = {k: v for k, v in self.__dict__.items() if not k.startswith("_") and k not in ("traders", "ao_evento", "times")}
-        d["traders"] = [tr.para_dict() for tr in self.traders]
+        d["traders"] = [dict(tr.para_dict(), desempenho=round(self.desempenho(tr), 2)) for tr in self.traders]
         d["times"] = [self.resumo_time(tm) for tm in self.times]
         if self.sprint:
             d["sprint_atual"] = self.resumo_sprint(self.salvo_em or self.sprint["inicio"])
@@ -515,7 +516,7 @@ class Agencia:
         o.traders = [Trader.de_dict(x) for x in d["traders"]]
         campos = ("id", "nome", "emoji", "inspiracao", "estrategia", "estrategia_nome", "params", "intervalo", "titular",
                   "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial", "modo", "alavancagem", "confianca",
-                  "membros", "preco_inicial", "caixa_time", "contratados")
+                  "membros", "preco_inicial", "caixa_time", "contratados", "demitidos")
         o.times = [{k: tm.get(k) for k in campos} for tm in d.get("times", [])]
         o.sprint = d.get("sprint")
         o.sprints = d.get("sprints", [])
@@ -539,13 +540,15 @@ class Agencia:
 
     def aporte(self, trader, valor_usd):
         trader.caixa += valor_usd
+        trader.capital_recebido = getattr(trader, "capital_recebido", 0.0) + valor_usd
         self.time(trader.time)["aportes"] += valor_usd
         self.aportes_ceo += valor_usd
 
     def patrimonio(self, time_id=None):
         """Traders + o caixa de contratação dos times (dinheiro da empresa que ainda não virou funcionário)."""
         caixas = sum(tm.get("caixa_time") or 0.0 for tm in self.times if time_id is None or tm["id"] == time_id)
-        return sum(tr.patrimonio() for tr in self.traders if time_id is None or tr.time == time_id) + caixas
+        empresa = (getattr(self, "caixa_empresa", 0.0) or 0.0) if time_id is None else 0.0
+        return sum(tr.patrimonio() for tr in self.traders if time_id is None or tr.time == time_id) + caixas + empresa
 
     # --- a empresa: metas de lucro, bônus, caixa do time e contratações -------------------------
     def _empresa(self):
@@ -562,6 +565,7 @@ class Agencia:
         while tr.lucro_realizado - marco >= meta and tr.caixa >= vai:
             marco += meta
             tr.caixa -= vai
+            tr.enviado_caixa = getattr(tr, "enviado_caixa", 0.0) + vai
             tm["caixa_time"] = (tm.get("caixa_time") or 0.0) + vai
             tr.metas_batidas = getattr(tr, "metas_batidas", 0) + 1
             tr.bonus_recebido = getattr(tr, "bonus_recebido", 0.0) + fica
@@ -570,34 +574,76 @@ class Agencia:
         tr.lucro_marco = marco
         self._contratar(tm, t)
 
+    @staticmethod
+    def desempenho(tr):
+        """Resultado do funcionário em % do dinheiro que ele recebeu (contando o que ele já mandou pro caixa do time)."""
+        base = getattr(tr, "capital_recebido", 0.0) or 1000.0
+        return (tr.patrimonio() + getattr(tr, "enviado_caixa", 0.0) - base) / base * 100
+
+    def _para_empresa(self, tm, valor):
+        """Dinheiro que sai do time pro caixa da empresa (não conta como prejuízo do time no ranking)."""
+        self.caixa_empresa = (getattr(self, "caixa_empresa", 0.0) or 0.0) + valor
+        tm["aportes"] -= valor
+
     def _contratar(self, tm, t):
+        """Juntou US$ 500 no caixa do time: demite o pior, contrata 1 novo, o melhor ganha US$ 50,
+        e o que sobrar no caixa do time vai pro caixa da empresa (a contagem zera)."""
         e = self._empresa()
         custo = e.get("custo_contratacao_usd", 500)
-        while (tm.get("caixa_time") or 0) >= custo:
-            membros = self.do_time(tm["id"])
-            if len(membros) >= e.get("max_funcionarios_por_time", 15):
-                return
-            moedas = list(dict.fromkeys(self.cfg["liga"]["moedas"] + e.get("moedas_novas", [])))
-            uso = {p: sum(1 for m in membros if m.par == p) for p in moedas}
-            par = min(moedas, key=lambda p: (uso[p], moedas.index(p)))
-            base = next((m for m in membros if m.tipo != "contratado"), membros[0] if membros else None)
-            if tm.get("membros"):   # Comitê: reveza as estratégias
-                est_id = tm["membros"][len(membros) % len(tm["membros"])]
-                params = next((m.params for m in membros if m.estrategia == est_id), tm["params"])
+        if (tm.get("caixa_time") or 0) < custo:
+            return
+        membros = self.do_time(tm["id"])
+        if not membros:
+            return
+        # 1) demite quem desempenhou pior (quem entrou há menos de N dias está em experiência e não sai)
+        carencia = e.get("experiencia_dias", 7) * 86_400_000
+        elegiveis = [m for m in membros if t - m.criado_em >= carencia] or membros
+        pior = min(elegiveis, key=self.desempenho)
+        d_pior = self.desempenho(pior)
+        if pior.posicao or (getattr(pior, "grade_estado", None) or {}).get("lotes"):
+            pior.encerrar(pior.ultimo_preco or (pior.posicao or {}).get("preco") or 0, t, self.cfg, self)
+        sobra = max(0.0, pior.patrimonio())
+        self.traders = [x for x in self.traders if x is not pior]
+        self._para_empresa(tm, sobra)
+        tm["demitidos"] = (tm.get("demitidos") or 0) + 1
+        membros = [m for m in membros if m is not pior]
+        # 2) contrata 1 (com os US$ 500 do caixa do time)
+        moedas = list(dict.fromkeys(self.cfg["liga"]["moedas"] + e.get("moedas_novas", [])))
+        uso = {p: sum(1 for m in membros if m.par == p) for p in moedas}
+        par = min(moedas, key=lambda p: (uso[p], moedas.index(p)))
+        base = next((m for m in membros if m.tipo != "contratado"), membros[0] if membros else pior)
+        if tm.get("membros"):   # Comitê: reveza as estratégias
+            est_id = tm["membros"][(tm.get("contratados") or 0) % len(tm["membros"])]
+            params = next((m.params for m in membros if m.estrategia == est_id), tm["params"])
+        else:
+            est_id, params = base.estrategia, base.params
+        n = uso[par] + 1
+        nome = moeda(par) + (f" {POR_ID[est_id].emoji}" if tm.get("membros") else "") + (f" {n}" if n > 1 else "")
+        novo = Trader(nome, "🧑‍💼", par, 0.0, "contratado", t, tm["id"], est_id, params)
+        novo.caixa = novo.capital_recebido = custo
+        novo.ultimo_preco = self.ultimo_preco.get(par)
+        novo.alavancagem = base.alavancagem
+        self.traders.append(novo)
+        tm["contratados"] = (tm.get("contratados") or 0) + 1
+        resto = tm["caixa_time"] - custo
+        tm["caixa_time"] = 0.0
+        if resto > 0:
+            self._para_empresa(tm, resto)
+        # 3) o melhor funcionário ganha US$ 50 (pago pelo caixa da empresa; se não tiver, pelo CEO)
+        premio = e.get("premio_melhor_usd", 50)
+        melhor = max(membros, key=self.desempenho) if membros else None
+        if melhor and premio:
+            if (getattr(self, "caixa_empresa", 0.0) or 0) >= premio:
+                self.caixa_empresa -= premio
+                melhor.caixa += premio
+                tm["aportes"] += premio
             else:
-                est_id = base.estrategia if base else tm["estrategia"]
-                params = base.params if base else tm["params"]
-            n = uso[par] + 1
-            nome = moeda(par) + (f" {POR_ID[est_id].emoji}" if tm.get("membros") else "") + (f" {n}" if n > 1 else "")
-            novo = Trader(nome, "🧑‍💼", par, 0.0, "contratado", t, tm["id"], est_id, params)
-            novo.caixa = custo
-            novo.ultimo_preco = self.ultimo_preco.get(par)
-            novo.alavancagem = membros[0].alavancagem if membros else 1
-            self.traders.append(novo)
-            tm["caixa_time"] -= custo
-            tm["contratados"] = (tm.get("contratados") or 0) + 1
-            self.evento(t, novo, "🤝", f"{tm['emoji']} {tm['nome']} contratou um funcionário novo: {nome} "
-                                      f"(US$ {custo:.0f} do caixa do time). Agora são {len(membros) + 1}!")
+                self.aporte(melhor, premio)
+            melhor.premios = getattr(melhor, "premios", 0) + 1
+        self.evento(t, novo, "🤝", f"{tm['emoji']} {tm['nome']} juntou US$ {custo:.0f} e contratou {nome}. "
+                                  f"👋 Demitido: {pior.nome} (pior desempenho, {d_pior:+.1f}%) — os US$ {sobra:.0f} dele foram pro caixa da empresa."
+                                  + (f" ⭐ {melhor.nome} foi o melhor ({self.desempenho(melhor):+.1f}%) e ganhou US$ {premio:.0f}." if melhor and premio else "")
+                                  + (f" Sobra de US$ {resto:.0f} foi pro caixa da empresa." if resto > 0.005 else ""))
 
     def chaves(self):
         ks = {tr.chave for tr in self.traders}
@@ -995,16 +1041,18 @@ class Agencia:
         juntado = max(0.0, (realizado - tm["lucro_usado_bebes"]) * self.cotacao_brl)
         e = self._empresa()
         membros = self.do_time(tid)
-        destaque = max(membros, key=lambda x: x.lucro_realizado, default=None)
+        destaque = max(membros, key=self.desempenho, default=None)
         abertos = [tr.posicao for tr in self.do_time(tid) if tr.posicao and tr.posicao.get("alavancagem")]
         return dict(tm, patrimonio=round(patr, 4), resultado_pct=round((patr / tm["aportes"] - 1) * 100, 3) if tm["aportes"] else 0.0,
                     segurar_pct=self._segurar(tid, tm.get("preco_inicial") or {}),
                     alavancagem_media=round(sum(p["alavancagem"] for p in abertos) / len(abertos), 1) if abertos else None,
                     confianca_agora=self.confianca_viva(tid) if not tm.get("especial") else None,
                     caixa_time=round(tm.get("caixa_time") or 0.0, 2), contratados=tm.get("contratados") or 0,
+                    demitidos=tm.get("demitidos") or 0,
+                    pior=({"nome": p_.nome, "desempenho": round(self.desempenho(p_), 2)} if (p_ := min(membros, key=self.desempenho, default=None)) else None),
                     funcionarios=len(membros), max_funcionarios=e.get("max_funcionarios_por_time", 15),
                     meta_contratacao_pct=round(min(100.0, (tm.get("caixa_time") or 0) / e.get("custo_contratacao_usd", 500) * 100), 1),
-                    destaque=({"nome": destaque.nome, "lucro": round(destaque.lucro_realizado, 2),
+                    destaque=({"nome": destaque.nome, "lucro": round(destaque.lucro_realizado, 2), "desempenho": round(self.desempenho(destaque), 2),
                                "metas": getattr(destaque, "metas_batidas", 0)} if destaque else None),
                     pontuacao_agora=pts, retorno_4s_pct=ret4, queda_4s_pct=queda4,
                     bebes=sum(1 for tr in self.do_time(tid) if tr.tipo == "bebe"),
