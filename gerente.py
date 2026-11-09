@@ -28,7 +28,7 @@ no futuro, lucrar de verdade. A agência é uma LIGA de 5 times: cada time é um
 estratégias inspiradas em traders famosos, avaliadas com walk-forward fora da amostra, custos e Deflated Sharpe) com 5 \
 traders robôs, um por moeda. Toda segunda o melhor time das últimas 4 semanas vira titular; os times crescem \
 contratando funcionários com o caixa do time (ver abaixo). Quando o estado disser mercado "futuros", os robôs operam futuros perpétuos: LONG e SHORT, \
-RISCO FIXO por operação (perde ~2% do caixa se o stop bater) e alavancagem decidida A CADA OPERAÇÃO (até 10x) pela distância \
+RISCO FIXO por operação (perde ~2% do caixa se o stop bater) e alavancagem decidida A CADA OPERAÇÃO (entre 5x e 10x) pela distância \
 do stop, pela confiança da escola e pela tendência de 200 dias; margem isolada, funding a cada 8h e risco de LIQUIDAÇÃO. \
 Os robôs APRENDEM: cada operação fechada (medida em R = resultado ÷ risco) ajusta a confiança do time aos poucos, e a escola \
 reestuda toda semana. Há um Time Comitê (as 3 melhores estratégias dividindo o dinheiro). A agência é um MINIGAME DE EMPRESA: \

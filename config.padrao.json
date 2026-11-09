@@ -32,6 +32,7 @@
 
   "futuros": {
     "ativo": true,
+    "alavancagem_min": 5,
     "alavancagem_max": 10,
     "perfil": "agressivo",
     "perfis": {

@@ -191,7 +191,7 @@ def cmd_simular(args):
         imprimir_boletim(esc, cfg)
     fut = cfg.get("futuros", {})
     esc_fut = (esc.get("config") or {}).get("futuros") or {}
-    perfil_mudou = esc_fut.get("risco_por_operacao") != fut.get("risco_por_operacao") or esc_fut.get("piramide") != fut.get("piramide")
+    perfil_mudou = any(esc_fut.get(k) != fut.get(k) for k in ("risco_por_operacao", "piramide", "alavancagem_min", "alavancagem_max"))
     if fut.get("ativo") and (esc.get("mercado") != "futuros" or perfil_mudou):
         print("🎓 A escola vai refazer as provas em FUTUROS (LONG e SHORT, risco fixo, alavancagem por julgamento) — ~1 minuto...")
         esc = escola_mod.rodar_escola(cfg.get("escola"), futuros=fut)

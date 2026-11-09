@@ -58,7 +58,9 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório 3D** (um andar de escri
   2. **Tamanho** = risco ÷ distância do stop. Stop longe → posição menor; stop perto → maior.
   3. **Alavancagem** = a maior que deixa o preço de liquidação **além do stop**, com um teto que depende da
      **confiança** (o que a escola achou + o que ele aprendeu ao vivo) e da **tendência de 200 dias** (contra a
-     tendência: metade do risco e metade do teto). Máximo 10x. Cada posição mostra o "porquê".
+     tendência: metade do risco e metade do teto). **Sempre entre 5x e 10x** (`alavancagem_min`/`alavancagem_max`).
+     Quando o stop é muito longe, 5x deixa a liquidação antes do stop — aí a liquidação funciona como stop (e perde
+     menos que o risco planejado). Cada posição mostra o "porquê".
   Assim a alavancagem é consequência do risco, não uma aposta — e liquidação vira raridade (só em saltos de preço).
 - **➕ Pirâmide (regra das Tartarugas):** quando a operação anda a favor meia distância do stop, o robô soma mais uma
   unidade (metade do risco de uma entrada), até 4 unidades. Só aumenta o que já está ganhando — é o que faz as poucas

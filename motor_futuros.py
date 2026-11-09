@@ -52,16 +52,21 @@ def dimensionar(eq, caixa, preco, dist, cf, confianca=1.0, a_favor=True, fracao=
     risco = cf.get("risco_por_operacao", 0.01) * confianca * fracao * (1.0 if a_favor else contra)
     notional = eq * risco / (dist + 2 * taxa)
     lmax = cf.get("alavancagem_max", 10)
-    teto = max(1, round(lmax * min(1.0, confianca / 1.5) * (1.0 if a_favor else 0.5)))
+    lmin = min(lmax, cf.get("alavancagem_min", 1))
+    # teto entre o mínimo e o máximo: sobe com a confiança, cai pela metade contra a tendência de 200 dias
+    teto = round(lmin + (lmax - lmin) * min(1.0, confianca / 1.5) * (1.0 if a_favor else 0.5))
     seguro = int(1 / (dist + cf.get("margem_manutencao", 0.005) + cf.get("folga_liquidacao", 0.01)))
-    L = max(1, min(teto, seguro))
+    L = max(lmin, min(teto, seguro), 1)
     limite = max(0.0, caixa) * cf.get("margem_maxima", 0.5)
     if notional / L > limite:
         notional = limite * L
-    motivo = (f"stop a {dist * 100:.1f}%, risco de US$ {eq * risco:.2f}; {L}x porque "
-              + ("a liquidação precisa ficar além do stop" if seguro <= teto else
-                 f"o teto hoje é {teto}x (confiança da escola {confianca:.2f}"
-                 + ("" if a_favor else ", operação contra a tendência de 200 dias") + ")"))
+    if L > seguro:
+        porque = f"o mínimo da agência é {lmin}x — aqui a liquidação fica ANTES do stop e funciona como stop"
+    elif seguro <= teto:
+        porque = "a liquidação precisa ficar além do stop"
+    else:
+        porque = (f"o teto hoje é {teto}x (confiança {confianca:.2f}" + ("" if a_favor else ", operação contra a tendência de 200 dias") + ")")
+    motivo = f"stop a {dist * 100:.1f}%, risco de US$ {eq * risco:.2f}; {L}x porque " + porque
     return {"notional": notional, "margem": notional / L, "alavancagem": L, "risco_usd": eq * risco,
             "a_favor": a_favor, "porque": motivo}
 
