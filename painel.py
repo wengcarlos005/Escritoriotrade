@@ -39,7 +39,7 @@ def enxugar(d):
     for tm in d.get("times", []):
         tm["curva"] = _reduzir(tm.get("curva"))
     for tr in d.get("traders", []):
-        tr["trades"] = tr.get("trades", [])[-15:]
+        tr["trades"] = tr.get("trades", [])[-30:]
     return d
 
 
