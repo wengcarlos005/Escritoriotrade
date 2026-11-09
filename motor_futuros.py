@@ -29,6 +29,43 @@ def _fmt(x):
     return f"{x:,.2f}" if x >= 1 else f"{x:.5f}"
 
 
+def confianca_da_escola(oos):
+    """Quanto a escola confia no aluno: 0,5 (pouco) a 1,5 (muito), pelo Sharpe fora da amostra e a chance de não ser sorte."""
+    if not oos:
+        return 1.0
+    c = max(0.5, min(1.5, 0.5 + (oos.get("sharpe") or 0) / 2))
+    if (oos.get("dsr") or 0) < 0.5:
+        c *= 0.8
+    return round(max(0.5, c), 2)
+
+
+def dimensionar(eq, caixa, preco, dist, cf, confianca=1.0, a_favor=True, fracao=1.0, regime=0):
+    """O JULGAMENTO de cada operação (o mesmo na escola e ao vivo):
+    1) Risco fixo: se o stop bater, perde no máximo `risco_por_operacao` do patrimônio (1%) — mais se a escola
+       confia no aluno, metade se a operação vai CONTRA a tendência de 200 dias.
+    2) Tamanho = risco ÷ distância do stop (stop longe → posição menor; stop perto → maior).
+    3) Alavancagem = a maior que deixa a liquidação ALÉM do stop, limitada por um teto que depende da confiança
+       e do regime (até `alavancagem_max`). Ela é consequência do risco, não uma aposta."""
+    taxa = cf.get("taxa_taker", 0.0005) + cf.get("derrapagem", 0.0002)
+    dist = max(dist, 0.002)
+    contra = cf.get("fator_contra_tendencia", 0.5)
+    risco = cf.get("risco_por_operacao", 0.01) * confianca * fracao * (1.0 if a_favor else contra)
+    notional = eq * risco / (dist + 2 * taxa)
+    lmax = cf.get("alavancagem_max", 10)
+    teto = max(1, round(lmax * min(1.0, confianca / 1.5) * (1.0 if a_favor else 0.5)))
+    seguro = int(1 / (dist + cf.get("margem_manutencao", 0.005) + cf.get("folga_liquidacao", 0.01)))
+    L = max(1, min(teto, seguro))
+    limite = max(0.0, caixa) * cf.get("margem_maxima", 0.5)
+    if notional / L > limite:
+        notional = limite * L
+    motivo = (f"stop a {dist * 100:.1f}%, risco de US$ {eq * risco:.2f}; {L}x porque "
+              + ("a liquidação precisa ficar além do stop" if seguro <= teto else
+                 f"o teto hoje é {teto}x (confiança da escola {confianca:.2f}"
+                 + ("" if a_favor else ", operação contra a tendência de 200 dias") + ")"))
+    return {"notional": notional, "margem": notional / L, "alavancagem": L, "risco_usd": eq * risco,
+            "a_favor": a_favor, "porque": motivo}
+
+
 def nome_lado(lado):
     return "LONG ▲" if lado > 0 else "SHORT ▼"
 
@@ -69,12 +106,15 @@ class Futuros:
             p["stop"] = 1 / m["stop"] if m.get("stop") else None
             p["alvo"] = 1 / m["alvo"] if m.get("alvo") else None
 
-    def _liq(self, preco, lado, cfg):
-        L = self.alavancagem
+    def _liq(self, preco, lado, L, cfg):
         mmr = self._f(cfg).get("margem_manutencao", 0.005)
         return preco * (1 - 1 / L + mmr) if lado > 0 else preco * (1 + 1 / L - mmr)
 
-    def _funding(self, t_fim, preco, cfg):
+    def _taxa_funding(self, cfg, ag):
+        real = (getattr(ag, "funding_real", None) or {}).get(self.par)
+        return real if real is not None else self._f(cfg).get("funding_8h", 0.00005)
+
+    def _funding(self, t_fim, preco, cfg, ag=None):
         p = self.posicao
         if not p or "lado" not in p:
             return
@@ -82,16 +122,26 @@ class Futuros:
         n = idx - p.get("funding_idx", idx)
         p["funding_idx"] = idx
         if n > 0:
-            custo = p["lado"] * p["qtd"] * preco * self._f(cfg).get("funding_8h", 0.00005) * n
+            custo = p["lado"] * p["qtd"] * preco * self._taxa_funding(cfg, ag) * n
             self.caixa -= custo
             self.funding_pago = getattr(self, "funding_pago", 0.0) + custo
             p["funding"] = p.get("funding", 0.0) + custo
 
-    def _abrir_fut(self, lado, margem, preco, t, m, cfg, ag, sincronizando=False):
+    # ------------------------------------------------------------------ o julgamento: tamanho e alavancagem
+    def _julgar(self, lado, preco, stop, cfg, ag, t_fim, fracao=1.0):
+        """Decide o tamanho e a alavancagem DESTA operação (ver dimensionar)."""
+        regime = ag.regime(self.par, t_fim)
+        cf = dict(self._f(cfg), fator_contra_tendencia=ag.fator_contra(self.time, self.estrategia))
+        return dimensionar(self.patrimonio(), self.caixa, preco, abs(preco - stop) / preco, cf,
+                           confianca=ag.confianca_viva(self.time, self.estrategia), a_favor=(regime == 0 or regime == lado),
+                           fracao=fracao * self._fracao_humor(cfg), regime=regime)
+
+    def _abrir_fut(self, lado, j, preco, t, m, cfg, ag, sincronizando=False, stop=None):
+        """j = resultado de dimensionar(): notional, margem, alavancagem, risco e o porquê."""
         f = self._f(cfg)
-        L = self.alavancagem
-        margem = min(margem, self.caixa)
-        notional = margem * L
+        notional, margem, L = j["notional"], j["margem"], j["alavancagem"]
+        if margem > self.caixa:
+            notional, margem = self.caixa * L, self.caixa
         if notional < cfg["ordem_minima_usd"] or margem <= 0:
             return
         taxa = notional * f.get("taxa_taker", 0.0005)
@@ -99,14 +149,18 @@ class Futuros:
         self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + taxa
         self.volume = getattr(self, "volume", 0.0) + notional
         self.posicao = {"lado": lado, "qtd": notional / preco, "preco": preco, "custo": margem, "margem": margem,
-                        "notional": notional, "alavancagem": L, "preco_liquidacao": self._liq(preco, lado, cfg),
+                        "notional": notional, "alavancagem": L, "preco_liquidacao": self._liq(preco, lado, L, cfg),
                         "t": t, "m": m, "humor": self.humor, "barras": 0, "maxc": preco, "taxa_abertura": taxa,
-                        "funding": 0.0, "funding_idx": (t + passo_ms(self.intervalo)) // H8}
+                        "funding": 0.0, "funding_idx": (t + passo_ms(self.intervalo)) // H8,
+                        "risco_usd": j["risco_usd"], "porque": j["porque"], "stop_fixo": stop, "a_favor": j["a_favor"]}
         self._niveis_reais()
+        if stop and not m:
+            self.posicao["stop"] = stop
         self.trades_hoje += 1
         extra = " (entrou no movimento que já estava rolando)" if sincronizando else ""
         ag.evento(t, self, "📈" if lado > 0 else "📉",
-                  f"{self.rotulo(ag)} abriu {nome_lado(lado)} {L:g}x: US$ {notional:,.0f} com US$ {margem:.2f} de margem{extra}")
+                  f"{self.rotulo(ag)} abriu {nome_lado(lado)} {L}x: US$ {notional:,.0f} com US$ {margem:.2f} de margem — "
+                  f"{j['porque']}{extra}")
 
     def _fechar_fut(self, preco, motivo, t, cfg, ag, liquidado=False):
         p, self.posicao = self.posicao, None
@@ -126,6 +180,9 @@ class Futuros:
                                      f"perdeu os US$ {p['margem']:.2f} de margem")
         self._registrar(p, preco, lucro, pct, motivo, t, cfg, ag, silencioso=liquidado,
                         sufixo=f" no {nome_lado(p['lado'])} {p['alavancagem']:g}x ({pct:+.1f}% da margem)")
+        if self.trades and p.get("risco_usd"):
+            self.trades[-1]["r"] = round(lucro / p["risco_usd"], 2)
+        ag.aprender(self, p, lucro, t)
 
     def _checar_liquidacao(self, o, h, l, t, cfg, ag):
         p = self.posicao
@@ -140,8 +197,19 @@ class Futuros:
             self._fechar_fut(liq, "liquidação", t, cfg, ag, liquidado=True)
         return bateu
 
-    def _margem_alvo(self, cfg, fracao=1.0):
-        return self.patrimonio() * self._f(cfg).get("margem_por_operacao", 0.25) * fracao * self._fracao_humor(cfg)
+    def _checar_stop_fixo(self, o, h, l, t, cfg, ag):
+        """Stop de proteção das estratégias de peso (que não têm stop próprio)."""
+        p = self.posicao
+        s = p.get("stop_fixo")
+        if not s:
+            return False
+        if p["lado"] > 0 and l <= s:
+            self._fechar_fut(min(s, o), "stop", t, cfg, ag)
+            return True
+        if p["lado"] < 0 and h >= s:
+            self._fechar_fut(max(s, o), "stop", t, cfg, ag)
+            return True
+        return False
 
     # ------------------------------------------------------------------ alunos de sinal
     def _sinal_fut(self, est, v, d, ve, de, i, cfg, ag):
@@ -167,32 +235,43 @@ class Futuros:
         cc = vv["c"][i]
         stop, alvo = niveis_de_entrada(dd, i, p, cc)
         m = {"preco": cc, "stop": stop, "alvo": alvo, "barras": 0, "maxc": cc}
-        self._abrir_fut(lado, self._margem_alvo(cfg, fracao_entrada(dd, i, p)), c, t, m, cfg, ag)
+        stop_real = stop if lado > 0 else 1 / stop
+        j = self._julgar(lado, c, stop_real, cfg, ag, t + passo_ms(self.intervalo), fracao_entrada(dd, i, p))
+        self._abrir_fut(lado, j, c, t, m, cfg, ag)
 
     # ------------------------------------------------------------------ alunos de peso (carteira contínua)
+    def _stop_peso(self, d, i, c, lado):
+        atr = (d.get("atr") or [None])[i] if d.get("atr") else None
+        dist = (self.params.get("stop_atr", 3.0) * atr / c) if atr else 0.08
+        return c * (1 - dist) if lado > 0 else c * (1 + dist)
+
     def _peso_fut(self, est, v, d, ve, de, i, cfg, ag):
         o, h, l, c, t = v["o"][i], v["h"][i], v["l"][i], v["c"][i], v["t"][i]
-        if self.posicao and self._checar_liquidacao(o, h, l, t, cfg, ag):
+        if self.posicao and (self._checar_liquidacao(o, h, l, t, cfg, ag) or self._checar_stop_fixo(o, h, l, t, cfg, ag)):
             return
         self._checar_pausa(t, ag)
         p = self.params
         alvo = 0.0
         if not self.pausado_ate:
             alvo = est.peso(d, v, i, p) - (est.peso(de, ve, i, p) if ve is not None else 0.0)
-        base = self._margem_alvo(cfg)
         pos = self.posicao
         if pos and (abs(alvo) < 0.05 or (alvo > 0) != (pos["lado"] > 0)):
             self._fechar_fut(c, "sinal de saída", t, cfg, ag)
             pos = None
-        if not pos and abs(alvo) >= 0.1:
-            self._abrir_fut(1 if alvo > 0 else -1, base * abs(alvo), c, t, None, cfg, ag)
-        elif pos and base > 0 and abs(abs(alvo) - pos["margem"] / base) >= 0.25:
-            self._ajustar_fut(base * abs(alvo), c, t, cfg, ag)
+        if abs(alvo) < 0.1:
+            return
+        lado = 1 if alvo > 0 else -1
+        stop = pos.get("stop_fixo") if pos else self._stop_peso(d, i, c, lado)
+        j = self._julgar(lado, c, stop, cfg, ag, t + passo_ms(self.intervalo), abs(alvo))
+        if not pos:
+            self._abrir_fut(lado, j, c, t, None, cfg, ag, stop=stop)
+        elif j["notional"] > 0 and abs(j["notional"] - pos["notional"]) / j["notional"] >= 0.25:
+            self._ajustar_fut(j["notional"], c, t, cfg, ag)
 
-    def _ajustar_fut(self, margem_nova, c, t, cfg, ag):
+    def _ajustar_fut(self, notional_novo, c, t, cfg, ag):
         p = self.posicao
-        L, taxa_t = self.alavancagem, self._f(cfg).get("taxa_taker", 0.0005)
-        dq = (margem_nova - p["margem"]) * L / c
+        L, taxa_t = p["alavancagem"], self._f(cfg).get("taxa_taker", 0.0005)
+        dq = (notional_novo - p["qtd"] * c) / c
         if dq > 0:
             dq = min(dq, max(0.0, self.caixa - p["margem"]) * L / c)
         else:
@@ -213,22 +292,28 @@ class Futuros:
         p["qtd"] += dq
         p["notional"] = p["qtd"] * p["preco"]
         p["margem"] = p["custo"] = p["notional"] / L
-        p["preco_liquidacao"] = self._liq(p["preco"], p["lado"], cfg)
+        p["preco_liquidacao"] = self._liq(p["preco"], p["lado"], L, cfg)
         ag.evento(t, self, "⚖️", f"{self.rotulo(ag)} ajustou o {nome_lado(p['lado'])} pra US$ {p['notional']:,.0f}")
 
     def sincronizar_fut(self, est, v, d, ve, de, t, cfg, ag):
         p, n, preco = self.params, len(v["c"]), v["c"][-1]
+        t_fim = v["t"][-1] + passo_ms(self.intervalo)
         if est.tipo == "peso":
             alvo = est.peso(d, v, n - 1, p) - (est.peso(de, ve, n - 1, p) if ve is not None else 0.0)
             if abs(alvo) >= 0.1:
-                self._abrir_fut(1 if alvo > 0 else -1, self._margem_alvo(cfg) * abs(alvo), preco, t, None, cfg, ag, sincronizando=True)
+                lado = 1 if alvo > 0 else -1
+                stop = self._stop_peso(d, n - 1, preco, lado)
+                self._abrir_fut(lado, self._julgar(lado, preco, stop, cfg, ag, t_fim, abs(alvo)), preco, t, None, cfg, ag,
+                                sincronizando=True, stop=stop)
             return
         for lado, dd, vv in ((1, d, v), (-1, de, ve)):
             if vv is None:
                 continue
             m = replay(est, dd, vv, p)
             if m:
-                self._abrir_fut(lado, self._margem_alvo(cfg, fracao_entrada(dd, n - 1, p)), preco, t, m, cfg, ag, sincronizando=True)
+                stop_real = m["stop"] if lado > 0 else 1 / m["stop"]
+                j = self._julgar(lado, preco, stop_real, cfg, ag, t_fim, fracao_entrada(dd, n - 1, p))
+                self._abrir_fut(lado, j, preco, t, m, cfg, ag, sincronizando=True)
                 return
 
     def gatilho_fut(self, est, d, v, de, ve, i):
@@ -272,7 +357,7 @@ class Futuros:
         nf = idx - g.get("funding_idx", idx)
         g["funding_idx"] = idx
         if nf > 0 and lotes:
-            custo = sum(x["lado"] * x["qtd"] for x in lotes.values()) * c * f.get("funding_8h", 0.00005) * nf
+            custo = sum(x["lado"] * x["qtd"] for x in lotes.values()) * c * self._taxa_funding(cfg, ag) * nf
             self.caixa -= custo
             self.funding_pago = getattr(self, "funding_pago", 0.0) + custo
         # direção = tendência das velas de 4h (só velas já fechadas)

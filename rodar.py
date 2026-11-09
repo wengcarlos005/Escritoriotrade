@@ -109,6 +109,12 @@ def imprimir_boletim(esc, cfg):
     aprovadas = [r for r in esc["resultados"] if r["aprovada"]]
     print(f" 🏅 Aprovados em todos os critérios: {len(aprovadas)} de {len(esc['resultados'])}"
           + ("" if aprovadas else " — nenhum ainda; os times são formados pelas maiores notas"))
+    com = esc.get("comite")
+    if com:
+        o = com["oos"]
+        print(f" 🤝 Comitê ({' + '.join(com['nomes'])}): {o['retorno_pct']:+.1f}% · queda máx {o['max_dd_pct']:.1f}% · Sharpe {o['sharpe']}")
+    if esc.get("mercado") == "futuros":
+        print(" 💹 Prova em FUTUROS: LONG e SHORT, risco fixo por operação, alavancagem por julgamento, funding e liquidação.")
     print(" ⚽ Times da próxima temporada: " + ", ".join(f"{r['emoji']} {r['nome']}" for r in escolher_times(cfg, esc)))
     print(f" ({esc['alunos_testados']} alunos, {esc['combinacoes_testadas']} combinações, {esc['duracao_s']}s)")
     print(" ⚠️  Resultado passado não garante o futuro. Simulação — não é recomendação de investimento.")
@@ -117,7 +123,7 @@ def imprimir_boletim(esc, cfg):
 
 def cmd_escola(args):
     cfg = carregar_config()
-    esc = escola_mod.rodar_escola(cfg.get("escola"))
+    esc = escola_mod.rodar_escola(cfg.get("escola"), futuros=cfg.get("futuros"))
     imprimir_boletim(esc, cfg)
     print("\nVeja os detalhes no painel (aba 🎓 Escola). Pra montar os times com esse boletim: botão 'Nova temporada'.")
 
@@ -128,7 +134,14 @@ def escolher_times(cfg, esc):
     lista = list(esc["resultados"])
     if cfg["liga"].get("so_alunos_aprovados"):
         lista = [r for r in lista if r["aprovada"]] or lista[:1]
-    return lista[:cfg["liga"]["times"]]
+    n = cfg["liga"]["times"]
+    com = cfg["liga"].get("comite", {})
+    if com.get("ativo") and len(lista) >= com.get("membros", 3) and n >= 2:
+        membros = lista[:com.get("membros", 3)]
+        info = esc.get("comite") or {}
+        comite = {"id": "comite", "nome": "Time Comitê", "emoji": "🤝", "comite": membros, "nota": info.get("nota"), "oos": info.get("oos")}
+        return lista[:n - 1] + [comite]   # os N−1 melhores + o Comitê das 3 melhores
+    return lista[:n]
 
 
 def preparar_velas(ag):
@@ -153,7 +166,7 @@ def resumo_liga(ag):
     for tm in sorted(ag.times, key=lambda x: x["lugar"] or 99):
         r = ag.resumo_time(tm)
         papel = "🏆 TITULAR" if tm["titular"] else ("⚡ fora   " if tm.get("especial") else "   reserva")
-        alav = f"{tm.get('alavancagem') or 1:>2}x" if ag.futuros() else ""
+        alav = (f"{tm.get('alavancagem') or 1}x" if tm.get("especial") else f"≤{tm.get('alavancagem') or 1}x") if ag.futuros() else ""
         print(f"  {tm['lugar'] or '–'}º {papel}  {tm['emoji']} {tm['nome']:<18} {tm['intervalo']:>3} {alav} patrimônio US$ {r['patrimonio']:8.2f}"
               f"  ({r['resultado_pct']:+.2f}%)  traders {len(ag.do_time(tm['id']))}")
     print()
@@ -164,8 +177,18 @@ def cmd_simular(args):
     esc = escola_mod.carregar()
     if not esc:
         print("🎓 A escola ainda não rodou — rodando agora pra montar os times (leva ~1 minuto)...")
-        esc = escola_mod.rodar_escola(cfg.get("escola"))
+        esc = escola_mod.rodar_escola(cfg.get("escola"), futuros=cfg.get("futuros"))
         imprimir_boletim(esc, cfg)
+    fut = cfg.get("futuros", {})
+    if fut.get("ativo") and esc.get("mercado") != "futuros":
+        print("🎓 A escola vai refazer as provas em FUTUROS (LONG e SHORT, risco fixo, alavancagem por julgamento) — ~1 minuto...")
+        esc = escola_mod.rodar_escola(cfg.get("escola"), futuros=fut)
+        imprimir_boletim(esc, cfg)
+    if fut.get("ativo"):
+        if mercado.usar_futuros(fut.get("dados_reais", True)):
+            print("💹 Usando os dados de FUTUROS de verdade da Binance (preço do contrato e funding real).")
+        else:
+            print("💹 A API de futuros da Binance não respondeu daqui — usando o preço à vista e funding médio (aproximação).")
     agora = int(time.time() * 1000)
     ag = None
     if ARQ_SIM.exists():
@@ -177,10 +200,11 @@ def cmd_simular(args):
         else:
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
-            if cfg.get("futuros", {}).get("ativo") and not ag.futuros():
-                backup = DADOS / f"simulacao_a_vista_{time.strftime('%Y%m%d_%H%M')}.json"
+            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 2):
+                backup = DADOS / f"simulacao_antiga_{time.strftime('%Y%m%d_%H%M')}.json"
                 shutil.copy2(ARQ_SIM, backup)
-                print(f"🔁 Reiniciando a agência em FUTUROS. A temporada à vista foi guardada em dados/{backup.name}.")
+                print("🔁 Reiniciando a agência com a nova versão (escola de futuros, risco fixo, alavancagem por julgamento, "
+                      f"Comitê e aprendizado). A temporada anterior foi guardada em dados/{backup.name}.")
                 ag = None
     ag = ag or Agencia(cfg, agora)
     ag.ao_evento = imprimir_evento
@@ -198,6 +222,7 @@ def cmd_simular(args):
 
     proxima_busca = 0
     ultima_cotacao = 0
+    ultimo_reestudo = 0
     gerente_ocupado = threading.Event()
     gerente_erro_ate = [0]
     while True:
@@ -219,9 +244,18 @@ def cmd_simular(args):
             novo = escola_mod.carregar()
             if novo and novo.get("gerado_em") != ag.escola_aplicada:
                 esc, ag.escola_aplicada = novo, novo.get("gerado_em")
+                if novo.get("mercado", "spot") == ag.mercado:
+                    ag.reestudar(novo, agora)
                 top = [r["id"] for r in escolher_times(cfg, esc)]
                 if sorted(top) != sorted(tm["id"] for tm in ag.times):
                     ag.evento(agora, None, "📜", "Novo boletim da escola: o top 5 mudou (veja na aba Escola)")
+            # 2b) Reestudo: a escola refaz as provas com os dados novos a cada N dias (em segundo plano)
+            dias_re = cfg.get("aprendizado", {}).get("reestudar_a_cada_dias", 7)
+            if dias_re and esc and agora - esc.get("gerado_em", agora) > dias_re * 86_400_000 \
+                    and time.time() - ultimo_reestudo > 6 * 3600 and not painel.escola_rodando():
+                ultimo_reestudo = time.time()
+                painel.rodar_escola_em_segundo_plano()
+                ag.evento(agora, None, "🎓", "A escola começou a reestudar com os dados mais novos (os times atualizam quando terminar)")
             # 3) Rodada da semana e fim da sprint (de 1 dia, por padrão)
             if agora >= ag.temporada["proxima_rodada"]:
                 ag.rodada(agora)
@@ -234,6 +268,9 @@ def cmd_simular(args):
             if time.time() >= proxima_busca:
                 if time.time() - ultima_cotacao > 600:
                     ag.cotacao_brl = mercado.cotacao_brl() or ag.cotacao_brl
+                    if ag.futuros():
+                        ag.funding_real = mercado.funding(ag.pares()) or None
+                        ag.fonte_dados = mercado.fonte()
                     ultima_cotacao = time.time()
                 novas = preparar_velas(ag)
                 for chave in ag.chaves():

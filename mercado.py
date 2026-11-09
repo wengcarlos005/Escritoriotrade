@@ -6,6 +6,9 @@ import urllib.request
 
 # Endpoint público de dados de mercado da Binance (só leitura).
 BASE = "https://data-api.binance.vision/api/v3"
+# Futuros perpétuos USDT-M (dados públicos). Em alguns países/redes é bloqueado: aí usamos o à vista.
+FAPI = "https://fapi.binance.com/fapi/v1"
+_FONTE = {"futuros": False, "falhas": 0}
 
 INTERVALOS_MS = {
     "1m": 60_000, "3m": 180_000, "5m": 300_000, "15m": 900_000,
@@ -13,8 +16,8 @@ INTERVALOS_MS = {
 }
 
 
-def _get(caminho, params, tentativas=4):
-    url = f"{BASE}/{caminho}?{urllib.parse.urlencode(params)}"
+def _get(caminho, params, tentativas=4, base=None):
+    url = f"{base or BASE}/{caminho}?{urllib.parse.urlencode(params)}"
     for i in range(tentativas):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "agencia-de-trade/1.0"})
@@ -31,10 +34,44 @@ def _vela(k):
             "c": float(k[4]), "v": float(k[5]), "fim": k[6]}
 
 
+def usar_futuros(ativo=True):
+    """Tenta os dados de FUTUROS de verdade (preço do contrato perpétuo e funding). Devolve True se deu certo."""
+    _FONTE["futuros"], _FONTE["falhas"] = False, 0
+    if not ativo:
+        return False
+    try:
+        _get("premiumIndex", {"symbol": "BTCUSDT"}, tentativas=2, base=FAPI)
+        _FONTE["futuros"] = True
+    except Exception:
+        pass
+    return _FONTE["futuros"]
+
+
+def fonte():
+    return "futuros" if _FONTE["futuros"] else "spot"
+
+
+def _tentar_futuros(caminho, params):
+    """Chama a API de futuros; se falhar 3 vezes seguidas, volta pro à vista até a próxima vez que ligar."""
+    try:
+        r = _get(caminho, params, tentativas=2, base=FAPI)
+        _FONTE["falhas"] = 0
+        return r
+    except Exception:
+        _FONTE["falhas"] += 1
+        if _FONTE["falhas"] >= 3:
+            _FONTE["futuros"] = False
+        return None
+
+
 def velas(par, intervalo, limite=500, inicio=None):
     params = {"symbol": par, "interval": intervalo, "limit": limite}
     if inicio is not None:
         params["startTime"] = int(inicio)
+    if _FONTE["futuros"]:
+        r = _tentar_futuros("klines", params)
+        if r is not None:
+            return [_vela(k) for k in r]
     return [_vela(k) for k in _get("klines", params)]
 
 
@@ -67,8 +104,26 @@ def historico(par, intervalo, dias):
 
 def precos(pares):
     """Preço atual de vários pares de uma vez: {'BTCUSDT': 75900.1, ...}."""
+    if _FONTE["futuros"]:
+        r = _tentar_futuros("ticker/price", {})
+        if r is not None:
+            quero = set(pares)
+            achou = {x["symbol"]: float(x["price"]) for x in r if x.get("symbol") in quero}
+            if len(achou) == len(quero):
+                return achou
     lista = json.dumps(sorted(set(pares)), separators=(",", ":"))
     return {x["symbol"]: float(x["price"]) for x in _get("ticker/price", {"symbols": lista})}
+
+
+def funding(pares):
+    """Taxa de funding atual (a cada 8h) de cada contrato perpétuo: {'BTCUSDT': 0.0001, ...}. {} se não der."""
+    if not _FONTE["futuros"]:
+        return {}
+    r = _tentar_futuros("premiumIndex", {})
+    if not r:
+        return {}
+    quero = set(pares)
+    return {x["symbol"]: float(x["lastFundingRate"]) for x in r if x.get("symbol") in quero and x.get("lastFundingRate") not in (None, "")}
 
 
 def cotacao_brl():

@@ -2,6 +2,16 @@
   "atualizado_em": "2026-11-08",
   "experimentos": [
     {
+      "titulo": "Escola de futuros (LONG e SHORT com o mesmo julgamento do robô ao vivo)",
+      "status": "aprovado",
+      "resultado": "Agora os times são escolhidos por uma prova igual ao jogo: comprando e vendendo, taxas de futuros, funding, liquidação e risco fixo. Top: Seykota (Sharpe 0,94, +50%, queda −14%), Momentum (0,73), Weinstein (0,56), Minervini (0,52). Comprar e segurar deu +256% com queda de −64%."
+    },
+    {
+      "titulo": "Alavancagem por julgamento + aprendizado a cada operação",
+      "status": "em teste ao vivo",
+      "resultado": "Cada operação decide a própria alavancagem (até 10x) pela distância do stop, pela confiança e pela tendência de 200 dias. A confiança aprende com o resultado de cada operação (em R), devagar, pra não confundir sorte com habilidade. A escola reestuda toda semana."
+    },
+    {
       "titulo": "Futuros: as mesmas estratégias comprando E vendendo (sem alavancagem)",
       "status": "reprovado",
       "resultado": "4 anos fora da amostra, taxa de futuros 0,05%: Seykota long/short +88% (só comprado: +169%), Tartarugas +22%, Momentum +46%. O short ajuda nas quedas mas atrapalha num mercado que subiu muito. Velas de 15 min seguem perdendo (−12% a −45% em 4 meses)."
@@ -18,8 +28,8 @@
     },
     {
       "titulo": "Liga em futuros 5x a 10x, sprints de 1 dia",
-      "status": "em teste ao vivo",
-      "resultado": "Simulando os últimos 30 dias com o motor de verdade: ~17 operações/dia na agência, 0 liquidações (margem de 25% do caixa por operação). Seykota 5x +8,4%, Momentum 8x −20,7%. 30 dias é pouco: é ruído."
+      "status": "substituído",
+      "resultado": "Simulando os últimos 30 dias com o motor de verdade: ~17 operações/dia na agência, 0 liquidações (margem de 25% do caixa por operação). Seykota 5x +8,4%, Momentum 8x −20,7%. 30 dias é pouco: é ruído. Trocado pelo risco fixo com alavancagem por julgamento."
     },
     {
       "titulo": "Robô de grade (20–40 operações por dia)",
@@ -48,13 +58,13 @@
     },
     {
       "titulo": "Comitê: as 3 melhores estratégias dividindo o capital",
-      "status": "a testar",
-      "resultado": "Hipótese: diversificar entre estilos reduz a queda e deixa o dinheiro menos tempo parado."
+      "status": "em teste ao vivo",
+      "resultado": "Na escola de futuros (4 anos): Comitê (Seykota + Momentum + Weinstein) +27,6%, queda máx −8,0%, Sharpe 0,91 — contra o Seykota sozinho +50,3%, queda −13,9%, Sharpe 0,94. Caiu menos, ganhou menos. Agora é o Time Comitê na liga."
     },
     {
       "titulo": "Tamanho da aposta pela volatilidade nos times",
-      "status": "a testar",
-      "resultado": "Hipótese: apostar mais quando o mercado está calmo e menos quando está nervoso melhora o risco/retorno."
+      "status": "aprovado",
+      "resultado": "Virou o risco fixo por operação: o tamanho de cada posição sai da distância do stop (stop longe = posição menor). Na escola de futuros: Seykota +50% com queda de 14% (a 5x fixo, o teste antigo dava queda de 32%)."
     },
     {
       "titulo": "Pirâmide nas tendências (comprar mais quando já está ganhando)",

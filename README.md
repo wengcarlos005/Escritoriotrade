@@ -46,16 +46,26 @@ No navegador (http://127.0.0.1:8000): **🏝️ Escritório 3D** (uma ilha ao ar
 
 ## 2.1 Como funciona a liga
 - **💹 Tudo em FUTUROS (simulado):** os robôs operam futuros perpétuos, **comprando (LONG) e vendendo (SHORT)**.
-  Cada time tem uma alavancagem: **5x, 6x, 7x, 8x e 10x** (assim a liga também mostra qual alavancagem aguenta).
-  Margem isolada: cada operação usa **25% do caixa** do trader como margem (com 10x, a posição vale 2,5× o caixa).
+  O short usa o mesmo aluno "de cabeça pra baixo": o sinal de compra no preço invertido vira sinal de venda.
   Custos de futuros: taxa 0,05% (a mercado), 0,02% (ordens limitadas da grade) e **funding** a cada 8h
-  (comprado paga, vendido recebe; média ~0,005%). Se o preço bater no **preço de liquidação** antes do stop,
-  o trader é **💀 liquidado** e perde a margem inteira daquela operação.
-  O short usa o mesmo aluno da escola "de cabeça pra baixo": o sinal de compra no preço invertido vira sinal de venda.
-  Ao atualizar, a agência **reinicia sozinha em futuros** (a temporada antiga fica guardada em `dados/`).
-  Pra voltar ao à vista: `{"futuros": {"ativo": false}}` no `config.json`.
-- **5 times = os 5 melhores alunos da escola.** Cada time tem **5 traders** (BTC, ETH, SOL, BNB, XRP),
-  com **US$ 100 de mentira** cada, todos usando a estratégia do time.
+  (comprado paga, vendido recebe). No seu PC, se a API de futuros da Binance responder, a agência usa o **preço do
+  contrato e o funding reais**; se não, usa o preço à vista e o funding médio (o escritório mostra qual está valendo).
+- **🧠 Julgamento de cada operação (risco fixo + alavancagem decidida na hora):**
+  1. **Risco fixo:** se o stop bater, o robô perde no máximo **2% do caixa** (`futuros.risco_por_operacao`).
+  2. **Tamanho** = risco ÷ distância do stop. Stop longe → posição menor; stop perto → maior.
+  3. **Alavancagem** = a maior que deixa o preço de liquidação **além do stop**, com um teto que depende da
+     **confiança** (o que a escola achou + o que ele aprendeu ao vivo) e da **tendência de 200 dias** (contra a
+     tendência: metade do risco e metade do teto). Máximo 10x. Cada posição mostra o "porquê".
+  Assim a alavancagem é consequência do risco, não uma aposta — e liquidação vira raridade (só em saltos de preço).
+- **📚 Aprendizado:** cada operação fechada é anotada em **R** (resultado ÷ risco planejado; −1R = bateu o stop).
+  A confiança do time vai se misturando com esses resultados aos poucos (com 20 operações, metade escola e metade
+  ao vivo), pra não confundir sorte com habilidade. O robô também aprende se vale operar contra a tendência de
+  200 dias. E **toda semana a escola reestuda** com os dados mais novos: os times atualizam os parâmetros (quem está
+  posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
+- **🤝 Time Comitê:** as 3 melhores estratégias da escola dividindo o mesmo dinheiro (um robô por estratégia e moeda).
+  Na escola de futuros caiu menos e ganhou menos que o Seykota sozinho — a liga vai mostrar ao vivo.
+- **5 times:** os 4 melhores alunos da escola de futuros + o Time Comitê. Cada time tem **5 traders** (BTC, ETH,
+  SOL, BNB, XRP), com **US$ 100 de mentira** cada (o Comitê tem 15, com US$ 33 cada).
 - **Rodada toda segunda-feira, 00:00** (a 1ª depois de uma semana inteira). Pontuação = retorno das
   **últimas 4 semanas** − metade da maior queda no período. O 1º vira **🏆 titular**; os outros, **reserva**.
   (Uma semana sozinha é ruído demais — por isso olhamos 4.)
@@ -68,7 +78,9 @@ No navegador (http://127.0.0.1:8000): **🏝️ Escritório 3D** (uma ilha ao ar
   se o preço sair 16% contra, fecha tudo e recomeça. É quem mais opera (~15 operações/dia). Nos últimos 200 dias ganhou,
   mas em 5 anos de teste perdeu — por isso fica fora da disputa e é medida pelas sprints.
 - **🎯 Falta X%:** cada trader mostra quanto o preço precisa subir (pra abrir LONG) ou cair (pra abrir SHORT).
-- **🏃 Sprints de 1 dia:** cada dia (meia-noite a meia-noite, Brasília) é uma sprint. A agência mede operações, dinheiro girado,
+- **📏 Régua:** cada time mostra quanto teria rendido **comprar e segurar as mesmas moedas** no mesmo período.
+- **🏃 Sprints de 1 dia:** cada dia (meia-noite a meia-noite, Brasília) é uma sprint. As metas medem **qualidade**,
+  não quantidade: lucro médio por operação depois das taxas, bater o "segurar", taxas, queda e liquidações. A agência mede operações, dinheiro girado,
   resultado, taxas pagas e tempo parado de cada time, confere as metas (em `liga.sprint.metas`) e escreve um
   diagnóstico do que melhorar. Com a chave de API, o gerente escreve a retrospectiva com 3 experimentos pra próxima.
   A aba **Laboratório** lista o que já testamos (e o resultado) e os próximos experimentos.
@@ -101,13 +113,22 @@ No navegador (http://127.0.0.1:8000): **🏝️ Escritório 3D** (uma ilha ao ar
 ### Como é a prova (pra não se enganar)
 - **Walk-forward:** 8 provas de 6 meses (fim de 2022 → hoje). Antes de cada prova o aluno estuda
   os 2 anos anteriores; a nota vem só do que ele **nunca viu**.
-- **Carteira** BTC/ETH/SOL/BNB, **taxa 0,1% + derrapagem 0,05%** por ordem; também com **custo dobrado**.
+- **Carteira** BTC/ETH/SOL/BNB/XRP. No modo futuros (padrão): **LONG e SHORT**, taxa 0,05% + derrapagem 0,02%,
+  funding, liquidação e o **mesmo julgamento de risco e alavancagem** do robô ao vivo; também com **custo dobrado**.
+- **Comitê:** a escola também mede as 3 melhores juntas, dividindo o dinheiro.
 - **Deflated Sharpe** (Bailey & López de Prado): desconta a sorte de ter testado muitos alunos.
 - **Aprovação:** lucro fora da amostra, Sharpe ≥ 0,6, ganhos/perdas ≥ 1,2, ≥ 30 operações, consistência,
   queda máxima menor que 40%, aguentar custo dobrado e confiança ≥ 90%.
 - **Régua:** sempre comparar com **comprar e segurar** e com **DCA semanal** no mesmo período.
 
-### O que o boletim de nov/2026 mostrou
+### A escola de futuros (nov/2026)
+- Com LONG e SHORT, risco de 2% por operação e alavancagem por julgamento: **📈 Seykota +50% em 4 anos, queda máx −14%,
+  Sharpe 0,94**; Momentum +26% (queda −7%); Weinstein +6,5% (queda −3%); Minervini +14% (queda −7%).
+- Comprar e segurar: **+256%, com queda de −64%**. Os robôs ganham bem menos num mercado que subiu muito, mas caem bem menos.
+- **Comitê** das 3 melhores: +28%, queda −8%, Sharpe 0,91.
+- Estratégias rápidas e de reversão continuam perdendo. Ninguém passou em todos os critérios (a confiança estatística é baixa).
+
+### O que o boletim de nov/2026 mostrou (à vista, só comprando)
 - Quem foi melhor: **seguir tendência em velas diárias/4h** (Seykota, Conjunto de Canais, Tartarugas).
   O 📈 Seykota teve Sharpe 0,94 (comprar e segurar: 0,87) e queda máxima de 30% (comprar e segurar: 65%).
 - **Comprar e segurar rendeu mais em %** (+295%) porque o período começa no fundo de 2022. Os robôs
@@ -119,8 +140,10 @@ No navegador (http://127.0.0.1:8000): **🏝️ Escritório 3D** (uma ilha ao ar
 ## 4. Configuração (`config.padrao.json` + o seu `config.json`)
 Os padrões ficam em `config.padrao.json` (vem nas atualizações). Pra mudar algo, crie um `config.json` com **só** o que quer mudar — por exemplo `{"mascote": {"nome": "Thor"}}` — ele vale por cima dos padrões e nunca é sobrescrito.
 
-- `futuros`: `ativo`, `alavancagem_por_time` ([5, 6, 7, 8, 10]), `alavancagem_mesa`, `margem_por_operacao` (0,25 = 25% do
-  caixa por operação; 1,0 = tudo — mais liquidações), `vender_a_descoberto` (shorts), taxas, funding e a grade.
+- `futuros`: `ativo`, `risco_por_operacao` (0,02 = 2% do caixa por operação — o principal botão de risco),
+  `alavancagem_max` (10), `fator_contra_tendencia` (0,5), `margem_maxima`, `dados_reais`, `vender_a_descoberto`,
+  taxas, funding e a grade (`alavancagem_mesa`, `margem_por_operacao`). `liga.comite`: liga/desliga o Time Comitê.
+  `aprendizado`: quantas operações até o ao vivo pesar metade (`operacoes_meio_peso`) e de quantos em quantos dias a escola reestuda.
 - `liga`: número de times, moedas, US$ por trader, semanas usadas na pontuação, `so_alunos_aprovados`,
   `sprint.duracao` (`"dia"` ou `"semana"`) e `sprint.metas` (operações, lucro, taxas, queda, liquidações).
 - `bebes`: R$ de lucro por bebê, máximo por time, moedas dos bebês, bônus do CEO.

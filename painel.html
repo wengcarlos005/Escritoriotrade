@@ -303,6 +303,7 @@ function patrimonio(tr) {
   }
   return tr.caixa + p.qtd * px;
 }
+const alavTxt = t => !t || !(t.alavancagem > 1) ? '' : t.especial ? `${t.alavancagem}x` : (t.alavancagem_media ? `~${num(t.alavancagem_media, 1)}x` : `até ${t.alavancagem}x`);
 const ladoTxt = l => l > 0 ? '<span class="pos">▲ LONG</span>' : '<span class="neg">▼ SHORT</span>';
 function md(texto) {
   const linhas = esc(texto).split('\n'); let html = '', lista = false;
@@ -373,13 +374,13 @@ function renderGeral(d) {
     ['👶 bebês traders', String(bebes), `1 a cada R$ ${num(cfg.bebes.lucro_brl_por_bebe, 0)} de lucro de um time`, ''],
   ].map(([r, v, s, c]) => `<div class="kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join('');
 
-  $('classificacao').innerHTML = `<table><tr><th></th><th>time</th><th>papel</th><th>pontuação</th><th>4 semanas</th><th>patrimônio</th><th>temporada</th><th>traders</th><th>rumo ao bebê</th></tr>${
+  $('classificacao').innerHTML = `<table><tr><th></th><th>time</th><th>papel</th><th>pontuação</th><th>4 semanas</th><th>patrimônio</th><th>temporada</th><th>segurar</th><th>traders</th><th>rumo ao bebê</th></tr>${
     times.map(t => `<tr><td><span class="lugar">${t.especial ? '⚡' : t.lugar + 'º'}</span></td>
-      <td><b>${esc(t.emoji)} ${esc(t.nome)}</b><div class="sub" style="margin:0;font-size:12px">${esc(t.estrategia_nome)} · ${esc(t.intervalo)}${t.alavancagem > 1 ? ` · <b>${t.alavancagem}x</b>` : ''} · nota ${num(t.nota_escola, 1)}</div></td>
+      <td><b>${esc(t.emoji)} ${esc(t.nome)}</b><div class="sub" style="margin:0;font-size:12px">${esc(t.estrategia_nome)} · ${esc(t.intervalo)}${alavTxt(t) ? ` · <b>${alavTxt(t)}</b>` : ''} · nota ${num(t.nota_escola, 1)}</div></td>
       <td>${t.titular ? '<span class="selo ok">🏆 titular</span>' : t.especial ? '<span class="selo nao">fora da disputa</span>' : '<span class="selo info">reserva</span>'}</td>
       <td><b class="${cls(t.pontuacao_agora)}">${sinal(t.pontuacao_agora)}${num(t.pontuacao_agora)}</b></td>
       <td><span class="${cls(t.retorno_4s_pct)}">${pct(t.retorno_4s_pct, 2)}</span> <span class="sub" style="font-size:12px">queda ${pct(t.queda_4s_pct, 1)}</span></td>
-      <td>${usd(t.patrimonio)}</td><td class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</td>
+      <td>${usd(t.patrimonio)}</td><td class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</td><td class="sub" title="comprar e segurar as mesmas moedas no mesmo período">${t.segurar_pct != null ? pct(t.segurar_pct, 2) : '—'}</td>
       <td>${d.traders.filter(x => x.time === t.id).length}${t.bebes ? ` <span class="sub">(${t.bebes}👶)</span>` : ''}</td>
       <td><div class="nota"><div class="b" style="width:80px"><i style="width:${t.meta_bebe_pct}%;background:linear-gradient(90deg,var(--amarelo),var(--laranja))"></i></div><span class="sub" style="font-size:12px">${num(t.meta_bebe_pct, 0)}%</span></div></td></tr>`).join('')}</table>`;
 
@@ -389,7 +390,7 @@ function renderGeral(d) {
     return `<div class="card time${t.titular ? ' titular' : ''}">
       <div class="topo-time"><div class="avatar" style="border:2px solid ${corTime(d, t.id)}">${esc(t.emoji)}</div>
         <div style="flex:1"><div class="nome">${esc(t.nome)}</div><div class="cargo">${t.titular ? '🏆 titular — operaria com dinheiro real' : t.especial ? (t.modo === 'grade' ? '🧮 robôs de grade · fora da disputa' : '⚡ estagiários · fora da disputa') : 'reserva · simulação'}</div>
-        <div class="sub" style="margin:2px 0 0;font-size:12px">${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)}${t.alavancagem > 1 ? ` · <b>${t.alavancagem}x</b>` : ''}</div></div>
+        <div class="sub" style="margin:2px 0 0;font-size:12px">${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)}${alavTxt(t) ? ` · <b>${alavTxt(t)}</b>` : ''}${t.segurar_pct != null ? ` · segurar ${pct(t.segurar_pct, 2)}` : ''}</div></div>
         <div style="text-align:right"><div class="v" style="font-weight:800">${usd(t.patrimonio)}</div><div class="${cls(t.resultado_pct)}" style="font-size:12px">${pct(t.resultado_pct, 2)}</div></div></div>
       <div class="membros">${membros.map(linhaMembro).join('')}</div></div>`;
   }).join('');
@@ -514,11 +515,12 @@ function renderEscola() {
     $('ranking').innerHTML = ''; $('refs').innerHTML = ''; return;
   }
   const [a, b] = E.periodo_oos;
-  $('info-escola').innerHTML = `Boletim de ${hora(E.gerado_em)} · provas de <b>${data(a)}</b> a <b>${data(b)}</b> · ${E.alunos_testados} alunos · ${E.combinacoes_testadas} combinações testadas`;
+  $('info-escola').innerHTML = (E.mercado === 'futuros' ? '<b>💹 Prova em futuros</b> (LONG e SHORT, risco fixo por operação, alavancagem por julgamento, funding e liquidação) · ' : '') + `Boletim de ${hora(E.gerado_em)} · provas de <b>${data(a)}</b> a <b>${data(b)}</b> · ${E.alunos_testados} alunos · ${E.combinacoes_testadas} combinações testadas`;
   const s = E.referencias.segurar, dca = E.referencias.dca, aprov = E.resultados.filter(r => r.aprovada);
   $('refs').innerHTML = `
     <div class="kpi"><div class="r">📌 comprar e segurar</div><div class="v ${cls(s.retorno_pct)}">${pct(s.retorno_pct)}</div><div class="s">queda máx ${pct(s.max_dd_pct, 0)} · Sharpe ${num(s.sharpe)}</div></div>
     <div class="kpi"><div class="r">🪙 DCA semanal</div><div class="v ${cls(dca.retorno_pct)}">${pct(dca.retorno_pct)}</div><div class="s">queda máx ${pct(dca.max_dd_pct, 0)} · Sharpe ${num(dca.sharpe)}</div></div>
+    ${E.comite ? `<div class="kpi"><div class="r">🤝 comitê (top 3 juntas)</div><div class="v ${cls(E.comite.oos.retorno_pct)}">${pct(E.comite.oos.retorno_pct)}</div><div class="s">queda máx ${pct(E.comite.oos.max_dd_pct, 1)} · Sharpe ${num(E.comite.oos.sharpe)} · ${esc(E.comite.nomes.join(' + '))}</div></div>` : ''}
     <div class="kpi"><div class="r">🏅 aprovados</div><div class="v">${aprov.length} de ${E.resultados.length}</div><div class="s">${aprov.length ? 'campeã: ' + esc(aprov[0].emoji + ' ' + aprov[0].nome) : 'ninguém passou em tudo — os times são as maiores notas'}</div></div>`;
 
   let html = `<table><tr><th>#</th><th>aluno</th><th>nota</th><th>situação</th><th>retorno</th><th>queda máx</th><th>Sharpe</th><th>ops</th><th>consistência</th><th>custo x2</th><th>confiança</th></tr>`;
@@ -570,9 +572,9 @@ let LAB = null, SP_ABERTA = null;
 async function atualizarLab() { try { LAB = await api('/api/laboratorio'); if (!GERENTE) GERENTE = await api('/api/gerente'); renderSprints(); } catch (e) {} }
 function linhaSprintTime(x) {
   return `<tr><td>${esc(x.emoji)} ${esc(x.nome)}${x.especial ? ' <span class="selo nao">fora</span>' : ''}</td><td>${x.operacoes}</td>
-    <td class="${cls(x.lucro_pct)}">${pct(x.lucro_pct, 2)}</td><td>${usd(x.taxas)}</td><td>${num(x.giro, 1)}x</td><td>${num(x.exposicao_pct, 0)}%</td><td class="neg">${pct(x.queda_pct, 1)}</td><td>${x.liquidacoes ? '💀 ' + x.liquidacoes : '–'}</td></tr>`;
+    <td class="${cls(x.lucro_pct)}">${pct(x.lucro_pct, 2)}</td><td>${usd(x.taxas)}</td><td>${num(x.giro, 1)}x</td><td>${num(x.exposicao_pct, 0)}%</td><td class="neg">${pct(x.queda_pct, 1)}</td><td>${x.liquidacoes ? '💀 ' + x.liquidacoes : '–'}</td><td class="sub">${x.segurar_pct != null ? pct(x.segurar_pct, 2) : '—'}</td></tr>`;
 }
-const CAB_SP = '<tr><th>time</th><th>ops</th><th>resultado</th><th>taxas</th><th>giro</th><th>exposição</th><th>queda</th><th>liquid.</th></tr>';
+const CAB_SP = '<tr><th>time</th><th>ops</th><th>resultado</th><th>taxas</th><th>giro</th><th>exposição</th><th>queda</th><th>liquid.</th><th>segurar</th></tr>';
 function renderSprints() {
   if (!ESTADO || !ESTADO.sprint_atual) return;
   const sp = ESTADO.sprint_atual, tot = sp.total, durac = Math.max(1, (sp.fim - sp.inicio) / 864e5), p = Math.min(100, sp.dias / durac * 100);
@@ -582,7 +584,8 @@ function renderSprints() {
     <div class="grid-kpi" style="margin-top:12px">
       <div class="kpi"><div class="r">operações (agência)</div><div class="v">${tot.operacoes_agencia ?? tot.operacoes}</div><div class="s">times: ${tot.operacoes} · ${tot.vitorias} V · ${tot.derrotas} D</div></div>
       <div class="kpi"><div class="r">dinheiro girado</div><div class="v">${usd(tot.volume)}</div><div class="s">${num(tot.giro, 2)}x o capital</div></div>
-      <div class="kpi"><div class="r">resultado</div><div class="v ${cls(tot.lucro_pct)}">${pct(tot.lucro_pct, 2)}</div><div class="s">${sinal(tot.lucro)}${usd(Math.abs(tot.lucro))}</div></div>
+      <div class="kpi"><div class="r">resultado</div><div class="v ${cls(tot.lucro_pct)}">${pct(tot.lucro_pct, 2)}</div><div class="s">${sinal(tot.lucro)}${usd(Math.abs(tot.lucro))}${tot.segurar_pct != null ? ` · segurar ${pct(tot.segurar_pct, 2)}` : ''}</div></div>
+      ${tot.lucro_medio_op !== undefined ? `<div class="kpi"><div class="r">qualidade</div><div class="v ${tot.lucro_medio_op != null ? cls(tot.lucro_medio_op) : ''}">${tot.lucro_medio_op != null ? sinal(tot.lucro_medio_op) + usd(Math.abs(tot.lucro_medio_op)) : '—'}</div><div class="s">lucro médio por operação${tot.r_medio != null ? ` · ${sinal(tot.r_medio)}${num(tot.r_medio, 2)}R` : ''}</div></div>` : ''}
       <div class="kpi"><div class="r">taxas pagas</div><div class="v">${usd(tot.taxas)}</div><div class="s">bruto ${sinal(tot.bruto)}${usd(Math.abs(tot.bruto))}</div></div>
       <div class="kpi"><div class="r">exposição média</div><div class="v">${num(tot.exposicao_pct, 0)}%</div><div class="s">do patrimônio posicionado</div></div>
       ${tot.liquidacoes != null ? `<div class="kpi"><div class="r">💀 liquidações</div><div class="v ${tot.liquidacoes ? 'neg' : ''}">${tot.liquidacoes}</div><div class="s">funding ${sinal(-tot.funding)}${usd(Math.abs(tot.funding))}</div></div>` : ''}

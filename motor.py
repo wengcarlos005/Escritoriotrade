@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from estrategias import POR_ID, checar_saida, fracao_entrada, niveis_de_entrada, pode_entrar
-from motor_futuros import Futuros, espelho, passo_ms, tendencia
+from motor_futuros import Futuros, confianca_da_escola, espelho, passo_ms, tendencia
 
 FUSO = timezone(timedelta(hours=-3))  # horário de Brasília
 TAMANHO_BUFFER = 1400
@@ -118,6 +118,11 @@ class Trader(Futuros):
             return self.caixa + p["lado"] * p["qtd"] * (px - p["preco"])
         return self.caixa + p["qtd"] * px
 
+    def aplicar_params_novos(self):
+        novos = getattr(self, "params_novos", None)
+        if novos:
+            self.params, self.intervalo, self.params_novos = novos, novos["intervalo"], None
+
     def rotulo(self, ag):
         return f"{self.nome} do {ag.time(self.time)['nome']}"
 
@@ -132,11 +137,14 @@ class Trader(Futuros):
         if dia != self.dia:
             self.dia, self.trades_hoje = dia, 0
 
+        if not self.posicao and getattr(self, "params_novos", None):
+            self.aplicar_params_novos()   # a próxima vela já vem no intervalo novo
+            return
         if ag.futuros():
             if est.tipo == "grade":
                 self._grade_fut(v, i, cfg, ag)
                 return
-            self._funding(t + passo_ms(self.intervalo), c, cfg)
+            self._funding(t + passo_ms(self.intervalo), c, cfg, ag)
             if est.tipo == "peso":
                 self._peso_fut(est, v, d, ve, de, i, cfg, ag)
             else:
@@ -364,6 +372,10 @@ class Agencia:
         self.sprint = None
         self.sprints = []
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
+        self.versao = 2            # 2 = escola de futuros, risco fixo, alavancagem por julgamento, Comitê, aprendizado
+        self.aprendizado = {}
+        self.funding_real = None
+        self.fonte_dados = "spot"
         self._iniciar_temporarios()
 
     def _iniciar_temporarios(self):
@@ -373,6 +385,111 @@ class Agencia:
 
     def futuros(self):
         return getattr(self, "mercado", "spot") == "futuros"
+
+    # --- aprendizado: cada operação fechada ensina alguma coisa ---------------------------------
+    def _mem(self, chave):
+        if not hasattr(self, "aprendizado") or self.aprendizado is None:
+            self.aprendizado = {}
+        return self.aprendizado.setdefault(chave, {"r": [], "r_contra": [], "anunciada": None})
+
+    def aprender(self, tr, pos, lucro, t):
+        """Guarda o resultado em R (lucro ÷ risco planejado). 1R = ganhou o que arriscou; −1R = bateu o stop."""
+        risco = pos.get("risco_usd") or 0
+        if risco <= 0:
+            return
+        r = max(-3.0, min(6.0, lucro / risco))
+        m = self._mem(f"{tr.time}|{tr.estrategia}")
+        m["r"] = (m["r"] + [round(r, 3)])[-60:]
+        if not pos.get("a_favor", True):
+            m["r_contra"] = (m["r_contra"] + [round(r, 3)])[-40:]
+        c = self.confianca_viva(tr.time, tr.estrategia)
+        ant = m.get("anunciada") or self.time(tr.time).get("confianca") or 1.0
+        if abs(c - ant) >= 0.1:
+            m["anunciada"] = c
+            ult = m["r"][-20:]
+            tm = self.time(tr.time)
+            self.evento(t, None, "🧠", f"{tm['emoji']} {tm['nome']} aprendeu com as operações: confiança {ant:.2f} → {c:.2f} "
+                                      f"(últimas {len(ult)}: {sum(ult) / len(ult):+.2f}R em média) — "
+                                      + ("vai arriscar um pouco mais" if c > ant else "vai arriscar menos"))
+
+    def confianca_viva(self, time_id, estrategia=None):
+        """Confiança = o que a escola achou (prior) misturado com o que aconteceu ao vivo.
+        Com poucas operações vale quase só a escola; com 20 operações, metade/metade (evita confundir sorte com habilidade)."""
+        tm = self.time(time_id)
+        prior = tm.get("confianca") or 1.0
+        m = (getattr(self, "aprendizado", None) or {}).get(f"{time_id}|{estrategia or tm.get('estrategia')}")
+        if not m or not m["r"]:
+            return round(prior, 2)
+        rs = m["r"][-40:]
+        media = sum(rs) / len(rs)
+        vivo = max(0.5, min(1.5, 1 + media))
+        w = len(rs) / (len(rs) + self.cfg.get("aprendizado", {}).get("operacoes_meio_peso", 20))
+        return round((1 - w) * prior + w * vivo, 2)
+
+    def fator_contra(self, time_id, estrategia=None):
+        """Quanto arriscar CONTRA a tendência de 200 dias: começa em 50% e aprende com essas operações."""
+        base = self.cfg.get("futuros", {}).get("fator_contra_tendencia", 0.5)
+        tm = self.time(time_id)
+        m = (getattr(self, "aprendizado", None) or {}).get(f"{time_id}|{estrategia or tm.get('estrategia')}")
+        if not m or not m["r_contra"]:
+            return base
+        rs = m["r_contra"][-30:]
+        aprendido = max(0.2, min(1.0, base + 0.5 * sum(rs) / len(rs)))
+        w = len(rs) / (len(rs) + 10)
+        return round((1 - w) * base + w * aprendido, 2)
+
+    def reestudar(self, esc, t):
+        """Boletim novo da escola (reestudo semanal com os dados mais recentes): cada time atualiza os parâmetros
+        da sua estratégia e a confiança de partida. Quem está com posição aberta troca quando fechar."""
+        por_id = {r["id"]: r for r in esc.get("resultados", [])}
+        for tm in self.disputando():
+            for est_id in (tm.get("membros") or [tm["estrategia"]]):
+                r = por_id.get(est_id)
+                if not r:
+                    continue
+                novos = r["params_atuais"]
+                antigos = tm["params"] if not tm.get("membros") else None
+                if not tm.get("membros"):
+                    tm["params"], tm["intervalo"] = novos, novos["intervalo"]
+                    if self.futuros():
+                        tm["confianca"] = confianca_da_escola(r.get("oos"))
+                mudou = False
+                for tr in self.do_time(tm["id"]):
+                    if tr.estrategia == est_id and tr.params != novos:
+                        tr.params_novos = dict(novos)
+                        mudou = True
+                        if not tr.posicao:
+                            tr.aplicar_params_novos()
+                if mudou:
+                    txt = ", ".join(f"{k} {antigos.get(k)}→{v}" for k, v in novos.items() if antigos and antigos.get(k) != v)
+                    self.evento(t, None, "🎓", f"{tm['emoji']} {tm['nome']} reestudou com os dados mais novos"
+                                              + (f": {txt}" if txt else "") + " (quem está posicionado troca ao fechar)")
+        if self.futuros():
+            com = esc.get("comite")
+            for tm in self.disputando():
+                if tm.get("membros") and com:
+                    tm["confianca"] = confianca_da_escola(com.get("oos"))
+
+    def resumo_aprendizado(self):
+        saida = []
+        for tm in self.times:
+            if tm.get("especial"):
+                continue
+            for est in (tm.get("membros") or [tm.get("estrategia")]):
+                m = (getattr(self, "aprendizado", None) or {}).get(f"{tm['id']}|{est}") or {"r": [], "r_contra": []}
+                rs = m["r"]
+                saida.append({"time": tm["id"], "estrategia": est, "nome": POR_ID[est].nome if est in POR_ID else est,
+                              "operacoes": len(rs), "media_r": round(sum(rs) / len(rs), 2) if rs else None,
+                              "acerto_pct": round(sum(1 for x in rs if x > 0) / len(rs) * 100) if rs else None,
+                              "confianca_escola": tm.get("confianca") or 1.0, "confianca_agora": self.confianca_viva(tm["id"], est),
+                              "contra_operacoes": len(m["r_contra"]), "fator_contra": self.fator_contra(tm["id"], est),
+                              "ultimos_r": rs[-20:]})
+        return saida
+
+    def regime(self, par, t_fim):
+        """Tendência de longo prazo (velas diárias, média 50 × 200): +1 alta, −1 baixa, 0 sem dados."""
+        filtro = self.cfg.get("futuros", {}).get("regime", {"intervalo": "1d", "rapida": 50, "lenta": 200})
+        return tendencia(self._buf.get(f"{par}@{filtro['intervalo']}"), filtro, t_fim, self._tend)
 
     def tendencia(self, par, filtro, t_fim):
         if not filtro:
@@ -386,6 +503,8 @@ class Agencia:
         d["times"] = [self.resumo_time(tm) for tm in self.times]
         if self.sprint:
             d["sprint_atual"] = self.resumo_sprint(self.salvo_em or self.sprint["inicio"])
+        if self.futuros():
+            d["aprendizado_resumo"] = self.resumo_aprendizado()
         return d
 
     @classmethod
@@ -395,7 +514,8 @@ class Agencia:
         o.cfg = cfg
         o.traders = [Trader.de_dict(x) for x in d["traders"]]
         campos = ("id", "nome", "emoji", "inspiracao", "estrategia", "estrategia_nome", "params", "intervalo", "titular",
-                  "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial", "modo", "alavancagem")
+                  "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial", "modo", "alavancagem", "confianca",
+                  "membros", "preco_inicial")
         o.times = [{k: tm.get(k) for k in campos} for tm in d.get("times", [])]
         o.sprint = d.get("sprint")
         o.sprints = d.get("sprints", [])
@@ -427,11 +547,14 @@ class Agencia:
 
     def chaves(self):
         ks = {tr.chave for tr in self.traders}
-        if self.futuros():  # velas extras pro filtro de tendência da grade
+        if self.futuros():  # velas extras: filtro de tendência da grade e o regime de longo prazo
+            reg = self.cfg.get("futuros", {}).get("regime", {"intervalo": "1d"})["intervalo"]
             for tr in self.traders:
                 filtro = tr.params.get("filtro")
                 if filtro:
                     ks.add(f"{tr.par}@{filtro['intervalo']}")
+                if tr.estrategia != "grade":
+                    ks.add(f"{tr.par}@{reg}")
         return sorted(ks)
 
     def pares(self):
@@ -448,6 +571,17 @@ class Agencia:
         if self.curva and t - self.curva[-1][0] < 15 * 60_000:
             return
         self.curva.append([t, round(self.patrimonio(), 4), round(self.aportes_ceo, 4)])
+        for tm in self.times:
+            if tm.get("preco_inicial") is None:
+                tm["preco_inicial"] = {}
+            pi = tm["preco_inicial"]
+            for tr in self.do_time(tm["id"]):
+                if tr.par not in pi and self.ultimo_preco.get(tr.par):
+                    pi[tr.par] = self.ultimo_preco[tr.par]
+        if self.sprint is not None:
+            ps = self.sprint.setdefault("precos", {})
+            for par, px in self.ultimo_preco.items():
+                ps.setdefault(par, px)
         self._amostrar_sprint()
         for tm in self.times:
             tm["curva"].append([t, round(self.patrimonio(tm["id"]), 4), round(tm["aportes"], 4)])
@@ -463,17 +597,21 @@ class Agencia:
         self.times, self.traders, self.curva, self.aportes_ceo = [], [], [], 0.0
         fut = self.cfg.get("futuros", {})
         self.mercado = "futuros" if fut.get("ativo") else "spot"
-        alavs = fut.get("alavancagem_por_time", [5, 6, 7, 8, 10]) if self.futuros() else [1]
+        lmax = fut.get("alavancagem_max", 10) if self.futuros() else 1
         moedas = self.cfg["liga"]["moedas"]
         capital = self.cfg["liga"]["capital_por_trader_usd"]
         for k, r in enumerate(escolhidos):
+            if r.get("comite"):
+                self._criar_comite(r, t, lmax, moedas, capital)
+                continue
             est = POR_ID[r["id"]]
             tm = {"id": r["id"], "nome": NOMES_TIME.get(r["id"], "Time " + est.nome),
                   "emoji": est.emoji, "inspiracao": r["inspiracao"], "estrategia": r["id"], "estrategia_nome": est.nome,
                   "params": r["params_atuais"], "intervalo": r["params_atuais"]["intervalo"], "titular": False,
                   "aportes": 0.0, "lucro_usado_bebes": 0.0, "bonus_bebe1_pago": False, "curva": [],
                   "nota_escola": r.get("nota"), "criado_em": t, "pontuacao": 0.0, "lugar": None,
-                  "alavancagem": alavs[k % len(alavs)]}
+                  "alavancagem": lmax, "confianca": confianca_da_escola(r.get("oos")) if self.futuros() else 1.0,
+                  "preco_inicial": {}}
             self.times.append(tm)
             for par in moedas:
                 tr = Trader(moeda(par), self.cfg["liga"].get("emoji_trader", "🤖"), par, 0.0, "trader", t,
@@ -490,8 +628,30 @@ class Agencia:
         self.temporada = {"numero": numero, "inicio": t, "proxima_rodada": proxima_segunda(t + 6 * 86_400_000),
                           "titular": self.times[0]["id"], "rodadas": []}
         self.abrir_sprint(t)
-        mercado = f" em FUTUROS ({min(alavs)}x a {max(alavs)}x, LONG e SHORT)" if self.futuros() else ""
+        mercado = f" em FUTUROS (LONG e SHORT, alavancagem por julgamento até {lmax}x)" if self.futuros() else ""
         self.evento(t, None, "🏁", f"Começou a temporada {numero}{mercado}! Titular da 1ª semana: {self.times[0]['emoji']} {self.times[0]['nome']}")
+
+    def _criar_comite(self, r, t, lmax, moedas, capital):
+        """Time Comitê: as N melhores estratégias dividindo o mesmo dinheiro (um robô por estratégia e moeda)."""
+        membros = r["comite"]
+        nomes = " + ".join(NOMES_TIME.get(m["id"], m["nome"]).replace("Time ", "") for m in membros)
+        tm = {"id": "comite", "nome": "Time Comitê", "emoji": "🤝", "inspiracao": "as melhores da escola juntas",
+              "estrategia": membros[0]["id"], "estrategia_nome": f"comitê: {nomes}", "params": membros[0]["params_atuais"],
+              "intervalo": "/".join(sorted({m["params_atuais"]["intervalo"] for m in membros})), "titular": False,
+              "aportes": 0.0, "lucro_usado_bebes": 0.0, "bonus_bebe1_pago": False, "curva": [], "nota_escola": r.get("nota"),
+              "criado_em": t, "pontuacao": 0.0, "lugar": None, "alavancagem": lmax, "preco_inicial": {},
+              "confianca": round(sum(confianca_da_escola(m.get("oos")) for m in membros) / len(membros), 2) if self.futuros() else 1.0,
+              "membros": [m["id"] for m in membros]}
+        self.times.append(tm)
+        for par in moedas:
+            for m in membros:
+                est = POR_ID[m["id"]]
+                tr = Trader(f"{moeda(par)} {est.emoji}", self.cfg["liga"].get("emoji_trader", "🤖"), par, 0.0, "trader", t,
+                            "comite", m["id"], m["params_atuais"])
+                tr.ultimo_preco = self.ultimo_preco.get(par)
+                tr.alavancagem = lmax
+                self.traders.append(tr)
+                self.aporte(tr, capital / len(membros))
 
     def adicionar_mesa_rapida(self, t):
         """Mesa Rápida: estagiários com velas curtas, FORA da disputa (nunca viram titular, sem bebês)."""
@@ -545,6 +705,12 @@ class Agencia:
         self.evento(t, None, "⚡", "Chegaram os estagiários da Mesa Rápida (velas curtas, fora da disputa)")
 
     # ------------------------------------------------------------------ sprints
+    def _segurar(self, tid, base):
+        """Quanto teria rendido só COMPRAR E SEGURAR as moedas do time desde `base` (preços), em %."""
+        pares = sorted({tr.par for tr in self.do_time(tid)})
+        rs = [(self.ultimo_preco[p] / base[p] - 1) * 100 for p in pares if base.get(p) and self.ultimo_preco.get(p)]
+        return round(sum(rs) / len(rs), 2) if rs else None
+
     def _foto(self):
         f = {}
         for tm in self.times:
@@ -566,7 +732,7 @@ class Agencia:
         else:
             fim = self.temporada["proxima_rodada"] if self.temporada else t + SEMANA
         self.sprint = {"numero": n, "inicio": t, "fim": fim, "duracao": duracao, "base": self._foto(), "exp": {}, "amostras": 0,
-                       "pico": {}, "queda": {}}
+                       "pico": {}, "queda": {}, "precos": dict(self.ultimo_preco)}
 
     def _amostrar_sprint(self):
         sp = self.sprint
@@ -606,7 +772,8 @@ class Agencia:
                            "vitorias": a["vit"] - b["vit"], "derrotas": a["der"] - b["der"],
                            "exposicao_pct": round(sp["exp"].get(tid, 0.0) / max(sp["amostras"], 1) * 100, 1),
                            "queda_pct": round(sp["queda"].get(tid, 0.0), 2), "funding": round(funding, 4),
-                           "liquidacoes": liq, "alavancagem": tm.get("alavancagem")})
+                           "liquidacoes": liq, "alavancagem": tm.get("alavancagem"),
+                           "segurar_pct": self._segurar(tid, sp.get("precos") or {})})
         principais = [x for x in linhas if not x["especial"]]
         cap_total = sum((sp["base"].get(x["id"]) or {}).get("patr", 0) or 1 for x in principais) or 1
 
@@ -620,7 +787,22 @@ class Agencia:
                  "queda_pct": min([x["queda_pct"] for x in principais] or [0]),
                  "funding": round(soma("funding"), 4), "liquidacoes": soma("liquidacoes"),
                  "operacoes_agencia": soma("operacoes", linhas)}
+        fechadas = [o for tr in self.traders for o in tr.trades if o["t_saida"] >= sp["inicio"]]
+        total["lucro_medio_op"] = round(sum(o["lucro"] for o in fechadas) / len(fechadas), 4) if fechadas else None
+        rs = [o["r"] for o in fechadas if o.get("r") is not None]
+        total["r_medio"] = round(sum(rs) / len(rs), 2) if rs else None
+        principais_ids = {x["id"] for x in principais}
+        segs = [x["segurar_pct"] for x in linhas if x["id"] in principais_ids and x["segurar_pct"] is not None]
+        total["segurar_pct"] = round(sum(segs) / len(segs), 2) if segs else None
         metas = []
+        if "lucro_medio_por_operacao_min" in metas_cfg:
+            v = total["lucro_medio_op"]
+            metas.append({"meta": f"lucro médio por operação (depois das taxas) ≥ US$ {metas_cfg['lucro_medio_por_operacao_min']:.2f}",
+                          "valor": "sem operações fechadas" if v is None else f"US$ {v:+.3f}" + (f" ({total['r_medio']:+.2f}R)" if total["r_medio"] is not None else ""),
+                          "ok": v is not None and v >= metas_cfg["lucro_medio_por_operacao_min"]})
+        if "bater_segurar" in metas_cfg and metas_cfg["bater_segurar"] and total["segurar_pct"] is not None:
+            metas.append({"meta": "times melhor que comprar e segurar as mesmas moedas", "valor": f"{total['lucro_pct']:+.2f}% vs {total['segurar_pct']:+.2f}%",
+                          "ok": total["lucro_pct"] >= total["segurar_pct"]})
         if "operacoes_min" in metas_cfg:
             metas.append({"meta": f"pelo menos {metas_cfg['operacoes_min']} operações (agência toda)", "valor": str(total["operacoes_agencia"]),
                           "ok": total["operacoes_agencia"] >= metas_cfg["operacoes_min"]})
@@ -757,7 +939,11 @@ class Agencia:
         realizado = sum(tr.lucro_realizado for tr in self.do_time(tid))
         meta = self.cfg["bebes"]["lucro_brl_por_bebe"]
         juntado = max(0.0, (realizado - tm["lucro_usado_bebes"]) * self.cotacao_brl)
+        abertos = [tr.posicao for tr in self.do_time(tid) if tr.posicao and tr.posicao.get("alavancagem")]
         return dict(tm, patrimonio=round(patr, 4), resultado_pct=round((patr / tm["aportes"] - 1) * 100, 3) if tm["aportes"] else 0.0,
+                    segurar_pct=self._segurar(tid, tm.get("preco_inicial") or {}),
+                    alavancagem_media=round(sum(p["alavancagem"] for p in abertos) / len(abertos), 1) if abertos else None,
+                    confianca_agora=self.confianca_viva(tid) if not tm.get("especial") else None,
                     pontuacao_agora=pts, retorno_4s_pct=ret4, queda_4s_pct=queda4,
                     bebes=sum(1 for tr in self.do_time(tid) if tr.tipo == "bebe"),
                     meta_bebe_pct=round(min(100.0, juntado / meta * 100), 1), lucro_bebe_brl=round(juntado, 2))

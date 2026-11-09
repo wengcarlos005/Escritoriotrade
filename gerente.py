@@ -28,8 +28,12 @@ no futuro, lucrar de verdade. A agência é uma LIGA de 5 times: cada time é um
 estratégias inspiradas em traders famosos, avaliadas com walk-forward fora da amostra, custos e Deflated Sharpe) com 5 \
 traders robôs, um por moeda. Toda segunda o melhor time das últimas 4 semanas vira titular; bebês traders nascem a cada \
 R$ 500 de lucro de um time. Quando o estado disser mercado "futuros", os robôs operam futuros perpétuos: LONG e SHORT, \
-alavancagem de 5x a 10x (cada time uma), margem isolada, taxas de futuros, funding a cada 8h e risco de LIQUIDAÇÃO — \
-fale disso com franqueza (alavancagem multiplica ganho E perda; liquidação é perder a margem inteira). As sprints duram 1 dia.
+RISCO FIXO por operação (perde ~2% do caixa se o stop bater) e alavancagem decidida A CADA OPERAÇÃO (até 10x) pela distância \
+do stop, pela confiança da escola e pela tendência de 200 dias; margem isolada, funding a cada 8h e risco de LIQUIDAÇÃO. \
+Os robôs APRENDEM: cada operação fechada (medida em R = resultado ÷ risco) ajusta a confiança do time aos poucos, e a escola \
+reestuda toda semana. Há um Time Comitê (as 3 melhores estratégias dividindo o dinheiro). Compare sempre com "segurar" \
+(comprar e segurar as mesmas moedas no mesmo período). Fale com franqueza: alavancagem multiplica ganho E perda; \
+poucas operações ao vivo são ruído. As sprints duram 1 dia.
 
 Seu papel:
 - Ser o gerente honesto e disciplinado: explicar o que aconteceu com números, apontar riscos e dar recomendações claras.
@@ -149,7 +153,9 @@ def contexto(estado, escola):
             papel = "TITULAR" if tm["titular"] else (("MESA DE GRADE, fora da disputa (robôs de grid: 20–40 operações/dia, lucram no vai-e-vem e sofrem em queda contínua)"
                      if tm.get("modo") == "grade" else "MESA RÁPIDA, fora da disputa (velas curtas — serve pra mostrar o efeito das taxas)") if tm.get("especial") else "reserva")
             linhas.append(f"## {tm['lugar'] or '–'}º {papel}: {tm['emoji']} {tm['nome']} "
-                          f"({tm['estrategia_nome']}, {tm['intervalo']}, {tm.get('alavancagem') or 1}x, nota na escola {tm.get('nota_escola')}) — patrimônio US$ {tm['patrimonio']:.2f} "
+                          f"({tm['estrategia_nome']}, {tm['intervalo']}, alavancagem média agora {tm.get('alavancagem_media') or '-'}x, "
+                          f"confiança escola {tm.get('confianca')} → agora {tm.get('confianca_agora')}, segurar as mesmas moedas {tm.get('segurar_pct')}%, "
+                          f"nota na escola {tm.get('nota_escola')}) — patrimônio US$ {tm['patrimonio']:.2f} "
                           f"({tm['resultado_pct']:+.2f}%), pontuação 4 semanas {tm.get('pontuacao_agora')}, bebês {tm['bebes']}, "
                           f"rumo ao próximo bebê {tm['meta_bebe_pct']}%")
             for t in [x for x in estado["traders"] if x.get("time") == tm["id"]]:

@@ -19,7 +19,9 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import historico
-from estrategias import TODAS, POR_ID, checar_saida, fracao_entrada, niveis_de_entrada, pode_entrar
+import indicadores
+from estrategias import BARRAS_POR_DIA, TODAS, POR_ID, checar_saida, fracao_entrada, niveis_de_entrada, pode_entrar
+from motor_futuros import dimensionar, espelho
 
 AQUI = Path(__file__).resolve().parent
 ARQ_ESCOLA = AQUI / "dados" / "escola.json"
@@ -102,6 +104,98 @@ def _backtest_peso(est, v, d, p, ini, fim, taxa, derrap):
     return curva, trades, exp / max(fim - ini, 1)
 
 
+def backtest_futuros(est, v, d, ve, de, p, ini, fim, cf, reg, custo=1.0):
+    """Futuros: LONG e SHORT (short = sinal no preço espelhado), o MESMO julgamento de tamanho e alavancagem
+    do motor ao vivo (risco fixo pela distância do stop), taxas, derrapagem, funding e liquidação."""
+    taxa = (cf.get("taxa_taker", 0.0005) + cf.get("derrapagem", 0.0002)) * custo
+    fund = cf.get("funding_8h", 0.00005) * (24 / BARRAS_POR_DIA[p["intervalo"]]) / 8
+    mmr = cf.get("margem_manutencao", 0.005)
+    cfj = dict(cf, taxa_taker=taxa, derrapagem=0.0)
+    t, o, h, l, c = v["t"], v["o"], v["h"], v["l"], v["c"]
+    eq, pos, curva, trades, exp = 1.0, None, {}, [], 0.0
+    peso = est.tipo == "peso"
+    for i in range(ini, fim):
+        if pos:
+            lado, N, px0 = pos["lado"], pos["N"], pos["px"]
+            pos["custos"] += lado * N * (c[i] / px0) * fund
+            sai = None
+            liq, st = pos["liq"], pos["stop"]
+            if lado > 0 and l[i] <= liq and (o[i] <= liq or st <= liq):
+                sai = "liq"
+            elif lado < 0 and h[i] >= liq and (o[i] >= liq or st >= liq):
+                sai = "liq"
+            elif peso:
+                if lado > 0 and l[i] <= st:
+                    sai = min(st, o[i])
+                elif lado < 0 and h[i] >= st:
+                    sai = max(st, o[i])
+                else:
+                    net = est.peso(d, v, i, p) - est.peso(de, ve, i, p)
+                    if abs(net) < 0.05 or (net > 0) != (lado > 0):
+                        sai = c[i]
+            else:
+                r = checar_saida(est, d if lado > 0 else de, v if lado > 0 else ve, i, p, pos["m"])
+                if r:
+                    sai = r[0] if lado > 0 else 1 / r[0]
+            if sai is None and i == fim - 1:
+                sai = c[i]
+            if sai is not None:
+                if sai == "liq":
+                    pnl = -pos["margem"] - pos["custos"]
+                else:
+                    pnl = lado * N * (sai / px0 - 1) - N * taxa * (sai / px0) - pos["custos"]
+                trades.append(pnl / pos["eq0"])
+                eq = max(0.0, pos["eq0"] + pnl)
+                pos = None
+        if not pos and i < fim - 1 and eq > 0.01:
+            lado, fr, stop, m = 0, 1.0, None, None
+            if peso:
+                net = est.peso(d, v, i, p) - est.peso(de, ve, i, p)
+                if abs(net) >= 0.1:
+                    lado, fr = (1 if net > 0 else -1), abs(net)
+                    a = d.get("atr", [None] * (i + 1))[i] if d.get("atr") else None
+                    dist = p.get("stop_atr", 3.0) * a / c[i] if a else 0.08
+                    stop = c[i] * (1 - dist) if lado > 0 else c[i] * (1 + dist)
+            else:
+                compra, venda = pode_entrar(est, d, v, i, p), pode_entrar(est, de, ve, i, p)
+                if compra != venda:
+                    lado = 1 if compra else -1
+                    dd, vv = (d, v) if compra else (de, ve)
+                    s_, a_ = niveis_de_entrada(dd, i, p, vv["c"][i])
+                    m = {"preco": vv["c"][i], "stop": s_, "alvo": a_, "barras": 0, "maxc": vv["c"][i]}
+                    stop = s_ if lado > 0 else 1 / s_
+                    fr = fracao_entrada(dd, i, p)
+            if lado:
+                rg = reg[i]
+                j = dimensionar(eq, eq, c[i], abs(c[i] - stop) / c[i], cfj, 1.0, rg == 0 or rg == lado, fr)
+                N, L = j["notional"], j["alavancagem"]
+                if N > 0:
+                    liq = c[i] * (1 - 1 / L + mmr) if lado > 0 else c[i] * (1 + 1 / L - mmr)
+                    pos = {"lado": lado, "N": N, "px": c[i], "eq0": eq, "margem": j["margem"], "liq": liq,
+                           "stop": stop, "m": m, "custos": N * taxa}
+        if pos:
+            marca = pos["eq0"] + pos["lado"] * pos["N"] * (c[i] / pos["px"] - 1) - pos["custos"]
+            exp += pos["N"] / max(marca, 1e-9)
+        else:
+            marca = eq
+        curva[t[i] // DIA] = marca
+    return curva, trades, exp / max(fim - ini, 1)
+
+
+def regime_alinhado(v, par, intervalo, filtro):
+    """Para cada vela de v: +1/−1/0 pela média 50 × 200 das velas diárias JÁ FECHADAS."""
+    d1 = _dados(par, filtro.get("intervalo", "1d"))
+    if not d1["t"]:
+        return [0] * len(v["t"])
+    r, le = indicadores.ema(d1["c"], filtro["rapida"]), indicadores.ema(d1["c"], filtro["lenta"])
+    passo = DIA // BARRAS_POR_DIA[intervalo]
+    saida = []
+    for tt in v["t"]:
+        j = bisect.bisect_right(d1["t"], tt + passo - DIA) - 1
+        saida.append(0 if j < 0 or r[j] is None or le[j] is None else (1 if r[j] > le[j] else -1))
+    return saida
+
+
 def _indices(v, t_ini, t_fim):
     return bisect.bisect_left(v["t"], t_ini), bisect.bisect_left(v["t"], t_fim)
 
@@ -165,10 +259,10 @@ def _normalizar(curva):
 _DADOS = {}
 
 
-def _dados(par, intervalo):
-    chave = (par, intervalo)
+def _dados(par, intervalo, invertido=False):
+    chave = (par, intervalo, invertido)
     if chave not in _DADOS:
-        _DADOS[chave] = historico.como_dicionario(historico.carregar(par, intervalo))
+        _DADOS[chave] = espelho(_dados(par, intervalo)) if invertido else historico.como_dicionario(historico.carregar(par, intervalo))
     return _DADOS[chave]
 
 
@@ -176,14 +270,20 @@ def estudar_aluno(est_id, cfg, fim_t):
     """Walk-forward completo de UMA estratégia (roda em paralelo, um processo por aluno)."""
     est = POR_ID[est_id]
     pares, taxa, derrap = cfg["pares"], cfg["taxa"], cfg["derrapagem"]
+    fut = cfg.get("futuros") if cfg.get("mercado") == "futuros" else None
     combos = list(est.combinacoes())
-    cache_ind = {}
+    cache_ind, cache_reg = {}, {}
 
-    def ind(par, p):
-        chave = (par, json.dumps(p, sort_keys=True))
+    def ind(par, p, invertido=False):
+        chave = (par, json.dumps(p, sort_keys=True), invertido)
         if chave not in cache_ind:
-            cache_ind[chave] = est.calcular(_dados(par, p["intervalo"]), p)
+            cache_ind[chave] = est.calcular(_dados(par, p["intervalo"], invertido), p)
         return cache_ind[chave]
+
+    def reg(par, itv):
+        if (par, itv) not in cache_reg:
+            cache_reg[(par, itv)] = regime_alinhado(_dados(par, itv), par, itv, fut.get("regime", {"intervalo": "1d", "rapida": 50, "lenta": 200}))
+        return cache_reg[(par, itv)]
 
     def rodar(p, t_ini, t_fim, custo=1.0):
         curvas, trades, exp = [], [], 0.0
@@ -192,7 +292,11 @@ def estudar_aluno(est_id, cfg, fim_t):
             if not v["t"] or v["t"][0] > t_ini - 30 * DIA:
                 return None  # falta histórico (precisa de folga pros indicadores)
             a, b = _indices(v, t_ini, t_fim)
-            curva, tr, e = backtest(est, v, ind(par, p), p, a, b, taxa * custo, derrap * custo)
+            if fut:
+                curva, tr, e = backtest_futuros(est, v, ind(par, p), _dados(par, p["intervalo"], True), ind(par, p, True),
+                                                p, a, b, fut, reg(par, p["intervalo"]), custo)
+            else:
+                curva, tr, e = backtest(est, v, ind(par, p), p, a, b, taxa * custo, derrap * custo)
             curvas.append(_normalizar(curva))
             trades += tr
             exp += e / len(pares)
@@ -268,6 +372,7 @@ def estudar_aluno(est_id, cfg, fim_t):
                         for j, par in enumerate(pares)},
         "provas": provas, "params_atuais": atuais, "combinacoes_testadas": len(combos),
         "curva": [[dia * DIA, round(x, 4)] for dia, x in carteira[::passo]],
+        "_diaria": carteira, "_trades": trades_oos,
     }
 
 
@@ -350,9 +455,33 @@ def dar_nota(r, cfg):
     return r
 
 
-def rodar_escola(cfg_usuario=None, avisar=print, paralelo=True):
+def comite(resultados, n=3):
+    """As N melhores dividindo o dinheiro em partes iguais (fora da amostra, mesmo período)."""
+    membros = [r for r in resultados if r.get("_diaria")][:n]
+    if len(membros) < 2:
+        return None
+    curvas = [{dia: x for dia, x in r["_diaria"]} for r in membros]
+    carteira = _carteira(curvas)
+    trades = [x / len(membros) for r in membros for x in r["_trades"]]
+    m = metricas([x for _, x in carteira], trades)
+    if not m:
+        return None
+    oos = {k: x for k, x in m.items() if not k.startswith("_")}
+    oos["dsr"] = round(sum(r["oos"].get("dsr", 0) for r in membros) / len(membros), 3)
+    passo = max(1, len(carteira) // 240)
+    return {"membros": [r["id"] for r in membros], "nomes": [f"{r['emoji']} {r['nome']}" for r in membros], "oos": oos,
+            "nota": round(sum(r["nota"] for r in membros) / len(membros), 1),
+            "curva": [[dia * DIA, round(x, 4)] for dia, x in carteira[::passo]]}
+
+
+def rodar_escola(cfg_usuario=None, avisar=print, paralelo=True, futuros=None):
     cfg = json.loads(json.dumps(PADRAO))
     cfg.update(cfg_usuario or {})
+    if futuros and futuros.get("ativo"):
+        cfg["mercado"], cfg["futuros"] = "futuros", futuros
+        cfg["taxa"], cfg["derrapagem"] = futuros.get("taxa_taker", 0.0005), futuros.get("derrapagem", 0.0002)
+    else:
+        cfg["mercado"] = "spot"
     intervalos = sorted({p["intervalo"] for e in TODAS for p in e.combinacoes()} | {"1d"})
     avisar("📚 Atualizando o histórico de preços (na primeira vez pode demorar uns minutos)...")
     for itv in intervalos:
@@ -384,15 +513,18 @@ def rodar_escola(cfg_usuario=None, avisar=print, paralelo=True):
     resultados = [dar_nota(r, cfg) for r in resultados]
     resultados.sort(key=lambda r: (r["aprovada"], r["nota"], r["oos"]["sharpe"]), reverse=True)
     refs = referencias(cfg, fim_t)
+    com = comite(resultados, (cfg_usuario or {}).get("comite_membros", 3))
     for r in resultados:
         r["oos"] = {k: x for k, x in r["oos"].items() if not k.startswith("_")}
         r["oos"]["buy_hold_pct"] = refs["segurar"]["retorno_pct"]
+        r.pop("_diaria", None)
+        r.pop("_trades", None)
     saida = {
         "gerado_em": int(time.time() * 1000), "duracao_s": round(time.time() - inicio),
         "config": cfg, "periodo_oos": [fim_t - cfg["provas"] * cfg["teste_dias"] * DIA, fim_t],
         "alunos_testados": len(resultados),
         "combinacoes_testadas": sum(r["combinacoes_testadas"] for r in resultados),
-        "referencias": refs, "resultados": resultados,
+        "referencias": refs, "resultados": resultados, "mercado": cfg["mercado"], "comite": com,
     }
     ARQ_ESCOLA.parent.mkdir(exist_ok=True)
     ARQ_ESCOLA.write_text(json.dumps(saida, ensure_ascii=False), encoding="utf-8")

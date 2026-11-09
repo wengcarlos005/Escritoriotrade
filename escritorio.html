@@ -118,13 +118,19 @@ h1 span{color:var(--acento)}
 .tcard .ts{font-size:12px;color:var(--suave);margin-bottom:8px}
 .pos-l{padding:8px 0;border-top:1px solid var(--linha);font-size:13px}
 .pos-l .l1{display:flex;align-items:center;gap:8px}
-.pos-l .m{font-weight:700;min-width:38px}
+.pos-l .m{font-weight:700;min-width:38px;white-space:nowrap}
 .pos-l .chip{white-space:nowrap}
 .pos-l .res{margin-left:auto;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pos-l .res small{font-weight:500;font-size:11.5px;margin-left:4px}
 .pos-l .l2{color:var(--suave);font-size:11.5px;line-height:1.5;margin-top:3px;padding-left:46px}
 .pos-l .l2 b{color:var(--texto);font-weight:600}
 .pos-l .l2 .it{white-space:nowrap}
+.pos-l .porque{color:#7a6a3a;margin-top:2px}
+.apr{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.apr .tcard .lin{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--linha)}
+.apr .tcard .lin span:first-child{color:var(--suave)}
+.barras-r{display:flex;align-items:center;gap:2px;height:34px;margin-top:8px}
+.barras-r i{flex:1;max-width:10px;border-radius:2px}
 .pos-l .l2 .sep{margin:0 5px;color:#c7cfc9}
 .pos-l.fora .l1{opacity:.65}
 .mais{display:block;margin:10px auto 0}
@@ -185,7 +191,7 @@ h1 span{color:var(--acento)}
         <div class="erro3d" id="erro3d">Não consegui carregar o 3D (sem internet pro three.js?).<br>Use a versão em pixel: <a href="/pixel">/pixel</a></div>
       </div>
       <div class="legenda">
-        <span><b style="color:#18a058">▲</b> comprado (long) · <b style="color:#e0454b">▼</b> vendido (short) · 10x = alavancagem</span>
+        <span><b style="color:#18a058">▲</b> comprado (long) · <b style="color:#e0454b">▼</b> vendido (short) · 5x = alavancagem que o robô decidiu pra aquela operação</span>
         <span>💀 liquidado</span>
         <span>arraste pra girar · botão direito/2 dedos pra mover · roda/pinça pra zoom · clique num personagem</span>
       </div>
@@ -198,7 +204,7 @@ h1 span{color:var(--acento)}
   </div>
   <div class="card ops" id="ops">
     <div class="ops-cab"><h3>📋 Mesa de operações</h3>
-      <div class="abinhas"><button data-ops="pos" class="on">Posições abertas</button><button data-ops="hist">Histórico de operações</button></div></div>
+      <div class="abinhas"><button data-ops="pos" class="on">Posições abertas</button><button data-ops="hist">Histórico de operações</button><button data-ops="apr">🧠 Aprendizado</button></div></div>
     <div id="ops-corpo"><div class="vazio">aguardando…</div></div>
   </div>
   <div class="aviso">simulação com preços reais e dinheiro de mentira · não é recomendação de investimento · <a href="/pixel" style="color:inherit">versão pixel</a></div>
@@ -234,6 +240,7 @@ const hashStr = s => { let h = 2166136261; for (const ch of String(s)) h = Math.
 let D = null, E = null, SEL = null;
 const FUT = () => !!(D && D.mercado === 'futuros');
 const ladoDe = tr => tr && tr.posicao ? (tr.posicao.lado == null ? 1 : tr.posicao.lado) : 0;
+const alavTxt = t => !t || !t.alavancagem ? '' : t.especial ? `${t.alavancagem}x` : (t.alavancagem_media ? `~${num(t.alavancagem_media, 1)}x` : `≤${t.alavancagem}x`);
 const alavDe = tr => (tr && ((tr.posicao && tr.posicao.alavancagem) || tr.alavancagem)) || null;
 function patrimonio(tr) {
   if (tr.patrimonio != null) return tr.patrimonio;
@@ -400,17 +407,17 @@ cenario.bloco('#fbfaf6', PAV.x, 0.22, PAV.z, 12, 0.78, 1.5);
 cenario.bloco('#e8e4da', PAV.x, 0.99, PAV.z, 12.2, 0.06, 1.7);
 ret(PAV.x - 6.2, PAV.z - 0.85, PAV.x + 6.2, PAV.z + 0.85);
 const ASSENTOS_OPS = [];
-[-5, -2.5, 0, 2.5, 5].forEach(dx => {
+[-5.6, -4, -2.4, -0.8, 0.8, 2.4, 4, 5.6].forEach(dx => {
   ASSENTOS_OPS.push({x: PAV.x + dx, z: PAV.z - 1.55, olhar: [PAV.x + dx, PAV.z], tela: [PAV.x + dx, 1.05, PAV.z - 0.35, Math.PI]});
   ASSENTOS_OPS.push({x: PAV.x + dx, z: PAV.z + 1.55, olhar: [PAV.x + dx, PAV.z], tela: [PAV.x + dx, 1.05, PAV.z + 0.35, 0]});
 });
 for (const s of ASSENTOS_OPS) {
   const atras = s.z < PAV.z ? -0.32 : 0.32;
-  cenario.bloco('#3c4a57', s.x, 0.22, s.z, 0.62, 0.32, 0.6);
-  cenario.bloco('#3c4a57', s.x, 0.54, s.z + atras, 0.62, 0.3, 0.1);
+  cenario.bloco('#3c4a57', s.x, 0.22, s.z, 0.56, 0.32, 0.56);
+  cenario.bloco('#3c4a57', s.x, 0.54, s.z + atras, 0.56, 0.3, 0.1);
   const [tx, ty, tz] = s.tela;
   cenario.bloco('#2b3138', tx, ty, tz, 0.06, 0.16, 0.06);
-  cenario.bloco('#2b3138', tx, ty + 0.14, tz, 0.72, 0.44, 0.06);
+  cenario.bloco('#2b3138', tx, ty + 0.14, tz, 0.6, 0.4, 0.06);
 }
 /* ---------- MESAS DOS TIMES DA RESERVA (mesa redonda + guarda-sol) ---------- */
 const ASSENTOS_POD = PODS.map(p => {
@@ -422,8 +429,8 @@ const ASSENTOS_POD = PODS.map(p => {
   cenario.add(G.cil6, '#f3efe6', fx, 1.9, fz, 0.06, 3.8, 0.06); cenario.add(G.ico, '#ffd23f', fx, 3.85, fz, 0.12, 0.12, 0.12); circ(fx, fz, 0.2);
   circ(p.x, p.z, 1.75);
   const lista = [];
-  for (let k = 0; k < 10; k++) {
-    const a = k / 10 * Math.PI * 2 + 0.31, sx = p.x + Math.cos(a) * 2.35, sz = p.z + Math.sin(a) * 2.35;
+  for (let k = 0; k < 16; k++) {
+    const a = k / 16 * Math.PI * 2 + 0.31, sx = p.x + Math.cos(a) * 2.9, sz = p.z + Math.sin(a) * 2.9;
     cenario.add(G.cil8, '#e4d6bd', sx, 0.2, sz, 0.3, 0.4, 0.3);
     lista.push({x: sx, z: sz, olhar: [p.x, p.z], tela: [p.x + Math.cos(a) * 1.05, 0.92, p.z + Math.sin(a) * 1.05, Math.atan2(Math.cos(a), Math.sin(a))]});
   }
@@ -1002,14 +1009,14 @@ function sincronizar() {
 let ASSINATURA_PLACAS = '';
 function desenharPlacas(forcar) {
   if (!D) return;
-  const ass = JSON.stringify([TIT && TIT.id, TIME_DO_POD.map(t => [t.id, t.alavancagem]), (D.times.find(t => t.especial) || {}).modo, TIT && TIT.alavancagem]);
+  const ass = JSON.stringify([TIT && TIT.id, TIME_DO_POD.map(t => [t.id, alavTxt(t)]), (D.times.find(t => t.especial) || {}).modo, alavTxt(TIT)]);
   if (ass === ASSINATURA_PLACAS && !forcar) return; ASSINATURA_PLACAS = ass;
   /* faixa do titular */
   const f = FAIXA.ctx; f.clearRect(0, 0, 1024, 160);
   f.fillStyle = '#ffffff'; f.beginPath(); f.roundRect ? f.roundRect(8, 8, 1008, 144, 40) : f.rect(8, 8, 1008, 144); f.fill();
   f.fillStyle = TIT ? corTime(TIT.id) : '#f2b632'; f.fillRect(8, 128, 1008, 24);
   f.fillStyle = '#1f2b23'; f.textAlign = 'center'; f.textBaseline = 'middle';
-  if (TIT) textoAjustado(f, `★ TITULAR · ${TIT.emoji || ''} ${TIT.nome.replace('Time ', '')}${TIT.alavancagem ? ` · ${TIT.alavancagem}x` : ''}`, 512, 70, 960, 76);
+  if (TIT) textoAjustado(f, `★ TITULAR · ${TIT.emoji || ''} ${TIT.nome.replace('Time ', '')}${alavTxt(TIT) ? ` · ${alavTxt(TIT)}` : ''}`, 512, 70, 960, 76);
   FAIXA.t.needsUpdate = true;
   /* bandeiras */
   BANDEIRAS.forEach((b, k) => {
@@ -1019,7 +1026,7 @@ function desenharPlacas(forcar) {
     c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle';
     if (tm) {
       c.font = '64px sans-serif'; c.fillText(tm.emoji || '🏳️', 160, 60);
-      textoAjustado(c, `${tm.lugar ? tm.lugar + 'º ' : ''}${nomeCurto(tm.estrategia || tm.id)}${tm.alavancagem ? ' · ' + tm.alavancagem + 'x' : ''}`, 160, 154, 296, 34);
+      textoAjustado(c, `${tm.lugar ? tm.lugar + 'º ' : ''}${nomeCurto(tm.estrategia || tm.id)}${alavTxt(tm) ? ' · ' + alavTxt(tm) : ''}`, 160, 154, 296, 34);
     }
     b.pl.t.needsUpdate = true; b.toldo.material.color.set(tm ? corTime(tm.id) : '#fff6ea');
   });
@@ -1197,7 +1204,7 @@ function renderLado() {
   $('rodada').textContent = D.temporada ? `rodada em ${falta(D.temporada.proxima_rodada)}` : '';
   $('liga').innerHTML = times.map(t => `<div class="liga-l${t.titular ? ' tit' : ''}${SEL && SEL.tipo === 'time' && SEL.id === t.id ? ' sel' : ''}" data-time="${t.id}">
     <span class="n">${t.especial ? '⚡' : t.lugar + 'º'}</span><span class="c" style="background:${corTime(t.id)}"></span>
-    <span class="nome">${t.titular ? '★ ' : ''}${esc(t.emoji)} ${esc(t.nome.replace('Time ', ''))}${t.alavancagem ? `<span class="x">${t.alavancagem}x</span>` : ''}</span>
+    <span class="nome">${t.titular ? '★ ' : ''}${esc(t.emoji)} ${esc(t.nome.replace('Time ', ''))}${alavTxt(t) ? `<span class="x">${alavTxt(t)}</span>` : ''}</span>
     <span class="n">${sinal(t.pontuacao_agora)}${num(t.pontuacao_agora, 1)}</span><span class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 1)}</span></div>`).join('');
   const evs = (D.eventos || []).slice(-7).reverse();
   $('feed').innerHTML = evs.length ? evs.map(e => `<div class="ev"><span>${esc(e.emoji)}</span><div style="flex:1;min-width:0">${esc(corta(e.texto, 96))}</div><span class="q">${hm(e.t)}</span></div>`).join('') : '<div class="vazio">nada ainda…</div>';
@@ -1212,7 +1219,9 @@ function renderDetalhe() {
     const membros = D.traders.filter(x => x.time === t.id), ab = membros.filter(x => x.posicao);
     $('det').innerHTML = linha('papel', t.titular ? '★ titular' : t.especial ? (t.modo === 'grade' ? '🧮 robôs de grade, fora da disputa' : '⚡ estagiários, fora da disputa') : 'reserva') +
       linha('estratégia', esc(t.estrategia_nome)) + linha('velas', esc(t.intervalo)) +
-      (t.alavancagem ? linha('alavancagem', `<b>${t.alavancagem}x</b>`) : '') +
+      (t.alavancagem ? linha('alavancagem', t.especial ? `<b>${t.alavancagem}x</b> (fixa da mesa)` : `<b>${alavTxt(t)}</b> · decidida a cada operação (máx ${t.alavancagem}x)`) : '') +
+      (t.confianca_agora != null ? linha('confiança', `escola ${num(t.confianca, 2)} → agora <b>${num(t.confianca_agora, 2)}</b>`) : '') +
+      (t.segurar_pct != null ? linha('vs comprar e segurar', `<span class="${cls(t.resultado_pct - t.segurar_pct)}">${pct(t.resultado_pct, 2)} vs ${pct(t.segurar_pct, 2)}</span>`) : '') +
       linha('posições abertas', ab.length ? `${ab.filter(x => ladoDe(x) > 0).length} ▲ · ${ab.filter(x => ladoDe(x) < 0).length} ▼` : 'nenhuma') +
       linha('patrimônio', usd(t.patrimonio)) +
       linha('temporada', `<span class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</span>`) +
@@ -1274,19 +1283,20 @@ function aberto(tr) {   // lucro/prejuízo em aberto: US$ e % sobre a margem (ou
   const v = p.qtd * px - p.custo; return {usd: v, pct: v / (p.custo || 1) * 100, mov: (px / p.preco - 1) * 100};
 }
 function linhaPosicao(tr) {
-  const p = tr.posicao, bebe = tr.tipo === 'bebe' ? '👶 ' : '', S = '<span class="sep">·</span>';
+  const p = tr.posicao, bebe = tr.tipo === 'bebe' ? '👶 ' : '', S = ' <span class="sep">·</span> ';
+  const rot = tr.time === 'comite' ? tr.nome : moedaDe(tr);
   if (!p) {
     const fal = tr.distancia != null ? (FUT() ? `falta ${num(Math.abs(tr.distancia), 1)}% de ${tr.distancia > 0 ? 'alta pra LONG' : 'queda pra SHORT'}` : `falta ${num(tr.distancia, 1)}% de alta`) : 'esperando o sinal';
-    return `<div class="pos-l fora" title="${esc(tr.gatilho || '')}"><div class="l1"><span class="m">${bebe}${esc(moedaDe(tr))}</span><span class="chip cinza">FORA</span>
+    return `<div class="pos-l fora" title="${esc(tr.gatilho || '')}"><div class="l1"><span class="m">${bebe}${esc(rot)}</span><span class="chip cinza">FORA</span>
       <span style="color:var(--suave);font-size:12px">🎯 ${fal}</span><span class="res" style="color:var(--suave);font-weight:500">${usd(patrimonio(tr))}</span></div></div>`;
   }
   const a = aberto(tr), x = p.alavancagem || alavDe(tr);
   const l2 = [`entrou <b>${preco(p.preco)}</b>${p.lotes ? ` (${p.lotes} degraus)` : ''} → agora <b>${preco(tr.ultimo_preco || p.preco)}</b> (${pct(a.mov, 2)})`,
     p.stop ? `stop ${preco(p.stop)}` : '', p.preco_liquidacao ? `<span class="neg">💀 liquida em ${preco(p.preco_liquidacao)}</span>` : '',
-    p.margem ? `margem ${usd(p.margem)}` : '', `há ${duracao(Date.now() - p.t)}`].filter(Boolean).map(x => `<span class="it">${x}</span>`).join(S);
-  return `<div class="pos-l"><div class="l1"><span class="m">${bebe}${esc(moedaDe(tr))}</span>${chipOp(p.lado, x)}
+    p.margem ? `margem ${usd(p.margem)}` : '', p.risco_usd ? `risco ${usd(p.risco_usd)} se bater o stop` : '', `há ${duracao(Date.now() - p.t)}`].filter(Boolean).map(x => `<span class="it">${x}</span>`).join(S);
+  return `<div class="pos-l"><div class="l1"><span class="m">${bebe}${esc(rot)}</span>${chipOp(p.lado, x)}
     <span class="res ${cls(a.usd)}">${sinal(a.usd)}${usd(Math.abs(a.usd))}<small>${pct(a.pct, 1)}${p.lado != null ? ' na margem' : ''}</small></span></div>
-    <div class="l2">${l2}</div></div>`;
+    <div class="l2">${l2}${p.porque ? `<div class="porque">🧠 ${x}x porque: ${esc(p.porque.split('; ')[1] ? p.porque.split('; ')[1].replace(/^\d+x porque /, '') : p.porque)}</div>` : ''}</div></div>`;
 }
 function renderPosicoes() {
   const times = [...D.times].sort((a, b) => (b.titular - a.titular) || (a.especial ? 1 : 0) - (b.especial ? 1 : 0) || (a.lugar || 9) - (b.lugar || 9));
@@ -1299,9 +1309,9 @@ function renderPosicoes() {
     const ab = membros.filter(x => x.posicao), soma = ab.reduce((s, x) => s + aberto(x).usd, 0);
     const papel = t.titular ? '★ titular' : t.especial ? 'fora da disputa' : t.lugar + 'º · reserva';
     return `<div class="tcard${SEL && SEL.tipo === 'time' && SEL.id === t.id ? ' sel' : ''}" data-tcard="${t.id}">
-      <div class="tt"><span class="c" style="background:${corTime(t.id)}"></span>${esc(t.emoji)} ${esc(t.nome)}${t.alavancagem > 1 ? ` <span class="tag" style="margin:0">${t.alavancagem}x</span>` : ''}
+      <div class="tt"><span class="c" style="background:${corTime(t.id)}"></span>${esc(t.emoji)} ${esc(t.nome)}${alavTxt(t) ? ` <span class="tag" style="margin:0">${alavTxt(t)}</span>` : ''}
         <span class="r ${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</span></div>
-      <div class="ts">${papel} · ${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)} · ${ab.length} de ${membros.length} posicionados${ab.length ? ` · em aberto <b class="${cls(soma)}">${sinal(soma)}${usd(Math.abs(soma))}</b>` : ''}</div>
+      <div class="ts">${papel} · ${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)} · ${ab.length} de ${membros.length} posicionados${t.segurar_pct != null ? ` · segurar as mesmas moedas: ${pct(t.segurar_pct, 2)}` : ''}${ab.length ? ` · em aberto <b class="${cls(soma)}">${sinal(soma)}${usd(Math.abs(soma))}</b>` : ''}</div>
       ${membros.map(linhaPosicao).join('')}</div>`;
   }).join('')}</div>`;
 }
@@ -1317,19 +1327,35 @@ function renderHistorico() {
       <div class="kpi"><div class="r">operações mostradas</div><div class="v">${ops.length}</div></div>
       <div class="kpi"><div class="r">acerto</div><div class="v">${Math.round(ganhos / ops.length * 100)}%</div></div>
       <div class="kpi"><div class="r">resultado somado</div><div class="v ${cls(soma)}">${sinal(soma)}${usd(Math.abs(soma))}</div></div></div>` : '';
-  const corpo = ops.length ? `<div class="tabela"><table><tr><th>fechou</th><th>time</th><th>moeda</th><th>operação</th><th>entrada → saída</th><th>durou</th><th>por quê saiu</th><th class="dir">resultado</th></tr>${
+  const corpo = ops.length ? `<div class="tabela"><table><tr><th>fechou</th><th>time</th><th>moeda</th><th>operação</th><th>entrada → saída</th><th>durou</th><th>por quê saiu</th><th class="dir">em R</th><th class="dir">resultado</th></tr>${
     ops.slice(0, HIST_LIM).map(o => `<tr><td>${dataHora(o.t_saida)}</td><td><span style="color:${corTime(o.time)}">●</span> ${esc(nomeT(o.time))}</td>
       <td><b>${esc(moedaDe(o.tr))}</b></td><td>${chipOp(o.lado, o.alavancagem)}</td><td>${preco(o.entrada)} → ${preco(o.saida)}</td>
-      <td>${duracao(o.t_saida - o.t_entrada)}</td><td>${esc(o.motivo)}</td>
+      <td>${duracao(o.t_saida - o.t_entrada)}</td><td>${esc(o.motivo)}</td><td class="dir ${o.r != null ? cls(o.r) : ''}">${o.r != null ? sinal(o.r) + num(o.r, 2) + 'R' : '—'}</td>
       <td class="dir ${cls(o.lucro)}"><b>${sinal(o.lucro)}${usd(Math.abs(o.lucro))}</b> <small>(${pct(o.pct, 1)})</small></td></tr>`).join('')}</table></div>` +
       (ops.length > HIST_LIM ? `<button class="bt mais" data-mais="1">mostrar mais (${ops.length - HIST_LIM} restantes)</button>` : '')
     : '<div class="vazio">Nenhuma operação fechada ainda. Os times de velas diárias e de 4h operam pouco; a Mesa de Grade é quem mais opera.</div>';
-  return `<p class="explica">As operações já fechadas, da mais nova pra mais antiga (as últimas de cada robô). O resultado já desconta taxas e funding; a % é sobre a margem usada.</p>${filtros}${resumo}${corpo}`;
+  return `<p class="explica">As operações já fechadas, da mais nova pra mais antiga (as últimas de cada robô). O resultado já desconta taxas e funding; a % é sobre a margem usada. <b>R</b> = resultado ÷ risco planejado: +2R é ganhar o dobro do que arriscou; −1R é bater o stop.</p>${filtros}${resumo}${corpo}`;
+}
+function renderAprendizado() {
+  const lista = D.aprendizado_resumo || [];
+  if (!lista.length) return '<div class="vazio">O aprendizado aparece no modo futuros.</div>';
+  const explica = `<p class="explica">A cada operação fechada o robô anota o resultado em <b>R</b> (resultado ÷ risco que planejou). A <b>confiança</b> começa no que a escola achou da estratégia e vai se misturando com o que acontece ao vivo — com 20 operações vale metade/metade, pra não confundir sorte com habilidade. Confiança maior = arrisca um pouco mais e pode usar mais alavancagem; menor = arrisca menos. Ele também aprende se vale a pena operar <b>contra a tendência de 200 dias</b> (começa arriscando 50% do normal nesses casos). E toda semana a escola reestuda com os dados novos e os times atualizam os parâmetros.</p>`;
+  return explica + `<div class="apr">${lista.map(a => {
+    const t = D.times.find(x => x.id === a.time) || {}, rs = a.ultimos_r || [], mx = Math.max(1, ...rs.map(Math.abs));
+    const barras = rs.length ? `<div class="barras-r" title="últimas operações em R">${rs.map(r => `<i style="height:${Math.max(6, Math.abs(r) / mx * 100)}%;background:${r >= 0 ? 'var(--verde)' : 'var(--vermelho)'};align-self:${r >= 0 ? 'flex-end' : 'flex-start'}"></i>`).join('')}</div>` : '';
+    const seta = a.confianca_agora > a.confianca_escola + 0.005 ? '▲' : a.confianca_agora < a.confianca_escola - 0.005 ? '▼' : '=';
+    return `<div class="tcard"><div class="tt"><span class="c" style="background:${corTime(a.time)}"></span>${esc(t.emoji || '')} ${esc((t.nome || a.time).replace('Time ', ''))}</div>${t.membros ? `<div class="ts">membro: ${esc(a.nome)}</div>` : ''}
+      <div class="lin"><span>operações ao vivo</span><span>${a.operacoes}${a.acerto_pct != null ? ` · acerto ${a.acerto_pct}%` : ''}</span></div>
+      <div class="lin"><span>resultado médio</span><span class="${a.media_r != null ? cls(a.media_r) : ''}">${a.media_r != null ? sinal(a.media_r) + num(a.media_r, 2) + 'R por operação' : 'ainda sem operações'}</span></div>
+      <div class="lin"><span>confiança</span><span>escola ${num(a.confianca_escola, 2)} → agora <b>${num(a.confianca_agora, 2)}</b> ${seta}</span></div>
+      <div class="lin"><span>contra a tendência de 200 dias</span><span>${a.contra_operacoes} ops · arrisca ${Math.round(a.fator_contra * 100)}% do normal</span></div>
+      ${barras || '<div class="vazio" style="margin-top:8px">as barrinhas das últimas operações aparecem aqui</div>'}</div>`;
+  }).join('')}</div>`;
 }
 function renderOps() {
   if (!D) return;
   document.querySelectorAll('[data-ops]').forEach(b => b.classList.toggle('on', b.dataset.ops === OPS_ABA));
-  $('ops-corpo').innerHTML = OPS_ABA === 'pos' ? renderPosicoes() : renderHistorico();
+  $('ops-corpo').innerHTML = OPS_ABA === 'pos' ? renderPosicoes() : OPS_ABA === 'apr' ? renderAprendizado() : renderHistorico();
 }
 document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-ops]'); if (b) { OPS_ABA = b.dataset.ops; renderOps(); return; }
@@ -1345,8 +1371,8 @@ function renderTopo(vivo) {
   const temp = D.temporada || {}, tit = TIT || D.times[0];
   const total = D.traders.reduce((s, t) => s + patrimonio(t), 0), lucro = total - (D.aportes_ceo || 0);
   const abertos = D.traders.filter(t => t.posicao), longs = abertos.filter(t => ladoDe(t) > 0).length, shorts = abertos.filter(t => ladoDe(t) < 0).length;
-  const alavs = D.times.map(t => t.alavancagem).filter(Boolean);
-  const tagFut = FUT() ? `<span class="tag">⚡ futuros${alavs.length ? ` ${Math.min(...alavs)}–${Math.max(...alavs)}x` : ''}</span>` : '';
+  const alavs = D.times.filter(t => !t.especial).map(t => t.alavancagem).filter(Boolean);
+  const tagFut = FUT() ? `<span class="tag">⚡ futuros · alavancagem por julgamento${alavs.length ? ` até ${Math.max(...alavs)}x` : ''}</span> <span class="tag" style="background:#e3f1e7;color:#2f7d57" title="${D.fonte_dados === 'futuros' ? 'preço do contrato perpétuo e funding real da Binance' : 'a API de futuros não respondeu: preço à vista e funding médio'}">${D.fonte_dados === 'futuros' ? 'dados de futuros reais' : 'dados: aproximação à vista'}</span>` : '';
   $('sub').innerHTML = vivo ? `Temporada ${temp.numero} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · titular: <b>${esc(tit.emoji)} ${esc(tit.nome)}</b> ${tagFut}`
                             : `A agência está desligada — mostrando os últimos dados salvos ${tagFut}`;
   const sp = D.sprint_atual, liq = D.traders.reduce((s, t) => s + (t.liquidacoes || 0), 0);

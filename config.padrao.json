@@ -13,8 +13,9 @@
     "sincronizar_ao_comecar": true,
     "sprint": {
       "duracao": "dia",
-      "metas": {"operacoes_min": 20, "lucro_min_pct": 0.0, "taxas_max_pct_do_bruto": 30, "queda_max_pct": 10, "liquidacoes_max": 0}
+      "metas": {"lucro_medio_por_operacao_min": 0.0, "bater_segurar": true, "taxas_max_pct_do_bruto": 30, "queda_max_pct": 10, "liquidacoes_max": 0}
     },
+    "comite": {"ativo": true, "membros": 3},
     "mesa_rapida": {
       "ativo": true,
       "modo": "grade",
@@ -31,7 +32,14 @@
 
   "futuros": {
     "ativo": true,
-    "alavancagem_por_time": [5, 6, 7, 8, 10],
+    "alavancagem_max": 10,
+    "risco_por_operacao": 0.02,
+    "margem_maxima": 0.5,
+    "fator_contra_tendencia": 0.5,
+    "folga_liquidacao": 0.01,
+    "derrapagem": 0.0002,
+    "regime": {"intervalo": "1d", "rapida": 50, "lenta": 200},
+    "dados_reais": true,
     "alavancagem_mesa": 5,
     "margem_por_operacao": 0.25,
     "vender_a_descoberto": true,
@@ -40,6 +48,11 @@
     "funding_8h": 0.00005,
     "margem_manutencao": 0.005,
     "grade": {"degrau": 0.008, "faixa": 0.16, "filtro": {"intervalo": "4h", "rapida": 20, "lenta": 150}}
+  },
+
+  "aprendizado": {
+    "operacoes_meio_peso": 20,
+    "reestudar_a_cada_dias": 7
   },
 
   "bebes": {
