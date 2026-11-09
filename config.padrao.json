@@ -33,8 +33,13 @@
   "futuros": {
     "ativo": true,
     "alavancagem_max": 10,
-    "risco_por_operacao": 0.02,
-    "margem_maxima": 0.5,
+    "perfil": "agressivo",
+    "perfis": {
+      "moderado":        {"risco_por_operacao": 0.02, "piramide": null},
+      "agressivo":       {"risco_por_operacao": 0.04, "piramide": {"max_unidades": 4, "a_cada": 0.5, "fracao": 0.5}},
+      "muito_agressivo": {"risco_por_operacao": 0.06, "piramide": {"max_unidades": 4, "a_cada": 0.5, "fracao": 0.5}}
+    },
+    "margem_maxima": 0.8,
     "fator_contra_tendencia": 0.5,
     "folga_liquidacao": 0.01,
     "derrapagem": 0.0002,

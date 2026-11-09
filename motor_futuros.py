@@ -223,6 +223,7 @@ class Futuros:
                 self._fechar_fut(r[0] if lado > 0 else 1 / r[0], r[1], t, cfg, ag)
             else:
                 self._niveis_reais()
+                self._piramide(c, t, cfg, ag)
         self._checar_pausa(t, ag)
         if self.posicao or self.pausado_ate:
             return
@@ -238,6 +239,40 @@ class Futuros:
         stop_real = stop if lado > 0 else 1 / stop
         j = self._julgar(lado, c, stop_real, cfg, ag, t + passo_ms(self.intervalo), fracao_entrada(dd, i, p))
         self._abrir_fut(lado, j, c, t, m, cfg, ag)
+        if self.posicao:
+            self.posicao.update(unidades=1, ultimo=c, dist0=abs(c - stop_real) / c)
+
+    def _piramide(self, c, t, cfg, ag):
+        """PIRÂMIDE (regra das Tartarugas): a cada meia distância do stop a favor, soma mais uma unidade
+        (metade do risco de uma entrada), até 4 unidades. Só aumenta o que já está ganhando."""
+        pir = self._f(cfg).get("piramide") or {}
+        p = self.posicao
+        if not pir or not p or not p.get("dist0") or p.get("unidades", 1) >= pir.get("max_unidades", 1) or not p.get("stop"):
+            return
+        lado = p["lado"]
+        if lado * (c / p["ultimo"] - 1) < p["dist0"] * pir.get("a_cada", 0.5):
+            return
+        j = self._julgar(lado, c, p["stop"], cfg, ag, t + passo_ms(self.intervalo), pir.get("fracao", 0.5))
+        limite = self.caixa * self._f(cfg).get("margem_maxima", 0.8) - p["margem"]
+        dn = min(j["notional"], max(0.0, limite) * j["alavancagem"])
+        if dn < cfg["ordem_minima_usd"]:
+            return
+        taxa = dn * self._f(cfg).get("taxa_taker", 0.0005)
+        self.caixa -= taxa
+        self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + taxa
+        self.volume = getattr(self, "volume", 0.0) + dn
+        dq = dn / c
+        p["preco"] = (p["qtd"] * p["preco"] + dq * c) / (p["qtd"] + dq)
+        p["qtd"] += dq
+        p["notional"] = p["qtd"] * p["preco"]
+        p["margem"] = p["custo"] = p["margem"] + dn / j["alavancagem"]
+        p["alavancagem"] = max(1, round(p["notional"] / p["margem"]))
+        p["preco_liquidacao"] = self._liq(p["preco"], lado, p["notional"] / p["margem"], cfg)
+        p["taxa_abertura"] = p.get("taxa_abertura", 0.0) + taxa
+        p["risco_usd"] = p.get("risco_usd", 0.0) + j["risco_usd"]
+        p["unidades"], p["ultimo"] = p.get("unidades", 1) + 1, c
+        ag.evento(t, self, "➕", f"{self.rotulo(ag)} aumentou o {nome_lado(lado)} (pirâmide {p['unidades']}/{pir.get('max_unidades')}): "
+                               f"+US$ {dn:,.0f}, a operação já estava ganhando")
 
     # ------------------------------------------------------------------ alunos de peso (carteira contínua)
     def _stop_peso(self, d, i, c, lado):
@@ -314,6 +349,8 @@ class Futuros:
                 stop_real = m["stop"] if lado > 0 else 1 / m["stop"]
                 j = self._julgar(lado, preco, stop_real, cfg, ag, t_fim, fracao_entrada(dd, n - 1, p))
                 self._abrir_fut(lado, j, preco, t, m, cfg, ag, sincronizando=True)
+                if self.posicao:
+                    self.posicao.update(unidades=1, ultimo=preco, dist0=abs(preco - stop_real) / preco)
                 return
 
     def gatilho_fut(self, est, d, v, de, ve, i):

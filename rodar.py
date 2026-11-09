@@ -46,11 +46,21 @@ def carregar_config():
     """Padrões em config.padrao.json (vem nas atualizações) + o que você mudar em config.json (só seu)."""
     cfg = json.loads((AQUI / "config.padrao.json").read_text(encoding="utf-8"))
     pessoal = AQUI / "config.json"
+    meu = {}
     if pessoal.exists():
         try:
-            _mesclar(cfg, json.loads(pessoal.read_text(encoding="utf-8")))
+            meu = json.loads(pessoal.read_text(encoding="utf-8"))
+            _mesclar(cfg, meu)
         except Exception as e:
             print(f"⚠️  Não consegui ler o config.json ({e}). Usando só os padrões.")
+    # perfil de risco (moderado / agressivo / muito_agressivo); o que você escrever direto no config.json vale por cima
+    fut = cfg.get("futuros", {})
+    perfil = (fut.get("perfis") or {}).get(fut.get("perfil"))
+    if perfil:
+        explicito = meu.get("futuros", {}) if isinstance(meu.get("futuros"), dict) else {}
+        for k, v in perfil.items():
+            if k not in explicito:
+                fut[k] = v
     return cfg
 
 
@@ -180,7 +190,9 @@ def cmd_simular(args):
         esc = escola_mod.rodar_escola(cfg.get("escola"), futuros=cfg.get("futuros"))
         imprimir_boletim(esc, cfg)
     fut = cfg.get("futuros", {})
-    if fut.get("ativo") and esc.get("mercado") != "futuros":
+    esc_fut = (esc.get("config") or {}).get("futuros") or {}
+    perfil_mudou = esc_fut.get("risco_por_operacao") != fut.get("risco_por_operacao") or esc_fut.get("piramide") != fut.get("piramide")
+    if fut.get("ativo") and (esc.get("mercado") != "futuros" or perfil_mudou):
         print("🎓 A escola vai refazer as provas em FUTUROS (LONG e SHORT, risco fixo, alavancagem por julgamento) — ~1 minuto...")
         esc = escola_mod.rodar_escola(cfg.get("escola"), futuros=fut)
         imprimir_boletim(esc, cfg)
@@ -200,11 +212,11 @@ def cmd_simular(args):
         else:
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
-            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 2):
+            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 3):
                 backup = DADOS / f"simulacao_antiga_{time.strftime('%Y%m%d_%H%M')}.json"
                 shutil.copy2(ARQ_SIM, backup)
-                print("🔁 Reiniciando a agência com a nova versão (escola de futuros, risco fixo, alavancagem por julgamento, "
-                      f"Comitê e aprendizado). A temporada anterior foi guardada em dados/{backup.name}.")
+                print(f"🔁 Reiniciando a agência com a nova versão (perfil {fut.get('perfil')}: risco de {fut.get('risco_por_operacao', 0) * 100:.0f}% "
+                      f"por operação{' + pirâmide' if fut.get('piramide') else ''}). A temporada anterior foi guardada em dados/{backup.name}.")
                 ag = None
     ag = ag or Agencia(cfg, agora)
     ag.ao_evento = imprimir_evento

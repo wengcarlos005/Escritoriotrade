@@ -1293,6 +1293,7 @@ function linhaPosicao(tr) {
   const a = aberto(tr), x = p.alavancagem || alavDe(tr);
   const l2 = [`entrou <b>${preco(p.preco)}</b>${p.lotes ? ` (${p.lotes} degraus)` : ''} → agora <b>${preco(tr.ultimo_preco || p.preco)}</b> (${pct(a.mov, 2)})`,
     p.stop ? `stop ${preco(p.stop)}` : '', p.preco_liquidacao ? `<span class="neg">💀 liquida em ${preco(p.preco_liquidacao)}</span>` : '',
+    p.unidades > 1 ? `<b>➕ pirâmide ${p.unidades}/${((D.cfg.futuros || {}).piramide || {}).max_unidades || p.unidades}</b>` : '',
     p.margem ? `margem ${usd(p.margem)}` : '', p.risco_usd ? `risco ${usd(p.risco_usd)} se bater o stop` : '', `há ${duracao(Date.now() - p.t)}`].filter(Boolean).map(x => `<span class="it">${x}</span>`).join(S);
   return `<div class="pos-l"><div class="l1"><span class="m">${bebe}${esc(rot)}</span>${chipOp(p.lado, x)}
     <span class="res ${cls(a.usd)}">${sinal(a.usd)}${usd(Math.abs(a.usd))}<small>${pct(a.pct, 1)}${p.lado != null ? ' na margem' : ''}</small></span></div>
@@ -1372,7 +1373,8 @@ function renderTopo(vivo) {
   const total = D.traders.reduce((s, t) => s + patrimonio(t), 0), lucro = total - (D.aportes_ceo || 0);
   const abertos = D.traders.filter(t => t.posicao), longs = abertos.filter(t => ladoDe(t) > 0).length, shorts = abertos.filter(t => ladoDe(t) < 0).length;
   const alavs = D.times.filter(t => !t.especial).map(t => t.alavancagem).filter(Boolean);
-  const tagFut = FUT() ? `<span class="tag">⚡ futuros · alavancagem por julgamento${alavs.length ? ` até ${Math.max(...alavs)}x` : ''}</span> <span class="tag" style="background:#e3f1e7;color:#2f7d57" title="${D.fonte_dados === 'futuros' ? 'preço do contrato perpétuo e funding real da Binance' : 'a API de futuros não respondeu: preço à vista e funding médio'}">${D.fonte_dados === 'futuros' ? 'dados de futuros reais' : 'dados: aproximação à vista'}</span>` : '';
+  const fc = (D.cfg && D.cfg.futuros) || {};
+  const tagFut = FUT() ? `<span class="tag">⚡ futuros · perfil ${esc(String(fc.perfil || '').replace('_', ' '))} · risco ${num((fc.risco_por_operacao || 0) * 100, 0)}% por operação${fc.piramide ? ' + pirâmide' : ''} · alavancagem por julgamento${alavs.length ? ` até ${Math.max(...alavs)}x` : ''}</span> <span class="tag" style="background:#e3f1e7;color:#2f7d57" title="${D.fonte_dados === 'futuros' ? 'preço do contrato perpétuo e funding real da Binance' : 'a API de futuros não respondeu: preço à vista e funding médio'}">${D.fonte_dados === 'futuros' ? 'dados de futuros reais' : 'dados: aproximação à vista'}</span>` : '';
   $('sub').innerHTML = vivo ? `Temporada ${temp.numero} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · titular: <b>${esc(tit.emoji)} ${esc(tit.nome)}</b> ${tagFut}`
                             : `A agência está desligada — mostrando os últimos dados salvos ${tagFut}`;
   const sp = D.sprint_atual, liq = D.traders.reduce((s, t) => s + (t.liquidacoes || 0), 0);

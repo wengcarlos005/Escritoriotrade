@@ -120,6 +120,8 @@ def backtest_futuros(est, v, d, ve, de, p, ini, fim, cf, reg, custo=1.0):
             pos["custos"] += lado * N * (c[i] / px0) * fund
             sai = None
             liq, st = pos["liq"], pos["stop"]
+            if pos["m"]:
+                st = pos["m"]["stop"] if lado > 0 else 1 / pos["m"]["stop"]
             if lado > 0 and l[i] <= liq and (o[i] <= liq or st <= liq):
                 sai = "liq"
             elif lado < 0 and h[i] >= liq and (o[i] >= liq or st >= liq):
@@ -139,6 +141,27 @@ def backtest_futuros(est, v, d, ve, de, p, ini, fim, cf, reg, custo=1.0):
                     sai = r[0] if lado > 0 else 1 / r[0]
             if sai is None and i == fim - 1:
                 sai = c[i]
+            pir = cf.get("piramide") or {}
+            if sai is None and not peso and pir.get("max_unidades", 1) > pos["unidades"]:
+                # PIRÂMIDE: andou a favor `a_cada` × a distância do stop original desde a última compra → soma mais uma unidade
+                passo_p = pos["dist0"] * pir.get("a_cada", 1.0)
+                if lado * (c[i] / pos["ultimo"] - 1) >= passo_p:
+                    st_atual = pos["m"]["stop"] if lado > 0 else 1 / pos["m"]["stop"]
+                    dist = abs(c[i] - st_atual) / c[i]
+                    eq_m = pos["eq0"] + lado * N * (c[i] / px0 - 1) - pos["custos"]
+                    j = dimensionar(eq_m, eq_m, c[i], dist, cfj, 1.0, True, pir.get("fracao", 0.5))
+                    dN = j["notional"]
+                    if dN > 0:
+                        # preço médio ponderado (em notional): o lucro já acumulado fica guardado em "custos" negativos
+                        ganho_ate_aqui = lado * N * (c[i] / px0 - 1)
+                        pos["custos"] -= ganho_ate_aqui
+                        pos["N"], pos["px"] = N * (c[i] / px0) + dN, c[i]
+                        pos["custos"] += dN * taxa
+                        pos["margem"] += j["margem"]
+                        L = max(1, pos["N"] / pos["margem"])
+                        pos["liq"] = c[i] * (1 - 1 / L + mmr) if lado > 0 else c[i] * (1 + 1 / L - mmr)
+                        pos["unidades"] += 1
+                        pos["ultimo"] = c[i]
             if sai is not None:
                 if sai == "liq":
                     pnl = -pos["margem"] - pos["custos"]
@@ -172,7 +195,8 @@ def backtest_futuros(est, v, d, ve, de, p, ini, fim, cf, reg, custo=1.0):
                 if N > 0:
                     liq = c[i] * (1 - 1 / L + mmr) if lado > 0 else c[i] * (1 + 1 / L - mmr)
                     pos = {"lado": lado, "N": N, "px": c[i], "eq0": eq, "margem": j["margem"], "liq": liq,
-                           "stop": stop, "m": m, "custos": N * taxa}
+                           "stop": stop, "m": m, "custos": N * taxa, "unidades": 1, "ultimo": c[i],
+                           "dist0": abs(c[i] - stop) / c[i]}
         if pos:
             marca = pos["eq0"] + pos["lado"] * pos["N"] * (c[i] / pos["px"] - 1) - pos["custos"]
             exp += pos["N"] / max(marca, 1e-9)

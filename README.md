@@ -51,12 +51,18 @@ No navegador (http://127.0.0.1:8000): **🏝️ Escritório 3D** (uma ilha ao ar
   (comprado paga, vendido recebe). No seu PC, se a API de futuros da Binance responder, a agência usa o **preço do
   contrato e o funding reais**; se não, usa o preço à vista e o funding médio (o escritório mostra qual está valendo).
 - **🧠 Julgamento de cada operação (risco fixo + alavancagem decidida na hora):**
-  1. **Risco fixo:** se o stop bater, o robô perde no máximo **2% do caixa** (`futuros.risco_por_operacao`).
+  1. **Risco fixo:** se o stop bater, o robô perde no máximo **X% do caixa**, conforme o **perfil** (`futuros.perfil`):
+     `moderado` = 2%; **`agressivo` = 4% + pirâmide (padrão)**; `muito_agressivo` = 6% + pirâmide.
+     Na escola de futuros (4 anos), o 📈 Seykota fez: moderado +11%/ano (queda máx −14%); agressivo **+35%/ano
+     (queda −36%)**; muito agressivo +45%/ano (queda −48%). Mais ganho sempre vem com quedas maiores no caminho.
   2. **Tamanho** = risco ÷ distância do stop. Stop longe → posição menor; stop perto → maior.
   3. **Alavancagem** = a maior que deixa o preço de liquidação **além do stop**, com um teto que depende da
      **confiança** (o que a escola achou + o que ele aprendeu ao vivo) e da **tendência de 200 dias** (contra a
      tendência: metade do risco e metade do teto). Máximo 10x. Cada posição mostra o "porquê".
   Assim a alavancagem é consequência do risco, não uma aposta — e liquidação vira raridade (só em saltos de preço).
+- **➕ Pirâmide (regra das Tartarugas):** quando a operação anda a favor meia distância do stop, o robô soma mais uma
+  unidade (metade do risco de uma entrada), até 4 unidades. Só aumenta o que já está ganhando — é o que faz as poucas
+  operações boas renderem muito.
 - **📚 Aprendizado:** cada operação fechada é anotada em **R** (resultado ÷ risco planejado; −1R = bateu o stop).
   A confiança do time vai se misturando com esses resultados aos poucos (com 20 operações, metade escola e metade
   ao vivo), pra não confundir sorte com habilidade. O robô também aprende se vale operar contra a tendência de
@@ -140,7 +146,8 @@ No navegador (http://127.0.0.1:8000): **🏝️ Escritório 3D** (uma ilha ao ar
 ## 4. Configuração (`config.padrao.json` + o seu `config.json`)
 Os padrões ficam em `config.padrao.json` (vem nas atualizações). Pra mudar algo, crie um `config.json` com **só** o que quer mudar — por exemplo `{"mascote": {"nome": "Thor"}}` — ele vale por cima dos padrões e nunca é sobrescrito.
 
-- `futuros`: `ativo`, `risco_por_operacao` (0,02 = 2% do caixa por operação — o principal botão de risco),
+- `futuros`: `perfil` (`"moderado"`, `"agressivo"` ou `"muito_agressivo"`) — o principal botão de risco. Também dá pra
+  escrever direto `risco_por_operacao` (0,04 = 4%) e `piramide` (ou `null` pra desligar), que valem por cima do perfil;
   `alavancagem_max` (10), `fator_contra_tendencia` (0,5), `margem_maxima`, `dados_reais`, `vender_a_descoberto`,
   taxas, funding e a grade (`alavancagem_mesa`, `margem_por_operacao`). `liga.comite`: liga/desliga o Time Comitê.
   `aprendizado`: quantas operações até o ao vivo pesar metade (`operacoes_meio_peso`) e de quantos em quantos dias a escola reestuda.

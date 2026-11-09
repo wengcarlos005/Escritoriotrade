@@ -372,7 +372,7 @@ class Agencia:
         self.sprint = None
         self.sprints = []
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
-        self.versao = 2            # 2 = escola de futuros, risco fixo, alavancagem por julgamento, Comitê, aprendizado
+        self.versao = 3            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.funding_real = None
         self.fonte_dados = "spot"
@@ -421,8 +421,8 @@ class Agencia:
         if not m or not m["r"]:
             return round(prior, 2)
         rs = m["r"][-40:]
-        media = sum(rs) / len(rs)
-        vivo = max(0.5, min(1.5, 1 + media))
+        media = max(-0.9, min(1.0, sum(rs) / len(rs)))
+        vivo = max(0.5, min(1.5, prior * (1 + media)))   # média 0R mantém o que a escola achou; +0,3R sobe 30%; −0,3R desce 30%
         w = len(rs) / (len(rs) + self.cfg.get("aprendizado", {}).get("operacoes_meio_peso", 20))
         return round((1 - w) * prior + w * vivo, 2)
 

@@ -2,6 +2,16 @@
   "atualizado_em": "2026-11-08",
   "experimentos": [
     {
+      "titulo": "Mais risco por operação (perfis)",
+      "status": "aprovado",
+      "resultado": "Seykota em 4 anos: 2% → +50% (queda −14%); 4% → +106% (−24%); 6% → +161% (−33%). O Sharpe quase não muda: o ganho cresce junto com a queda. Padrão agora: agressivo (4% + pirâmide)."
+    },
+    {
+      "titulo": "10 moedas por time em futuros",
+      "status": "reprovado",
+      "resultado": "Seykota: mesmo retorno (+49% vs +50%) com 2,7× mais operações. Momentum piorou bastante (+26% → +9%). Não compensa por enquanto."
+    },
+    {
       "titulo": "Escola de futuros (LONG e SHORT com o mesmo julgamento do robô ao vivo)",
       "status": "aprovado",
       "resultado": "Agora os times são escolhidos por uma prova igual ao jogo: comprando e vendendo, taxas de futuros, funding, liquidação e risco fixo. Top: Seykota (Sharpe 0,94, +50%, queda −14%), Momentum (0,73), Weinstein (0,56), Minervini (0,52). Comprar e segurar deu +256% com queda de −64%."
@@ -68,8 +78,8 @@
     },
     {
       "titulo": "Pirâmide nas tendências (comprar mais quando já está ganhando)",
-      "status": "a testar",
-      "resultado": "Regra original das Tartarugas: aumentar a posição a cada ½ ATR a favor. Pode aumentar o giro só quando está dando certo."
+      "status": "aprovado",
+      "resultado": "Somar meia unidade a cada meia distância do stop a favor, até 4 (regra das Tartarugas). Seykota a 4% de risco: +106% → +228% em 4 anos (queda −24% → −36%, Sharpe 0,94 → 1,04). Também melhorou Momentum, Weinstein e Minervini. Ligada no perfil agressivo."
     }
   ]
 }
