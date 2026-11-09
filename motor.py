@@ -372,7 +372,7 @@ class Agencia:
         self.sprint = None
         self.sprints = []
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
-        self.versao = 3            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.versao = 4            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.funding_real = None
         self.fonte_dados = "spot"
@@ -515,7 +515,7 @@ class Agencia:
         o.traders = [Trader.de_dict(x) for x in d["traders"]]
         campos = ("id", "nome", "emoji", "inspiracao", "estrategia", "estrategia_nome", "params", "intervalo", "titular",
                   "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial", "modo", "alavancagem", "confianca",
-                  "membros", "preco_inicial")
+                  "membros", "preco_inicial", "caixa_time", "contratados")
         o.times = [{k: tm.get(k) for k in campos} for tm in d.get("times", [])]
         o.sprint = d.get("sprint")
         o.sprints = d.get("sprints", [])
@@ -543,7 +543,61 @@ class Agencia:
         self.aportes_ceo += valor_usd
 
     def patrimonio(self, time_id=None):
-        return sum(tr.patrimonio() for tr in self.traders if time_id is None or tr.time == time_id)
+        """Traders + o caixa de contratação dos times (dinheiro da empresa que ainda não virou funcionário)."""
+        caixas = sum(tm.get("caixa_time") or 0.0 for tm in self.times if time_id is None or tm["id"] == time_id)
+        return sum(tr.patrimonio() for tr in self.traders if time_id is None or tr.time == time_id) + caixas
+
+    # --- a empresa: metas de lucro, bônus, caixa do time e contratações -------------------------
+    def _empresa(self):
+        return self.cfg.get("empresa", {})
+
+    def pagar_metas(self, tr, t):
+        """A cada US$ 50 de lucro realizado (novo recorde), o funcionário fica com US$ 20 e manda US$ 30 pro caixa do time."""
+        e = self._empresa()
+        if not e.get("ativo"):
+            return
+        meta, fica, vai = e.get("meta_lucro_usd", 50), e.get("bonus_funcionario_usd", 20), e.get("para_caixa_do_time_usd", 30)
+        marco = getattr(tr, "lucro_marco", 0.0)
+        tm = self.time(tr.time)
+        while tr.lucro_realizado - marco >= meta and tr.caixa >= vai:
+            marco += meta
+            tr.caixa -= vai
+            tm["caixa_time"] = (tm.get("caixa_time") or 0.0) + vai
+            tr.metas_batidas = getattr(tr, "metas_batidas", 0) + 1
+            tr.bonus_recebido = getattr(tr, "bonus_recebido", 0.0) + fica
+            self.evento(t, tr, "💵", f"{tr.rotulo(self)} bateu a meta de US$ {meta:.0f}: ficou com US$ {fica:.0f} de bônus e mandou "
+                                    f"US$ {vai:.0f} pro caixa do time ({tm['caixa_time']:.0f}/{e.get('custo_contratacao_usd', 500):.0f})")
+        tr.lucro_marco = marco
+        self._contratar(tm, t)
+
+    def _contratar(self, tm, t):
+        e = self._empresa()
+        custo = e.get("custo_contratacao_usd", 500)
+        while (tm.get("caixa_time") or 0) >= custo:
+            membros = self.do_time(tm["id"])
+            if len(membros) >= e.get("max_funcionarios_por_time", 15):
+                return
+            moedas = list(dict.fromkeys(self.cfg["liga"]["moedas"] + e.get("moedas_novas", [])))
+            uso = {p: sum(1 for m in membros if m.par == p) for p in moedas}
+            par = min(moedas, key=lambda p: (uso[p], moedas.index(p)))
+            base = next((m for m in membros if m.tipo != "contratado"), membros[0] if membros else None)
+            if tm.get("membros"):   # Comitê: reveza as estratégias
+                est_id = tm["membros"][len(membros) % len(tm["membros"])]
+                params = next((m.params for m in membros if m.estrategia == est_id), tm["params"])
+            else:
+                est_id = base.estrategia if base else tm["estrategia"]
+                params = base.params if base else tm["params"]
+            n = uso[par] + 1
+            nome = moeda(par) + (f" {POR_ID[est_id].emoji}" if tm.get("membros") else "") + (f" {n}" if n > 1 else "")
+            novo = Trader(nome, "🧑‍💼", par, 0.0, "contratado", t, tm["id"], est_id, params)
+            novo.caixa = custo
+            novo.ultimo_preco = self.ultimo_preco.get(par)
+            novo.alavancagem = membros[0].alavancagem if membros else 1
+            self.traders.append(novo)
+            tm["caixa_time"] -= custo
+            tm["contratados"] = (tm.get("contratados") or 0) + 1
+            self.evento(t, novo, "🤝", f"{tm['emoji']} {tm['nome']} contratou um funcionário novo: {nome} "
+                                      f"(US$ {custo:.0f} do caixa do time). Agora são {len(membros) + 1}!")
 
     def chaves(self):
         ks = {tr.chave for tr in self.traders}
@@ -939,11 +993,19 @@ class Agencia:
         realizado = sum(tr.lucro_realizado for tr in self.do_time(tid))
         meta = self.cfg["bebes"]["lucro_brl_por_bebe"]
         juntado = max(0.0, (realizado - tm["lucro_usado_bebes"]) * self.cotacao_brl)
+        e = self._empresa()
+        membros = self.do_time(tid)
+        destaque = max(membros, key=lambda x: x.lucro_realizado, default=None)
         abertos = [tr.posicao for tr in self.do_time(tid) if tr.posicao and tr.posicao.get("alavancagem")]
         return dict(tm, patrimonio=round(patr, 4), resultado_pct=round((patr / tm["aportes"] - 1) * 100, 3) if tm["aportes"] else 0.0,
                     segurar_pct=self._segurar(tid, tm.get("preco_inicial") or {}),
                     alavancagem_media=round(sum(p["alavancagem"] for p in abertos) / len(abertos), 1) if abertos else None,
                     confianca_agora=self.confianca_viva(tid) if not tm.get("especial") else None,
+                    caixa_time=round(tm.get("caixa_time") or 0.0, 2), contratados=tm.get("contratados") or 0,
+                    funcionarios=len(membros), max_funcionarios=e.get("max_funcionarios_por_time", 15),
+                    meta_contratacao_pct=round(min(100.0, (tm.get("caixa_time") or 0) / e.get("custo_contratacao_usd", 500) * 100), 1),
+                    destaque=({"nome": destaque.nome, "lucro": round(destaque.lucro_realizado, 2),
+                               "metas": getattr(destaque, "metas_batidas", 0)} if destaque else None),
                     pontuacao_agora=pts, retorno_4s_pct=ret4, queda_4s_pct=queda4,
                     bebes=sum(1 for tr in self.do_time(tid) if tr.tipo == "bebe"),
                     meta_bebe_pct=round(min(100.0, juntado / meta * 100), 1), lucro_bebe_brl=round(juntado, 2))
@@ -1026,6 +1088,7 @@ class Agencia:
                     cache[k] = (est.calcular(v, tr.params), est.calcular(ve, tr.params) if shorts else None)
             d, de = cache[k]
             tr.processar(v, d, self.cfg, self, ve if shorts else None, de)
+            self.pagar_metas(tr, vela["t"])
         for tm in self.disputando():
             self._checar_bebes(tm, vela["t"])
 

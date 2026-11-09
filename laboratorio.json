@@ -2,6 +2,16 @@
   "atualizado_em": "2026-11-08",
   "experimentos": [
     {
+      "titulo": "Mesa de Grade em 10 moedas (alta frequência)",
+      "status": "em teste ao vivo",
+      "resultado": "Repetindo os últimos 60 dias com o motor de verdade: degrau 0,5% = ~200 operações/dia (+7%, US$ 82 de taxa); degrau 0,8% = ~78/dia (+6,3%). Escolhido 0,8% pra ficar em 50–100 operações/dia. Em 5 anos (aproximado) grades perderam — a sprint diária vai dizer."
+    },
+    {
+      "titulo": "Economia de empresa: metas de US$ 50, caixa do time e contratações",
+      "status": "em teste ao vivo",
+      "resultado": "Nos últimos 45 dias, só a Mesa de Grade bateu metas (DOGE: 3 metas); os times de tendência quase não realizaram lucro nesse período de mercado parado/caindo. Contratações devem vir primeiro da mesa."
+    },
+    {
       "titulo": "Mais risco por operação (perfis)",
       "status": "aprovado",
       "resultado": "Seykota em 4 anos: 2% → +50% (queda −14%); 4% → +106% (−24%); 6% → +161% (−33%). O Sharpe quase não muda: o ganho cresce junto com a queda. Padrão agora: agressivo (4% + pirâmide)."

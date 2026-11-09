@@ -354,7 +354,7 @@ def cmd_resumo(args):
         liqs = sum(t.get("liquidacoes", 0) for t in trs)
         L.append(f"{tm['emoji']} {tm['nome']} ({tm['intervalo']}) {'TITULAR' if tm.get('titular') else ''}: patrimônio US$ {tm['patrimonio']:.2f} "
                  f"({tm['resultado_pct']:+.2f}%) · operações nas últimas 24h: {ops24} · "
-                 + (f"{tm.get('alavancagem')}x · LONG {longs} / SHORT {shorts} de {len(trs)} · liquidações {liqs}" if d.get("mercado") == "futuros"
+                 + (f"LONG {longs} / SHORT {shorts} de {len(trs)} · liquidações {liqs} · caixa do time US$ {tm.get('caixa_time', 0):.0f}" if d.get("mercado") == "futuros"
                     else f"comprados agora: {abertos}/{len(trs)}"))
         if tm.get("modo") == "grade":
             for t in trs:

@@ -364,25 +364,26 @@ function renderGeral(d) {
   const times = [...d.times].sort((a, b) => (a.lugar || 9) - (b.lugar || 9));
   const total = d.traders.reduce((s, t) => s + patrimonio(t), 0), lucro = total - d.aportes_ceo;
   const tit = d.times.find(t => t.titular) || times[0];
-  const bebes = d.traders.filter(t => t.tipo === 'bebe').length;
+  const contratados = d.times.reduce((s, t) => s + (t.contratados || 0), 0), caixaTimes = d.times.reduce((s, t) => s + (t.caixa_time || 0), 0);
+  const emp = cfg.empresa || {};
   $('sub').innerHTML = `Temporada <b>${temp.numero}</b>${d.mercado === 'futuros' ? ' · <b>FUTUROS</b> (LONG e SHORT, 5x a 10x)' : ''} · começou em ${hora(temp.inicio)} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · dinheiro de mentira, preços de verdade.`;
   $('kpis').innerHTML = [
     ['🏆 time titular', `<span style="font-size:20px">${esc(tit.emoji)} ${esc(tit.nome)}</span>`, `pontuação ${sinal(tit.pontuacao_agora)}${num(tit.pontuacao_agora)} · ${pct(tit.resultado_pct, 2)} na temporada`, ''],
     ['⏱️ próxima rodada', falta(temp.proxima_rodada), 'segunda-feira, 00:00', ''],
     ['patrimônio total', usd(total), brl(total * taxa), ''],
     ['resultado', sinal(lucro) + usd(Math.abs(lucro)), `${pct(lucro / d.aportes_ceo * 100, 2)} · ${d.traders.length} traders`, cls(lucro)],
-    ['👶 bebês traders', String(bebes), `1 a cada R$ ${num(cfg.bebes.lucro_brl_por_bebe, 0)} de lucro de um time`, ''],
+    ['🤝 contratações', String(contratados), `caixa dos times ${usd(caixaTimes)} · contrata a cada ${usd(emp.custo_contratacao_usd || 500)}`, ''],
   ].map(([r, v, s, c]) => `<div class="kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join('');
 
-  $('classificacao').innerHTML = `<table><tr><th></th><th>time</th><th>papel</th><th>pontuação</th><th>4 semanas</th><th>patrimônio</th><th>temporada</th><th>segurar</th><th>traders</th><th>rumo ao bebê</th></tr>${
+  $('classificacao').innerHTML = `<table><tr><th></th><th>time</th><th>papel</th><th>pontuação</th><th>4 semanas</th><th>patrimônio</th><th>temporada</th><th>segurar</th><th>funcionários</th><th>caixa do time</th></tr>${
     times.map(t => `<tr><td><span class="lugar">${t.especial ? '⚡' : t.lugar + 'º'}</span></td>
       <td><b>${esc(t.emoji)} ${esc(t.nome)}</b><div class="sub" style="margin:0;font-size:12px">${esc(t.estrategia_nome)} · ${esc(t.intervalo)}${alavTxt(t) ? ` · <b>${alavTxt(t)}</b>` : ''} · nota ${num(t.nota_escola, 1)}</div></td>
       <td>${t.titular ? '<span class="selo ok">🏆 titular</span>' : t.especial ? '<span class="selo nao">fora da disputa</span>' : '<span class="selo info">reserva</span>'}</td>
       <td><b class="${cls(t.pontuacao_agora)}">${sinal(t.pontuacao_agora)}${num(t.pontuacao_agora)}</b></td>
       <td><span class="${cls(t.retorno_4s_pct)}">${pct(t.retorno_4s_pct, 2)}</span> <span class="sub" style="font-size:12px">queda ${pct(t.queda_4s_pct, 1)}</span></td>
       <td>${usd(t.patrimonio)}</td><td class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</td><td class="sub" title="comprar e segurar as mesmas moedas no mesmo período">${t.segurar_pct != null ? pct(t.segurar_pct, 2) : '—'}</td>
-      <td>${d.traders.filter(x => x.time === t.id).length}${t.bebes ? ` <span class="sub">(${t.bebes}👶)</span>` : ''}</td>
-      <td><div class="nota"><div class="b" style="width:80px"><i style="width:${t.meta_bebe_pct}%;background:linear-gradient(90deg,var(--amarelo),var(--laranja))"></i></div><span class="sub" style="font-size:12px">${num(t.meta_bebe_pct, 0)}%</span></div></td></tr>`).join('')}</table>`;
+      <td>${t.funcionarios ?? d.traders.filter(x => x.time === t.id).length}${t.contratados ? ` <span class="sub">(${t.contratados} contratados)</span>` : ''}</td>
+      <td><div class="nota"><div class="b" style="width:80px"><i style="width:${t.meta_contratacao_pct || 0}%;background:linear-gradient(90deg,var(--amarelo),var(--laranja))"></i></div><span class="sub" style="font-size:12px">${usd(t.caixa_time || 0)}</span></div></td></tr>`).join('')}</table>`;
 
   desenharTimes(d);
   $('times').innerHTML = times.map(t => {

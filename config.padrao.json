@@ -6,7 +6,7 @@
   "liga": {
     "times": 5,
     "moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"],
-    "capital_por_trader_usd": 100,
+    "capital_por_trader_usd": 1000,
     "semanas_para_pontuar": 4,
     "emoji_trader": "🤖",
     "so_alunos_aprovados": false,
@@ -20,7 +20,7 @@
       "ativo": true,
       "modo": "grade",
       "capital_por_trader_usd": 100,
-      "grade": {"moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"], "intervalo": "5m", "degrau": 0.005, "faixa": 0.20, "capital_por_trader_usd": 250},
+      "grade": {"moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT", "LTCUSDT"], "intervalo": "5m", "degrau": 0.005, "faixa": 0.20, "capital_por_trader_usd": 1000},
       "estagiarios": [
         {"par": "BTCUSDT", "estrategia": "momentum",   "intervalo": "15m", "params": {"n": 24, "vol_alvo": null}},
         {"par": "ETHUSDT", "estrategia": "williams",   "intervalo": "15m", "params": {"k": 0.5, "max_barras": 4}},
@@ -35,9 +35,9 @@
     "alavancagem_max": 10,
     "perfil": "agressivo",
     "perfis": {
-      "moderado":        {"risco_por_operacao": 0.02, "piramide": null},
-      "agressivo":       {"risco_por_operacao": 0.04, "piramide": {"max_unidades": 4, "a_cada": 0.5, "fracao": 0.5}},
-      "muito_agressivo": {"risco_por_operacao": 0.06, "piramide": {"max_unidades": 4, "a_cada": 0.5, "fracao": 0.5}}
+      "moderado":        {"risco_por_operacao": 0.02, "piramide": null, "margem_por_operacao": 0.25},
+      "agressivo":       {"risco_por_operacao": 0.04, "piramide": {"max_unidades": 4, "a_cada": 0.5, "fracao": 0.5}, "margem_por_operacao": 0.4},
+      "muito_agressivo": {"risco_por_operacao": 0.06, "piramide": {"max_unidades": 4, "a_cada": 0.5, "fracao": 0.5}, "margem_por_operacao": 0.55}
     },
     "margem_maxima": 0.8,
     "fator_contra_tendencia": 0.5,
@@ -60,8 +60,18 @@
     "reestudar_a_cada_dias": 7
   },
 
-  "bebes": {
+  "empresa": {
     "ativo": true,
+    "meta_lucro_usd": 50,
+    "bonus_funcionario_usd": 20,
+    "para_caixa_do_time_usd": 30,
+    "custo_contratacao_usd": 500,
+    "max_funcionarios_por_time": 15,
+    "moedas_novas": ["ADAUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT", "LTCUSDT", "DOTUSDT", "TRXUSDT", "NEARUSDT", "ATOMUSDT", "APTUSDT"]
+  },
+
+  "bebes": {
+    "ativo": false,
     "lucro_brl_por_bebe": 500,
     "max_bebes_por_time": 5,
     "moedas": ["ADAUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT", "LTCUSDT"],

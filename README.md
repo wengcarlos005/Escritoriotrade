@@ -71,18 +71,22 @@ No navegador (http://127.0.0.1:8000): **🏝️ Escritório 3D** (uma ilha ao ar
 - **🤝 Time Comitê:** as 3 melhores estratégias da escola dividindo o mesmo dinheiro (um robô por estratégia e moeda).
   Na escola de futuros caiu menos e ganhou menos que o Seykota sozinho — a liga vai mostrar ao vivo.
 - **5 times:** os 4 melhores alunos da escola de futuros + o Time Comitê. Cada time tem **5 traders** (BTC, ETH,
-  SOL, BNB, XRP), com **US$ 100 de mentira** cada (o Comitê tem 15, com US$ 33 cada).
+  SOL, BNB, XRP), com **US$ 1.000 de mentira** cada (o Comitê tem 15, com US$ 333 cada).
 - **Rodada toda segunda-feira, 00:00** (a 1ª depois de uma semana inteira). Pontuação = retorno das
   **últimas 4 semanas** − metade da maior queda no período. O 1º vira **🏆 titular**; os outros, **reserva**.
   (Uma semana sozinha é ruído demais — por isso olhamos 4.)
-- **Bebês traders:** a cada **R$ 500 de lucro de um time**, nasce um bebê nesse time, pago só com o lucro,
-  operando uma moeda nova (ADA, DOGE, LINK, AVAX, LTC). Até 5 bebês por time. Quando o 1º bebê de um time
-  chega a R$ 500 de lucro, o CEO dá R$ 500 pra cada trader daquele time.
-- **🧮 Mesa de Grade (futuros 5x):** 4 robôs de grade (BTC, ETH, SOL, BNB), velas de 5 min, US$ 250 de mentira cada,
-  **fora da disputa**. Olham a tendência das velas de 4h (média 20 × 150): em alta montam degraus de **compra (LONG)** abaixo
-  do preço; em baixa, degraus de **venda (SHORT)** acima. Cada lote fecha 0,8% a favor (ordem limitada, taxa maker 0,02%);
-  se o preço sair 16% contra, fecha tudo e recomeça. É quem mais opera (~15 operações/dia). Nos últimos 200 dias ganhou,
-  mas em 5 anos de teste perdeu — por isso fica fora da disputa e é medida pelas sprints.
+- **🏢 A empresa (minigame):** cada funcionário (trader) começa com **US$ 1.000** de mentira. A cada **US$ 50 de lucro
+  realizado** (sempre um novo recorde — perdeu, precisa recuperar antes), ele fica com **US$ 20 de bônus** e manda
+  **US$ 30 pro caixa do time**. Quando o caixa do time chega a **US$ 500**, o time **contrata um funcionário novo**
+  (com esses US$ 500), numa moeda nova (ADA, DOGE, LINK, AVAX, LTC, DOT, TRX, NEAR, ATOM, APT), usando a estratégia do
+  time. Até 15 funcionários por time. Tudo configurável em `empresa` no `config.json`.
+- **🧮 Mesa de Grade (alta frequência, fora da disputa):** 10 robôs de grade (BTC, ETH, SOL, BNB, XRP, ADA, DOGE, LINK,
+  AVAX, LTC), velas de 5 min, US$ 1.000 cada, 5x. Seguem a tendência de 4h (média 20 × 150): em alta montam degraus de
+  **compra (LONG)** abaixo do preço; em baixa, degraus de **venda (SHORT)** acima. Cada lote fecha 0,8% a favor (ordem
+  limitada, taxa maker 0,02%); se o preço sair 16% contra, fecha tudo e recomeça. **É quem faz a maior parte das
+  50–100 operações por dia** (repetindo os últimos 45 dias com o motor de verdade: ~69 operações/dia na mesa, +6,8%).
+  Atenção: num teste de 5 anos (aproximado), grades perderam dinheiro — por isso ela fica fora da disputa e é medida
+  pelas sprints.
 - **🎯 Falta X%:** cada trader mostra quanto o preço precisa subir (pra abrir LONG) ou cair (pra abrir SHORT).
 - **📏 Régua:** cada time mostra quanto teria rendido **comprar e segurar as mesmas moedas** no mesmo período.
 - **🏃 Sprints de 1 dia:** cada dia (meia-noite a meia-noite, Brasília) é uma sprint. As metas medem **qualidade**,
@@ -153,7 +157,8 @@ Os padrões ficam em `config.padrao.json` (vem nas atualizações). Pra mudar al
   `aprendizado`: quantas operações até o ao vivo pesar metade (`operacoes_meio_peso`) e de quantos em quantos dias a escola reestuda.
 - `liga`: número de times, moedas, US$ por trader, semanas usadas na pontuação, `so_alunos_aprovados`,
   `sprint.duracao` (`"dia"` ou `"semana"`) e `sprint.metas` (operações, lucro, taxas, queda, liquidações).
-- `bebes`: R$ de lucro por bebê, máximo por time, moedas dos bebês, bônus do CEO.
+- `empresa`: meta de lucro (US$ 50), bônus do funcionário (US$ 20), parte do caixa do time (US$ 30), custo da
+  contratação (US$ 500), máximo de funcionários por time e moedas dos contratados. (`bebes` foi desligado.)
 - `humor.muda_tamanho_da_aposta`, `regras.ativo`, `cansaco.ativo`: as regras divertidas do vídeo
   (apostar menos depois de perder, bônus/corte de US$ 50, videogame depois de 3 derrotas).
   Vêm **desligadas** porque **atrapalham** estratégias de tendência, que perdem muitas vezes pouco e ganham

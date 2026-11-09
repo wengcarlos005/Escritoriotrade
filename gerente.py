@@ -26,12 +26,15 @@ SISTEMA = """Você é o Claude, gerente da "Agência de Trade": uma agência fic
 Binance com DINHEIRO DE MENTIRA (simulação com preços reais). O dono (o "CEO") é o usuário, que está aprendendo e quer, \
 no futuro, lucrar de verdade. A agência é uma LIGA de 5 times: cada time é uma estratégia da Escola de Traders (alunos = \
 estratégias inspiradas em traders famosos, avaliadas com walk-forward fora da amostra, custos e Deflated Sharpe) com 5 \
-traders robôs, um por moeda. Toda segunda o melhor time das últimas 4 semanas vira titular; bebês traders nascem a cada \
-R$ 500 de lucro de um time. Quando o estado disser mercado "futuros", os robôs operam futuros perpétuos: LONG e SHORT, \
+traders robôs, um por moeda. Toda segunda o melhor time das últimas 4 semanas vira titular; os times crescem \
+contratando funcionários com o caixa do time (ver abaixo). Quando o estado disser mercado "futuros", os robôs operam futuros perpétuos: LONG e SHORT, \
 RISCO FIXO por operação (perde ~2% do caixa se o stop bater) e alavancagem decidida A CADA OPERAÇÃO (até 10x) pela distância \
 do stop, pela confiança da escola e pela tendência de 200 dias; margem isolada, funding a cada 8h e risco de LIQUIDAÇÃO. \
 Os robôs APRENDEM: cada operação fechada (medida em R = resultado ÷ risco) ajusta a confiança do time aos poucos, e a escola \
-reestuda toda semana. Há um Time Comitê (as 3 melhores estratégias dividindo o dinheiro). Compare sempre com "segurar" \
+reestuda toda semana. Há um Time Comitê (as 3 melhores estratégias dividindo o dinheiro). A agência é um MINIGAME DE EMPRESA: \
+a cada US$ 50 de lucro realizado (novo recorde) o funcionário fica com US$ 20 de bônus e manda US$ 30 pro caixa do time; \
+com US$ 500 no caixa o time contrata um funcionário novo (até 15). A Mesa de Grade opera 10 moedas e faz a maior parte \
+das operações do dia (dezenas), fora da disputa. Compare sempre com "segurar" \
 (comprar e segurar as mesmas moedas no mesmo período). Fale com franqueza: alavancagem multiplica ganho E perda; \
 poucas operações ao vivo são ruído. As sprints duram 1 dia.
 
@@ -145,7 +148,7 @@ def contexto(estado, escola):
                       f"próxima rodada {_h(temp.get('proxima_rodada', 0))})")
         linhas.append("Regras: 5 times, cada um = 1 estratégia da escola com 5 traders (BTC, ETH, SOL, BNB, XRP, US$ 100 cada). "
                       "Toda segunda o time com melhor pontuação (retorno 4 semanas − metade da maior queda) vira TITULAR "
-                      "(o que operaria com dinheiro real no futuro); os outros ficam na reserva. Bebês nascem a cada R$ 500 de lucro do time.")
+                      "(o que operaria com dinheiro real no futuro); os outros ficam na reserva. A cada US$ 50 de lucro o funcionário fica com US$ 20 e manda US$ 30 pro caixa do time; com US$ 500 o time contrata.")
         if estado.get("mercado") == "futuros":
             linhas.append("MERCADO: FUTUROS perpétuos (LONG e SHORT, alavancagem por time, margem isolada, liquidação possível). Sprints de 1 dia.")
         linhas.append(f"Dólar: R$ {brl:.2f}. Patrimônio total: US$ {total:.2f} (colocado: US$ {estado['aportes_ceo']:.2f}).")
@@ -156,8 +159,8 @@ def contexto(estado, escola):
                           f"({tm['estrategia_nome']}, {tm['intervalo']}, alavancagem média agora {tm.get('alavancagem_media') or '-'}x, "
                           f"confiança escola {tm.get('confianca')} → agora {tm.get('confianca_agora')}, segurar as mesmas moedas {tm.get('segurar_pct')}%, "
                           f"nota na escola {tm.get('nota_escola')}) — patrimônio US$ {tm['patrimonio']:.2f} "
-                          f"({tm['resultado_pct']:+.2f}%), pontuação 4 semanas {tm.get('pontuacao_agora')}, bebês {tm['bebes']}, "
-                          f"rumo ao próximo bebê {tm['meta_bebe_pct']}%")
+                          f"({tm['resultado_pct']:+.2f}%), pontuação 4 semanas {tm.get('pontuacao_agora')}, funcionários {tm.get('funcionarios')}, "
+                          f"caixa do time US$ {tm.get('caixa_time', 0):.0f} (contrata a cada US$ 500), destaque {tm.get('destaque')}")
             for t in [x for x in estado["traders"] if x.get("time") == tm["id"]]:
                 pos = "sem posição"
                 if t.get("posicao"):
@@ -335,7 +338,7 @@ def _chamar(mensagens):
 def gerar_relatorio(estado, escola):
     """Escreve o relatório do dia. Devolve o texto (ou levanta RuntimeError)."""
     pedido = (contexto(estado, escola) + "\n\n---\nEscreva o RELATÓRIO DO GERENTE de hoje para o CEO, com estas seções: "
-              "## Resumo do dia (2–3 frases), ## A liga (titular, quem subiu e quem caiu, bebês), ## Escola de traders "
+              "## Resumo do dia (2–3 frases), ## A liga (titular, quem subiu e quem caiu, metas batidas e contratações), ## Escola de traders "
               "(o que o boletim diz, se vale começar nova temporada), "
               "## Riscos e alertas, ## Minha recomendação (no máximo 3 itens práticos). Máximo ~350 palavras.")
     with _trava:
