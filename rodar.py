@@ -278,11 +278,11 @@ def cmd_simular(args):
                     print(f"↩️  Voltei pra temporada de 15 traders guardada em dados/{copias[-1].name} (a de 9 ficou em dados/simulacao_desfeita_*.json).")
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
-            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 14):
+            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 15):
                 backup = DADOS / f"simulacao_antiga_{time.strftime('%Y%m%d_%H%M')}.json"
                 shutil.copy2(ARQ_SIM, backup)
                 tipo = cfg.get("modo", {}).get("tipo")
-                novo = ("MODO 4H: 3 times Seykota (rápido, médio, lento) em BTC/ETH/SOL, alavancagem pela volatilidade e conta real dividida entre os 3"
+                novo = ("MODO 4H: 3 times Seykota (rápido, médio, lento) + Momentum AQR em BTC/ETH/SOL, alavancagem pela volatilidade e conta real dividida entre os 4"
                         if tipo == "4h_vol" else "MODO 5 MIN" if tipo == "5m"
                         else f"perfil {fut.get('perfil')}: risco de {fut.get('risco_por_operacao', 0) * 100:.0f}% por operação")
                 print(f"🔁 Recomeçando a agência ({novo}). A temporada anterior foi guardada em dados/{backup.name}.")

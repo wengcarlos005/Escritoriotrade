@@ -317,7 +317,7 @@ const corta = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
 const preco = v => num(v, v < 10 ? 4 : 2);
 const COR_HUMOR = {perigo: '#e0454b', alerta: '#f08a24', normal: '#2fa7c9', confiante: '#18a058'};
 const CORES = ['#f2b632', '#2bb8ad', '#9b7cf0', '#3fcf7e', '#f07a3a', '#ff6fa8', '#5aa9e6'];
-const CURTO = {seykota_rapido: 'SEYKOTA RAPIDO', seykota_medio: 'SEYKOTA MEDIO', seykota_lento: 'SEYKOTA LENTO', seykota: 'SEYKOTA', tartaruga: 'TARTARUGAS', donchian_conjunto: 'CANAIS', momentum: 'MOMENTUM', weinstein: 'WEINSTEIN',
+const CURTO = {momentum_aqr: 'MOMENTUM AQR', seykota_rapido: 'SEYKOTA RAPIDO', seykota_medio: 'SEYKOTA MEDIO', seykota_lento: 'SEYKOTA LENTO', seykota: 'SEYKOTA', tartaruga: 'TARTARUGAS', donchian_conjunto: 'CANAIS', momentum: 'MOMENTUM', weinstein: 'WEINSTEIN',
   ptj200: 'TUDOR JONES', minervini: 'MINERVINI', williams: 'WILLIAMS', connors: 'CONNORS', raschke: 'RASCHKE', supertrend: 'SUPERTREND',
   macd: 'MACD', squeeze: 'EXPLOSÃO', bollinger: 'BOLLINGER', cruzamento: 'ORIGINAL', rapida: 'MESA', comite: 'COMITÊ'};
 const nomeCurto = id => CURTO[id] || String(id).toUpperCase();
@@ -1460,7 +1460,7 @@ function renderTopo(vivo) {
   const md = (D.cfg && D.cfg.modo) || {};
   const va = D.vol_atual || {};
   const chips = D.modo === '4h_vol'
-    ? ['Futuros', 'Velas de 4h', `Alavancagem ${va.alavancagem != null ? num(va.alavancagem, 1) + 'x agora' : 'pela volatilidade'}`, 'BTC · ETH · SOL', ...(D.times.every(t => String(t.id).startsWith('seykota')) ? ['3 ritmos de Seykota'] : []), 'Mesmo risco pra cada trader']
+    ? ['Futuros', 'Velas de 4h', `Alavancagem ${va.alavancagem != null ? num(va.alavancagem, 1) + 'x agora' : 'pela volatilidade'}`, 'BTC · ETH · SOL', ...(D.times.some(t => String(t.id).startsWith('seykota')) ? [`${D.times.filter(t => String(t.id).startsWith('seykota')).length} ritmos de Seykota${D.times.some(t => t.id === 'momentum_aqr') ? ' + Momentum AQR' : ''}`] : []), 'Mesmo risco pra cada trader']
     : D.modo === '5m'
     ? ['Futuros', 'Opera a cada 5 min', `${fc.alavancagem_min || 5}–${fc.alavancagem_max || 10}x`, ...(md.margem_minima_usd ? [`Margem mín. US$${num(md.margem_minima_usd, 0)}`] : []), `Até ${md.limite_horas || 2}h por operação`]
     : ['Futuros', `Perfil ${String(fc.perfil || '').replace('_', ' ')}`, `Até ${alavs.length ? Math.max(...alavs) : 10}x`];
@@ -1470,7 +1470,7 @@ function renderTopo(vivo) {
   const sp = D.sprint_atual, liq = D.traders.reduce((s, t) => s + (t.liquidacoes || 0), 0);
   const cr = D.conta_real, crTm = cr && D.times.find(x => x.id === cr.time), crL = cr ? cr.patrimonio - cr.inicial : 0;
   $('kpis').innerHTML = [...(cr ? [[`💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}`,
-      `${usd(cr.patrimonio)} <small class="${cls(crL)}" style="font-size:12px">${sinal(crL)}${usd(Math.abs(crL))}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${cr.time === 'agencia' ? 'dividida entre os 3 times' : crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''}</div>`, '', 'real']] : []),
+      `${usd(cr.patrimonio)} <small class="${cls(crL)}" style="font-size:12px">${sinal(crL)}${usd(Math.abs(crL))}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${cr.time === 'agencia' ? `dividida entre os ${D.times.filter(t => !t.especial).length} times` : crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''}</div>`, '', 'real']] : []),
     [cr ? 'patrimônio simulado' : 'patrimônio', usd(total), ''], ['resultado', `${sinal(lucro)}${usd(Math.abs(lucro))}`, cls(lucro)],
     FUT() ? ['posições', `${longs}▲ ${shorts}▼ <small style="font-size:12px;color:var(--suave)">de ${D.traders.length}</small>`, ''] : ['comprados agora', `${abertos.length} de ${D.traders.length}`, ''],
     ...(sp && sp.total ? [[sp.duracao === 'dia' ? 'sprint do dia' : 'sprint ' + sp.numero, `${sp.total.operacoes_agencia ?? sp.total.operacoes} ops · ${pct(sp.total.lucro_pct, 2)}`, cls(sp.total.lucro_pct)]] : []),

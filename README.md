@@ -83,7 +83,9 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
 - **📐 Modo atual: velas de 4h com alavancagem pela volatilidade** (`modo.tipo = "4h_vol"`). 3 times, **todos da
   estratégia do Seykota** (médias exponenciais), cada um num ritmo: 🐇 **Rápido** (médias 20/100), 🦊 **Médio** (15/150)
-  e 🐢 **Lento** (50/200) — `liga.times_fixos`. Cada time tem 3 traders (BTC, ETH e SOL), US$ 1.500 simulados no total.
+  e 🐢 **Lento** (50/200) — mais o 🔄 **Momentum AQR** (momentum de série temporal de Moskowitz, Ooi & Pedersen, olhando
+  360 velas = 60 dias), que entrou pela prova da agência — `liga.times_fixos`. Cada time tem 3 traders (BTC, ETH e
+  SOL), 12 no total, com US$ 1.500 simulados.
   Por que só Seykota: nos testes de 2022 a 2026 ele rendeu ~100% ao ano e só teve 1 semestre levemente negativo,
   enquanto Supertrend e Tudor Jones mais atrapalhavam que ajudavam; os 3 ritmos diferentes mantêm a diversificação.
   Cada um entra e sai pelos sinais (comprado ou vendido), em velas de 4h. O TAMANHO de cada operação é decidido na entrada:

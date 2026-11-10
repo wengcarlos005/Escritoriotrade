@@ -384,7 +384,7 @@ class Agencia:
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self.modo = cfg.get("modo", {}).get("tipo") if cfg.get("futuros", {}).get("ativo") else None
         self.modelo_pesos = None
-        self.versao = 14            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.versao = 15            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.caixa_empresa = 0.0
         self.funding_real = None
