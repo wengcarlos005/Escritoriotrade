@@ -441,6 +441,18 @@ class Agencia:
         custo = entrada + fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
         ka, ks = md.get("alvo_atr", 6.0), md.get("stop_atr", 4.0)
         self.modelo().aprender(x, resultado(v, ind, i, 1, ka, ks, custo), resultado(v, ind, i, -1, ka, ks, custo))
+        # cada funcionário dessa moeda também aprende com a vela, mas com o JEITO dele (alvo/stop dele) e devagar
+        for tr in self.traders:
+            if tr.chave != chave or tr.estrategia == "grade":
+                continue
+            e = tr.meu_estilo()
+            m = tr.meu_modelo(self)
+            yl = resultado(v, ind, i, 1, e.get("alvo_atr", ka), e.get("stop_atr", ks), custo)
+            ys = resultado(v, ind, i, -1, e.get("alvo_atr", ka), e.get("stop_atr", ks), custo)
+            if yl is not None:
+                m.long.aprender(x, yl, 0.003)
+            if ys is not None:
+                m.short.aprender(x, ys, 0.003)
 
     # --- aprendizado: cada operação fechada ensina alguma coisa ---------------------------------
     def _mem(self, chave):
@@ -569,6 +581,12 @@ class Agencia:
                               "confianca_escola": tm.get("confianca") or 1.0, "confianca_agora": self.confianca_trader(tr),
                               "contra_operacoes": len(m["r_contra"]), "fator_contra": self.fator_contra_trader(tr),
                               "modelo_vistos": mp.get("vistos", 0), "modelo_acertos": mp.get("acertos", 0),
+                              "licoes": sorted(({"situacao": k, "media_r": round(sum(v) / len(v), 2), "n": len(v)}
+                                                for k, v in (getattr(tr, "situacoes", None) or {}).items() if len(v) >= 8),
+                                               key=lambda z: -abs(z["media_r"]))[:4],
+                              "experimento": getattr(tr, "experimento", None),
+                              "experimentos": (getattr(tr, "experimentos", None) or [])[-3:],
+                              "mentor": getattr(tr, "mentor", None), "mentorias": getattr(tr, "mentorias", 0),
                               "ultimos_r": rs[-20:]})
         return saida
 
@@ -680,6 +698,31 @@ class Agencia:
         self.caixa_empresa = (getattr(self, "caixa_empresa", 0.0) or 0.0) + valor
         tm["aportes"] -= valor
 
+    def _mentoria(self, t):
+        """Toda semana, em cada time, o funcionário de pior desempenho aprende com o melhor:
+        o modelo dele anda 25% na direção do modelo do melhor (e ele ganha as anotações de situação do melhor)."""
+        if not self.modo5m():
+            return
+        for tm in self.times:
+            membros = [m for m in self.do_time(tm["id"]) if m.estrategia != "grade"]
+            if len(membros) < 2:
+                continue
+            melhor, pior = max(membros, key=self.desempenho), min(membros, key=self.desempenho)
+            if melhor is pior:
+                continue
+            mm, mp = melhor.meu_modelo(self), pior.meu_modelo(self)
+            for lado in ("long", "short"):
+                a, b = getattr(mp, lado).w, getattr(mm, lado).w
+                for k in range(len(a)):
+                    a[k] = 0.75 * a[k] + 0.25 * b[k]
+            sit = getattr(pior, "situacoes", None) or {}
+            for k, rs in (getattr(melhor, "situacoes", None) or {}).items():
+                sit.setdefault(k, list(rs[-10:]))
+            pior.situacoes = sit
+            pior.mentorias = getattr(pior, "mentorias", 0) + 1
+            self.evento(t, pior, "🎓", f"Mentoria semanal no {tm['emoji']} {tm['nome']}: {pior.nome} ({self.desempenho(pior):+.1f}%) "
+                                      f"aprendeu com {melhor.nome} ({self.desempenho(melhor):+.1f}%) — o modelo dele ficou 25% mais parecido com o do melhor")
+
     def _reforcar_campeao(self, tm, t):
         """Toda rodada, o caixa da empresa reforça o time campeão da semana: uma parte do caixa é dividida
         entre os funcionários dele (dinheiro novo pra operar; não conta como lucro do time no ranking)."""
@@ -735,6 +778,21 @@ class Agencia:
         nome = moeda(par) + (f" {POR_ID[est_id].emoji}" if tm.get("membros") else "") + (f" {n}" if n > 1 else "")
         novo = Trader(nome, "🧑‍💼", par, 0.0, "contratado", t, tm["id"], est_id, params)
         novo.caixa = novo.capital_recebido = custo
+        mentor = max(membros, key=self.desempenho) if membros else None
+        if mentor is not None and self.modo5m():   # nasce TREINADO pelo melhor do time (com um pouco de jeito próprio)
+            import random as _r
+            rnd = _r.Random(f"contrata|{nome}|{t}")
+            pesos = mentor.meu_modelo(self).para_dict()
+            novo.modelo_pesos = {"long": [w * (1 + rnd.uniform(-0.15, 0.15)) for w in pesos["long"]],
+                                 "short": [w * (1 + rnd.uniform(-0.15, 0.15)) for w in pesos["short"]], "vistos": 0, "acertos": 0}
+            est_m = dict(mentor.meu_estilo())
+            for k_, vals in novo.PARAMS_EXPERIMENTO.items():
+                if k_ in est_m and rnd.random() < 0.4:
+                    q = min(range(len(vals)), key=lambda z: abs(vals[z] - est_m[k_]))
+                    est_m[k_] = vals[max(0, min(len(vals) - 1, q + rnd.choice([-1, 1])))]
+            novo.estilo = est_m
+            novo.situacoes = {k_: list(v_) for k_, v_ in (getattr(mentor, "situacoes", None) or {}).items()}
+            novo.mentor = mentor.nome
         novo.ultimo_preco = self.ultimo_preco.get(par)
         novo.alavancagem = base.alavancagem
         self.traders.append(novo)
@@ -754,7 +812,8 @@ class Agencia:
             else:
                 self.aporte(melhor, premio)
             melhor.premios = getattr(melhor, "premios", 0) + 1
-        self.evento(t, novo, "🤝", f"{tm['emoji']} {tm['nome']} juntou US$ {custo:.0f} e contratou {nome}. "
+        self.evento(t, novo, "🤝", f"{tm['emoji']} {tm['nome']} juntou US$ {custo:.0f} e contratou {nome}"
+                                  + (f" (treinado pelo {novo.mentor}, o melhor do time)" if getattr(novo, "mentor", None) else "") + ". "
                                   f"👋 Demitido: {pior.nome} (pior desempenho, {d_pior:+.1f}%) — os US$ {sobra:.0f} dele foram pro caixa da empresa."
                                   + (f" ⭐ {melhor.nome} foi o melhor ({self.desempenho(melhor):+.1f}%) e ganhou US$ {premio:.0f}." if melhor and premio else "")
                                   + (f" Sobra de US$ {resto:.0f} foi pro caixa da empresa." if resto > 0.005 else ""))
@@ -1170,6 +1229,7 @@ class Agencia:
         self.temporada["rodadas"] = self.temporada["rodadas"][-60:]
         self.temporada["proxima_rodada"] = proxima_segunda(t)
         self._reforcar_campeao(self.time(vencedor), t)
+        self._mentoria(t)
         v = self.time(vencedor)
         if vencedor == antigo:
             self.evento(t, None, "🏆", f"{v['emoji']} {v['nome']} continua TITULAR ({ranking[0]['pontuacao']:+.2f} pts)")

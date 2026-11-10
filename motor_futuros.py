@@ -134,12 +134,14 @@ class Futuros:
             p["funding"] = p.get("funding", 0.0) + custo
 
     # ------------------------------------------------------------------ o julgamento: tamanho e alavancagem
-    def _julgar(self, lado, preco, stop, cfg, ag, t_fim, fracao=1.0):
-        """Decide o tamanho e a alavancagem DESTA operação (ver dimensionar)."""
+    def _julgar(self, lado, preco, stop, cfg, ag, t_fim, fracao=1.0, ajuste=1.0):
+        """Decide o tamanho e a alavancagem DESTA operação (ver dimensionar). `ajuste` = o que ele aprendeu
+        sobre situações parecidas (≥1 = costuma dar certo → mais alavancagem; <1 = costuma dar errado → menos)."""
         regime = ag.regime(self.par, t_fim)
         cf = dict(self._f(cfg), fator_contra_tendencia=ag.fator_contra_trader(self))
+        conf = max(0.3, min(1.5, ag.confianca_trader(self) * ajuste))
         return dimensionar(self.patrimonio(), self.caixa, preco, abs(preco - stop) / preco, cf,
-                           confianca=ag.confianca_trader(self), a_favor=(regime == 0 or regime == lado),
+                           confianca=conf, a_favor=(regime == 0 or regime == lado),
                            fracao=fracao * self._fracao_humor(cfg), regime=regime)
 
     def _abrir_fut(self, lado, j, preco, t, m, cfg, ag, sincronizando=False, stop=None, maker=False):
@@ -194,7 +196,7 @@ class Futuros:
         self._falar(t, ("Fechei " if lucro >= 0 else "Perdi ") + f"{'+' if lucro >= 0 else '-'}US$ {abs(lucro):.2f} "
                        f"({pct:+.1f}% na margem) no {nome_lado(p['lado'])} {p['alavancagem']:g}x — {motivo}.")
         ag.aprender(self, p, lucro, t)
-        self._aprender_com_operacao(p, lucro)
+        self._aprender_com_operacao(p, lucro, t, ag)
 
     def _checar_liquidacao(self, o, h, l, t, cfg, ag):
         p = self.posicao
@@ -318,7 +320,28 @@ class Futuros:
             self._mod = ModeloChance(self.modelo_pesos)
         return self._mod
 
-    def _aprender_com_operacao(self, p, lucro):
+    # ================================================================== ESTRATÉGIA DE APRENDIZADO
+    # 1) cada VELA: o modelo dele aprende o que teria acontecido, com o jeito dele (Agencia.processar_vela)
+    # 2) cada OPERAÇÃO: o modelo aprende mais forte com o que ele mesmo fez + anota a SITUAÇÃO (lado, tendência,
+    #    volatilidade) e vira uma regra: situação que costuma dar errado → menos alavancagem e evita o lado
+    # 3) a cada 30 OPERAÇÕES: um EXPERIMENTO no próprio jeito (alvo, stop, paciência...): fica se melhorar
+    # 4) a EMPRESA: contratado nasce copiando o melhor do time; toda semana o pior recebe mentoria do melhor
+    @staticmethod
+    def situacao(x, lado):
+        t4 = "alta" if x[8] > 0 else "queda" if x[8] < 0 else "sem tendência"
+        vol = "volátil" if x[7] > 0.2 else "calmo"
+        return f"{'LONG' if lado > 0 else 'SHORT'} · 4h em {t4} · mercado {vol}"
+
+    def ajuste_situacao(self, x, lado):
+        """(multiplicador, média encolhida em R, nº de casos) do que ele já viveu nessa situação."""
+        rs = (getattr(self, "situacoes", None) or {}).get(self.situacao(x, lado)) or []
+        if not rs:
+            return 1.0, 0.0, 0
+        n = len(rs)
+        media = sum(rs) / n * n / (n + 15)          # encolhe: poucos casos quase não mudam nada
+        return max(0.4, min(1.4, 1 + media)), media, n
+
+    def _aprender_com_operacao(self, p, lucro, t=None, ag=None):
         x = p.get("x")
         if not x or getattr(self, "_mod", None) is None and not getattr(self, "modelo_pesos", None):
             return
@@ -329,6 +352,55 @@ class Futuros:
         (self._mod.long if p["lado"] > 0 else self._mod.short).aprender(x, y, 0.03)
         self._mod.vistos += 1
         self._mod.acertos += y
+        # regra por situação
+        r = max(-3.0, min(4.0, lucro / p["risco_usd"])) if p.get("risco_usd") else (1.0 if lucro > 0 else -1.0)
+        sit = getattr(self, "situacoes", None) or {}
+        chave = self.situacao(x, p["lado"])
+        sit[chave] = (sit.get(chave, []) + [round(r, 3)])[-40:]
+        self.situacoes = sit
+        if ag is not None and t is not None:
+            n = len(sit[chave])
+            if n in (15, 30):
+                m = sum(sit[chave]) / n
+                if abs(m) >= 0.15:
+                    ag.evento(t, self, "📚", f"{self.rotulo(ag)} aprendeu: '{chave}' {'costuma dar CERTO' if m > 0 else 'costuma dar ERRADO'} "
+                                            f"pra ele ({m:+.2f}R em {n} operações) — {'vai com mais confiança' if m > 0 else 'vai evitar e usar menos alavancagem'}")
+            self._experimentar(r, t, ag)
+
+    PARAMS_EXPERIMENTO = {"alvo_atr": [3, 4, 5, 6, 7, 8, 10], "stop_atr": [2.5, 3, 3.5, 4, 5, 6],
+                          "paciencia_min": [10, 20, 30, 45, 60], "virada": [0.04, 0.06, 0.08, 0.1, 0.12, 0.15]}
+
+    def _experimentar(self, r, t, ag):
+        """Testa UMA mudança no próprio jeito por 30 operações e compara com as 30 anteriores."""
+        e = self.meu_estilo()
+        hist = getattr(self, "hist_r", [])
+        hist = (hist + [r])[-200:]
+        self.hist_r = hist
+        exp = getattr(self, "experimento", None)
+        if exp:
+            exp["n"] += 1
+            exp["soma"] += r
+            if exp["n"] >= 30:
+                novo, base = exp["soma"] / exp["n"], exp["base"]
+                ficou = novo > base + 0.05
+                if not ficou:
+                    e[exp["param"]] = exp["antes"]
+                self.experimentos = (getattr(self, "experimentos", []) + [{"t": t, "param": exp["param"], "antes": exp["antes"],
+                                     "depois": exp["depois"], "base": round(base, 3), "novo": round(novo, 3), "ficou": ficou}])[-20:]
+                ag.evento(t, self, "🧪", f"{self.rotulo(ag)} terminou um experimento: {exp['param']} {exp['antes']} → {exp['depois']} "
+                                        f"deu {novo:+.2f}R por operação (antes {base:+.2f}R) — " + ("FICA com a mudança" if ficou else "volta como era"))
+                self.experimento = None
+            return
+        if len(hist) >= 30 and len(hist) % 30 == 0:
+            rnd = random.Random(f"exp|{self.nome}|{self.time}|{len(hist)}|{t}")
+            param = rnd.choice(list(self.PARAMS_EXPERIMENTO))
+            valores = self.PARAMS_EXPERIMENTO[param]
+            atual = e.get(param, valores[len(valores) // 2])
+            k = min(range(len(valores)), key=lambda q: abs(valores[q] - atual))
+            vizinhos = [valores[q] for q in (k - 1, k + 1) if 0 <= q < len(valores)]
+            novo = rnd.choice(vizinhos)
+            self.experimento = {"param": param, "antes": atual, "depois": novo, "base": sum(hist[-30:]) / 30, "n": 0, "soma": 0.0, "t": t}
+            e[param] = novo
 
     # ------------------------------------------------------------------ MODO 5 MIN: opera sempre
     def _falar(self, t, texto):
@@ -375,6 +447,10 @@ class Futuros:
         est_p = self.meu_estilo()
         meu = self.meu_modelo(ag)
         pl, ps = meu.chances(x)
+        # o que ele aprendeu sobre situações parecidas mexe na chance de cada lado
+        aj_l, m_l, n_l = self.ajuste_situacao(x, 1)
+        aj_s, m_s, n_s = self.ajuste_situacao(x, -1)
+        pl, ps = max(0.0, min(1.0, pl + 0.1 * m_l)), max(0.0, min(1.0, ps + 0.1 * m_s))
         compra = pode_entrar(est, d, v, i, p) if est.id != "chance" else False
         venda = (ve is not None and pode_entrar(est, de, ve, i, p)) if est.id != "chance" else False
         if compra != venda:
@@ -399,12 +475,15 @@ class Futuros:
         if tc:
             corte = est_p.get("corte", tc.get("corte", 0.5))
             fr = max(tc.get("minimo", 0.05), min(1.0, (chance - corte) / max(1e-6, tc.get("cheio", 0.6) - tc.get("corte", 0.5))))
-        j = self._julgar(lado, c, stop, cfg2, ag, t_fim, fr_base * fr * est_p.get("ousadia", 1.0))
+        ajuste, media_sit, n_sit = (aj_l, m_l, n_l) if lado > 0 else (aj_s, m_s, n_s)
+        j = self._julgar(lado, c, stop, cfg2, ag, t_fim, fr_base * fr * est_p.get("ousadia", 1.0), ajuste)
         # margem: 5× a calculada e NUNCA menos que US$ 200 (pedido do CEO), sem passar do caixa
         mult, minimo = md.get("multiplicador_margem", 1.0), md.get("margem_minima_usd", 0.0)
         if mult != 1.0 or minimo:
             margem = min(max(j["margem"] * mult, minimo), self.caixa * 0.95)
-            j = dict(j, margem=margem, notional=margem * j["alavancagem"])
+            notional = margem * j["alavancagem"]
+            # o risco de verdade agora é o tamanho novo × a distância até o stop (pra medir R corretamente)
+            j = dict(j, margem=margem, notional=notional, risco_usd=notional * abs(c - stop) / c)
         extra = {"forcada": forcada, "chance": round(chance, 3), "chance_outro": round(outra, 3), "tamanho_pct": round(fr * 100), "atr0": a,
                  "x": [round(z, 4) for z in x]}
         if alvo:
@@ -417,6 +496,12 @@ class Futuros:
         else:
             porque = f"Minha estratégia ({est.nome}) deu sinal; meu modelo dá {chance * 100:.0f}% de chance."
         porque += f" Meu jeito: {est_p['jeito']} (alvo {est_p['alvo_atr']:g} ATR, stop {est_p['stop_atr']:g} ATR)."
+        if n_sit >= 5:
+            porque += (f" Já vivi {n_sit}× '{self.situacao(x, lado)}': {media_sit:+.2f}R em média"
+                       + (", vou com mais confiança." if media_sit > 0.05 else ", vou com cuidado." if media_sit < -0.05 else "."))
+        if getattr(self, "experimento", None):
+            ex = self.experimento
+            porque += f" (Testando {ex['param']} {ex['antes']}→{ex['depois']}: {ex['n']}/30.)"
         tamanho = "posição cheia" if fr >= 0.999 else f"posição de {fr * 100:.0f}% do tamanho (chance fraca = aposta pequena, menos taxa)"
         if md.get("entrada_limitada", True):
             self.ordem = {"lado": lado, "preco": c, "j": j, "m": m, "stop_fixo": stop if not m else None, "extra": extra,

@@ -1252,16 +1252,25 @@ function renderHistorico() {
 function renderAprendizado() {
   const lista = D.aprendizado_resumo || [];
   if (!lista.length) return '<div class="vazio">O aprendizado aparece no modo futuros.</div>';
-  const explica = `<p class="explica">A cada operação fechada o robô anota o resultado em <b>R</b> (resultado ÷ risco que planejou). A <b>confiança</b> começa no que a escola achou da estratégia e vai se misturando com o que acontece ao vivo — com 20 operações vale metade/metade, pra não confundir sorte com habilidade. Confiança maior = arrisca um pouco mais e pode usar mais alavancagem; menor = arrisca menos. Ele também aprende se vale a pena operar <b>contra a tendência de 200 dias</b> (começa arriscando 50% do normal nesses casos). E toda semana a escola reestuda com os dados novos e os times atualizam os parâmetros.</p>`;
+  const explica = `<p class="explica"><b>Como eles aprendem</b> (cada um sozinho, do seu jeito):<br>
+    <b>1. A cada vela de 5 min</b> o modelo de cada um descobre o que teria acontecido 2h antes (com o alvo e o stop DELE) e se ajusta um pouquinho.<br>
+    <b>2. A cada operação</b> o modelo aprende mais forte com o que ele mesmo fez, e ele anota a <b>situação</b> (lado, tendência de 4h, mercado calmo ou volátil). Situação que costuma dar errado → evita o lado e usa menos alavancagem; que costuma dar certo → mais confiança.<br>
+    <b>3. A cada 30 operações</b> ele faz um <b>🧪 experimento</b> no próprio jeito (alvo, stop, paciência…) por mais 30 operações: se o resultado médio melhorar, fica; senão, volta.<br>
+    <b>4. Na empresa:</b> todo contratado nasce <b>treinado pelo melhor</b> do time, e toda semana o pior recebe <b>🎓 mentoria</b> do melhor. A confiança mistura a nota da escola com o resultado ao vivo (20 operações = metade/metade), pra não confundir sorte com habilidade. <b>R</b> = resultado ÷ risco planejado.</p>`;
   return explica + `<div class="apr">${lista.map(a => {
     const t = D.times.find(x => x.id === a.time) || {}, rs = a.ultimos_r || [], mx = Math.max(1, ...rs.map(Math.abs));
     const barras = rs.length ? `<div class="barras-r" title="últimas operações em R">${rs.map(r => `<i style="height:${Math.max(6, Math.abs(r) / mx * 100)}%;background:${r >= 0 ? 'var(--verde)' : 'var(--vermelho)'};align-self:${r >= 0 ? 'flex-end' : 'flex-start'}"></i>`).join('')}</div>` : '';
     const seta = a.confianca_agora > a.confianca_escola + 0.005 ? '▲' : a.confianca_agora < a.confianca_escola - 0.005 ? '▼' : '=';
-    return `<div class="tcard"><div class="tt"><span class="c" style="background:${corTime(a.time)}"></span>${esc(t.emoji || '')} ${esc((t.nome || a.time).replace('Time ', ''))}</div>${t.membros ? `<div class="ts">membro: ${esc(a.nome)}</div>` : ''}
+    return `<div class="tcard"><div class="tt"><span class="c" style="background:${corTime(a.time)}"></span>${esc(a.trader || a.nome)} <span class="sub" style="margin:0;font-weight:500">· ${esc(t.emoji || '')} ${esc((t.nome || a.time).replace('Time ', ''))}</span></div>${a.estilo && a.estilo.jeito ? `<div class="ts">jeito: ${esc(a.estilo.jeito)}</div>` : ''}
       <div class="lin"><span>operações ao vivo</span><span>${a.operacoes}${a.acerto_pct != null ? ` · acerto ${a.acerto_pct}%` : ''}</span></div>
       <div class="lin"><span>resultado médio</span><span class="${a.media_r != null ? cls(a.media_r) : ''}">${a.media_r != null ? sinal(a.media_r) + num(a.media_r, 2) + 'R por operação' : 'ainda sem operações'}</span></div>
       <div class="lin"><span>confiança</span><span>escola ${num(a.confianca_escola, 2)} → agora <b>${num(a.confianca_agora, 2)}</b> ${seta}</span></div>
       <div class="lin"><span>contra a tendência de 200 dias</span><span>${a.contra_operacoes} ops · arrisca ${Math.round(a.fator_contra * 100)}% do normal</span></div>
+      ${a.modelo_vistos ? `<div class="lin"><span>🎲 modelo dele</span><span>acertou ${a.modelo_acertos}/${a.modelo_vistos}</span></div>` : ''}
+      ${a.experimento ? `<div class="lin"><span>🧪 testando</span><span>${esc(a.experimento.param)} ${a.experimento.antes} → ${a.experimento.depois} (${a.experimento.n}/30)</span></div>` : ''}
+      ${(a.experimentos || []).map(x => `<div class="lin"><span>🧪 testou</span><span>${esc(x.param)} ${x.antes}→${x.depois}: ${x.ficou ? '<b class="pos">ficou</b>' : 'voltou'} (${sinal(x.novo)}${num(x.novo, 2)}R × ${sinal(x.base)}${num(x.base, 2)}R)</span></div>`).join('')}
+      ${a.mentor ? `<div class="lin"><span>🎓 treinado por</span><span>${esc(a.mentor)}</span></div>` : ''}${a.mentorias ? `<div class="lin"><span>🎓 mentorias</span><span>${a.mentorias}</span></div>` : ''}
+      ${(a.licoes || []).length ? `<div style="margin-top:6px;font-size:12px"><b>📚 o que aprendeu:</b>${a.licoes.map(l => `<div class="${cls(l.media_r)}" style="margin-top:2px">${l.media_r >= 0 ? '✔' : '✘'} ${esc(l.situacao)}: ${sinal(l.media_r)}${num(l.media_r, 2)}R (${l.n}×)</div>`).join('')}</div>` : ''}
       ${barras || '<div class="vazio" style="margin-top:8px">as barrinhas das últimas operações aparecem aqui</div>'}</div>`;
   }).join('')}</div>`;
 }
