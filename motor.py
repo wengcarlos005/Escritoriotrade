@@ -1186,6 +1186,28 @@ class Agencia:
         self.abrir_sprint(t)
         return r
 
+    def remover_time(self, tid, t, motivo="saiu da agência"):
+        """Fecha as posições do time, tira ele e os funcionários da agência (o dinheiro dele sai da conta)."""
+        tm = next((x for x in self.times if x["id"] == tid), None)
+        if not tm:
+            return
+        for tr in self.do_time(tid):
+            if tr.posicao or (getattr(tr, "grade_estado", None) or {}).get("lotes"):
+                tr.encerrar(tr.ultimo_preco or (tr.posicao or {}).get("preco") or 0, t, self.cfg, self)
+            tr.ordem = None
+        resultado = self.patrimonio(tid) - tm["aportes"]
+        self.aportes_ceo -= tm["aportes"]
+        self.traders = [x for x in self.traders if x.time != tid]
+        self.times = [x for x in self.times if x is not tm]
+        if tm.get("titular") and self.disputando():
+            novo = min(self.disputando(), key=lambda x: x.get("lugar") or 99)
+            novo["titular"] = True
+            if self.temporada:
+                self.temporada["titular"] = novo["id"]
+        for k, x in enumerate(sorted(self.disputando(), key=lambda x: x.get("lugar") or 99), 1):
+            x["lugar"] = k
+        self.evento(t, None, "👋", f"O {tm['emoji']} {tm['nome']} {motivo} (resultado final US$ {resultado:+.2f})")
+
     def remover_mesa(self, t):
         """Fecha as posições da mesa especial a preço de mercado e tira ela do escritório."""
         tm = next((x for x in self.times if x.get("especial")), None)

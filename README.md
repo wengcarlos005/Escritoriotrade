@@ -81,8 +81,9 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   ao vivo), pra não confundir sorte com habilidade. O robô também aprende se vale operar contra a tendência de
   200 dias. E **toda semana a escola reestuda** com os dados mais novos: os times atualizam os parâmetros (quem está
   posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
-- **5 times:** os 5 melhores alunos da escola. Cada time tem **5 traders** (BTC, ETH, SOL, BNB, XRP), com
-  **US$ 1.000 de mentira** cada. (O Time Comitê foi desligado; `liga.comite.ativo: true` traz de volta.)
+- **3 times:** 📈 Seykota, 🦸 Supertrend e 🎩 Tudor Jones (os melhores da escola, tirando os que o CEO encerrou:
+  `liga.estrategias_excluidas` = MACD e Momentum). Cada time tem **5 traders** (BTC, ETH, SOL, BNB, XRP), com
+  **US$ 1.000 de mentira** cada. Sem Time Comitê e sem Mesa da Chance (`liga.mesa_rapida.ativo: false`).
 - **🧬 Cada trader é independente:** tem o **próprio modelo de chance** (nasce de uma cópia do modelo da agência com
   pesos um pouco diferentes e depois aprende **só com as operações dele**), o **próprio jeito** (alvo, stop, ousadia,
   paciência, quanta chance exige) e a **própria confiança**. Dois robôs de BTC de times diferentes podem estar um LONG

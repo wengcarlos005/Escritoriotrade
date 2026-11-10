@@ -144,7 +144,8 @@ def cmd_escola(args):
 # ---------------------------------------------------------------------------
 def escolher_times(cfg, esc):
     """Os N melhores alunos da escola viram os times (aprovados primeiro, depois por nota)."""
-    lista = list(esc["resultados"])
+    fora = set(cfg["liga"].get("estrategias_excluidas", []))
+    lista = [r for r in esc["resultados"] if r["id"] not in fora]
     if cfg["liga"].get("so_alunos_aprovados"):
         lista = [r for r in lista if r["aprovada"]] or lista[:1]
     n = cfg["liga"]["times"]
@@ -260,6 +261,10 @@ def cmd_simular(args):
         treinar_modelo(cfg, ag)
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
+    fora = set(cfg["liga"].get("estrategias_excluidas", []))
+    for tm in list(ag.disputando()):
+        if tm.get("estrategia") in fora:
+            ag.remover_time(tm["id"], agora, "foi encerrado pelo CEO")
     ag.adicionar_mesa_rapida(agora)
     if not ag.sprint:
         ag.abrir_sprint(agora)

@@ -4,7 +4,8 @@
   "cotacao_brl_padrao": 5.6,
 
   "liga": {
-    "times": 5,
+    "times": 3,
+    "estrategias_excluidas": ["macd", "momentum"],
     "moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"],
     "capital_por_trader_usd": 1000,
     "semanas_para_pontuar": 4,
@@ -17,7 +18,7 @@
     },
     "comite": {"ativo": false, "membros": 3},
     "mesa_rapida": {
-      "ativo": true,
+      "ativo": false,
       "modo": "grade",
       "capital_por_trader_usd": 100,
       "grade": {"moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT", "LTCUSDT"], "intervalo": "5m", "degrau": 0.005, "faixa": 0.20, "capital_por_trader_usd": 1000},
