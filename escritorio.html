@@ -633,7 +633,7 @@ function linhaConversa(a, b) {
   const fa = ea ? `Tô ${nomeLadoPt(ladoDe(ta)).toLowerCase()} em ${moedaDe(ta)}: ${usdS(ea.usd)}.` :
     ((ta.trades || []).length ? `Fechei ${usdS(ta.trades[ta.trades.length - 1].lucro)} no último.` : 'Tô sem posição agora.');
   let fb;
-  if (ea && ea.usd > 0) fb = pega(['Boa! Protege esse lucro.', 'Mandou bem! Sobe o stop.', 'Show! Segura até o alvo.']);
+  if (ea && ea.usd > 0) fb = pega(['Boa! Protege esse lucro.', 'Mandou bem! Deixa correr.', 'Show! Segura até a tendência virar.']);
   else if (ea && ea.usd < 0) fb = pega(['Calma, respeita o stop.', 'Segura o risco, tá no plano.', 'Faz parte, o stop protege.']);
   else fb = eb ? `Eu tô ${nomeLadoPt(ladoDe(tb)).toLowerCase()} em ${moedaDe(tb)}: ${usdS(eb.usd)}.` : pega(['Eu também, mercado parado.', 'Paciência que vem.', 'Bora pro café depois?']);
   return [fa, fb];
@@ -667,9 +667,17 @@ function decidir(a, agora) {
     return;
   }
   if (a.estado !== 'mesa' && a.estado !== 'andando') { a.ir(a.casa.x, a.casa.y, 'mesa', rnd(20000, 50000)); return; }
+  // no modo 4h ninguém precisa ficar grudado na tela (a decisão é a cada 4 horas): o escritório fica mais vivo
+  const calmo = D && D.modo === '4h_vol';
   const r = Math.random();
-  if (posicionado ? r < 0.85 : r < 0.5) { a.ate = agora + rnd(15000, 40000); return; }
-  if (r < (posicionado ? 0.95 : 0.8)) {     // vai conversar com alguém do time
+  const ficar = posicionado ? (calmo ? 0.45 : 0.85) : 0.5;
+  if (r < ficar) { a.ate = agora + rnd(15000, 40000); return; }
+  if (calmo && r < ficar + 0.2 && provocar(a)) return;           // vai zoar (ou ser zoado por) outro time
+  if (calmo && r < ficar + 0.27) {                                 // vai fazer carinho no Rex
+    const cao = [...AG.values()].find(b => b.tipo === 'cao');
+    if (cao) { a.ir(cao.x + 10, cao.y, 'conversando', 5000, {aoChegar: x => { x.falar(pega(['Quem é o bom garoto? 🐶', 'Rex, me dá sorte hoje!', 'Rex, late pros Coelhos!']), 3800, 3); setTimeout(() => cao.falar('Au au! 🐶', 2500, 2), 1500); }}); return; }
+  }
+  if (r < (posicionado ? (calmo ? 0.9 : 0.95) : 0.8)) {     // vai conversar com alguém do time
     const colegas = [...AG.values()].filter(b => b !== a && b.time === a.time && b.estado === 'mesa' && b.slot);
     if (colegas.length) {
       const b = pega(colegas);
@@ -684,6 +692,27 @@ function decidir(a, agora) {
   const p = PONTOS.cafe();
   a.ir(p.x, p.y, 'cafe', rnd(6000, 11000), {aoChegar: x => { if (Math.random() < 0.6) x.falar(pega(['☕ Café rapidinho e volto.', '☕ Pausa de 5 min.', '☕ Recarregando a energia.']), 3800, 2); }});
 }
+/* rivalidade: vai até a mesa de outro time e provoca de acordo com o placar (a novela da competição) */
+function provocar(a) {
+  const meu = D && D.times.find(t => t.id === a.time);
+  const rivais = [...AG.values()].filter(b => b.tr && b.slot && b.estado === 'mesa' && b.time !== a.time);
+  if (!meu || !rivais.length) return false;
+  const b = pega(rivais), deles = D.times.find(t => t.id === b.time);
+  if (!deles) return false;
+  const nome = nomeCurto(deles.id).split(' ')[0].toLowerCase().replace(/^./, c => c.toUpperCase());
+  const ganhando = (meu.resultado_pct || 0) >= (deles.resultado_pct || 0);
+  const ida = ganhando
+    ? [`${nome}, tá vendo o placar? 😎`, `${nome}, vocês tão de férias?`, 'Esses US$ 500 da semana já são nossos!', `${nome}, quer umas dicas? 🤭`, 'Olha o ranking ali no telão… 🏆']
+    : ['Sorte de principiante, hein…', 'Semana que vem a gente vira! 😤', 'Esse lucro aí é emprestado, viu?', `${nome}, aproveita enquanto dura!`, 'Ainda tem muito mercado pela frente…'];
+  const volta = ganhando
+    ? ['Espera o stop de vocês… 😏', 'Fala baixo, tô operando!', 'Ri por último quem ri melhor.', 'Rex, morde ele! 🐶']
+    : ['Chora não! 😂', 'Placar não mente, parceiro.', 'Tá com inveja, é? 😎', 'Vai pegar um café e se acalma ☕'];
+  a.ir(b.slot.x + (Math.random() < 0.5 ? -14 : 14), b.slot.y + 2, 'conversando', 7000, {aoChegar: x => {
+    x.falar('— ' + pega(ida), 5000, 4);
+    setTimeout(() => b.falar('— ' + pega(volta), 5000, 4), 1900);
+  }});
+  return true;
+}
 function decidirGerente(a, agora) {
   const trs = [...AG.values()].filter(b => b.tr && b.slot && b.estado === 'mesa');
   if (a.estado !== 'na_sala' && Math.random() < 0.3) { const p = PONTOS.ger(); a.ir(p.x, p.y, 'na_sala', rnd(8000, 16000)); return; }
@@ -693,7 +722,7 @@ function decidirGerente(a, agora) {
   for (const b of trs) { r -= peso(b); if (r <= 0) { alvo = b; break; } }
   a.ir(alvo.slot.x + 14, alvo.slot.y + 2, 'visitando', rnd(5000, 8000), {aoChegar: x => {
     x.falar(comentarioGerente(alvo.tr), 5000, 4);
-    setTimeout(() => { if (alvo.tr) alvo.falar('— ' + pega(['Pode deixar, chefe!', 'Tá no plano!', 'Valeu, Claude!', 'Já subi o stop.']), 4200, 4); }, 2000);
+    setTimeout(() => { if (alvo.tr) alvo.falar('— ' + pega(['Pode deixar, chefe!', 'Tá no plano!', 'Valeu, Claude!', 'O stop tá no lugar.']), 4200, 4); }, 2000);
   }});
 }
 function decidirCeo(a, agora) {
