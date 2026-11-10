@@ -382,7 +382,7 @@ class Agencia:
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self.modo = cfg.get("modo", {}).get("tipo") if cfg.get("futuros", {}).get("ativo") else None
         self.modelo_pesos = None
-        self.versao = 7            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.versao = 8            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.caixa_empresa = 0.0
         self.funding_real = None
@@ -892,6 +892,8 @@ class Agencia:
         lmax = fut.get("alavancagem_max", 10) if self.futuros() else 1
         moedas = self.cfg["liga"]["moedas"]
         capital = self.cfg["liga"]["capital_por_trader_usd"]
+        if self.cfg["liga"].get("capital_total_usd"):   # o dinheiro total da agência dividido entre todos os traders
+            capital = self.cfg["liga"]["capital_total_usd"] / max(1, len(escolhidos) * len(moedas))
         self.modo = self.cfg.get("modo", {}).get("tipo") if self.futuros() else None
         if self.modo5m():   # todos operam em velas de 5 min
             def em5(r):

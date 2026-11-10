@@ -554,13 +554,20 @@ class Futuros:
             fr = max(tc.get("minimo", 0.05), min(1.0, (chance - corte) / max(1e-6, tc.get("cheio", 0.6) - tc.get("corte", 0.5))))
         ajuste, media_sit, n_sit = (aj_l, m_l, n_l) if lado > 0 else (aj_s, m_s, n_s)
         j = self._julgar(lado, c, stop, cfg2, ag, t_fim, fr_base * fr * est_p.get("ousadia", 1.0), ajuste)
-        # margem: 5× a calculada e NUNCA menos que US$ 200 (pedido do CEO), sem passar do caixa
+        # TAMANHO da posição: o mesmo de sempre (margem de referência US$ 200 × 5–10x = US$ 1.000–2.000)...
         mult, minimo = md.get("multiplicador_margem", 1.0), md.get("margem_minima_usd", 0.0)
         if mult != 1.0 or minimo:
-            margem = min(max(j["margem"] * mult, minimo), self.caixa * 0.95)
-            notional = margem * j["alavancagem"]
-            # o risco de verdade agora é o tamanho novo × a distância até o stop (pra medir R corretamente)
-            j = dict(j, margem=margem, notional=notional, risco_usd=notional * abs(c - stop) / c)
+            margem_ref = max(j["margem"] * mult, minimo)
+            notional = margem_ref * j["alavancagem"]
+            L = j["alavancagem"]
+            # ...mas com pouco caixa (patrimônio de US$ 500), a margem é o que ele tem e a ALAVANCAGEM compensa
+            margem = min(margem_ref, self.caixa * md.get("margem_uso_caixa", 0.8))
+            if margem < margem_ref and margem > 0:
+                teto = (md.get("alavancagem_max_moeda") or {}).get(self.par, md.get("alavancagem_max_outras", 75))
+                L = int(min(teto, max(L, -(-notional // margem))))
+                notional = margem * L
+            # o risco de verdade = tamanho × distância até o stop (pra medir R corretamente)
+            j = dict(j, margem=margem, notional=notional, alavancagem=L, risco_usd=notional * abs(c - stop) / c)
         extra = {"forcada": forcada, "chance": round(chance, 3), "chance_outro": round(outra, 3), "tamanho_pct": round(fr * 100), "atr0": a,
                  "x": [round(z, 4) for z in x]}
         if alvo:
