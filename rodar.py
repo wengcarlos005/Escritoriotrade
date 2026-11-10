@@ -257,8 +257,10 @@ def cmd_simular(args):
                 ag = None
     ag = ag or Agencia(cfg, agora)
     ag.ao_evento = imprimir_evento
-    if ag.modo5m() and not getattr(ag, "modelo_pesos", None):
-        treinar_modelo(cfg, ag)
+    import modelo as _modelo
+    if ag.modo5m() and (not getattr(ag, "modelo_pesos", None)
+                        or len((ag.modelo_pesos or {}).get("long", [])) != len(_modelo.NOMES) + 1):
+        treinar_modelo(cfg, ag)   # sem modelo, ou modelo de uma versão com menos sinais (ex.: antes do BTC)
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
     fora = set(cfg["liga"].get("estrategias_excluidas", []))

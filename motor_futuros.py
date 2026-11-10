@@ -93,8 +93,55 @@ def replay(est, d, v, p):
     return None
 
 
+CARREIRA = {
+    "estagiario": {"nome": "Estagiário", "max_alav": 5, "emoji": "🎒"},
+    "trader": {"nome": "Trader", "max_alav": 7, "emoji": "💼"},
+    "senior": {"nome": "Sênior", "max_alav": 10, "emoji": "🎖️"},
+}
+ORDEM_CARREIRA = ["estagiario", "trader", "senior"]
+
+
 class Futuros:
     """Métodos de futuros do Trader (mixin)."""
+
+    # ------------------------------------------------------------------ CARREIRA e LIMITE DIÁRIO
+    def cargo(self):
+        return getattr(self, "nivel", None) or "estagiario"
+
+    def atualizar_carreira(self, t, ag):
+        """Sobe de cargo provando resultado (e cai se piorar). Cargo = alavancagem máxima permitida."""
+        hist = getattr(self, "hist_r", []) or []
+        desde = getattr(self, "ops_desde_cargo", 0) + 1
+        self.ops_desde_cargo = desde
+        atual = ORDEM_CARREIRA.index(self.cargo())
+        novo = atual
+        media = lambda n: sum(hist[-n:]) / n if len(hist) >= n else None
+        if atual == 0 and desde >= 50 and (media(50) or 0) > 0:
+            novo = 1
+        elif atual == 1 and desde >= 100 and (media(100) or 0) > 0.1:
+            novo = 2
+        elif atual > 0 and desde >= 30 and (media(50) if len(hist) >= 50 else 0) < -0.1:
+            novo = atual - 1
+        if novo != atual:
+            self.nivel, self.ops_desde_cargo = ORDEM_CARREIRA[novo], 0
+            c = CARREIRA[self.nivel]
+            subiu = novo > atual
+            ag.evento(t, self, "🎉" if subiu else "📉", f"{self.rotulo(ag)} {'foi PROMOVIDO' if subiu else 'foi REBAIXADO'} a {c['emoji']} {c['nome']}"
+                                                   f" (resultado médio {(media(50) or 0):+.2f}R) — agora pode usar até {c['max_alav']}x")
+
+    def bateu_limite_do_dia(self, t, cfg, ag):
+        """Perdeu mais que X% do patrimônio desde o começo do dia (Brasília)? Então para por hoje."""
+        lim = cfg.get("modo", {}).get("limite_perda_dia", 0.05)
+        if not lim:
+            return False
+        from datetime import datetime, timedelta, timezone
+        dia = datetime.fromtimestamp(t / 1000, timezone(timedelta(hours=-3))).strftime("%Y-%m-%d")
+        if getattr(self, "dia_limite", None) != dia:
+            self.dia_limite, self.eq_inicio_dia, self.parou_hoje = dia, self.patrimonio(), False
+        if not getattr(self, "parou_hoje", False) and self.patrimonio() < self.eq_inicio_dia * (1 - lim):
+            self.parou_hoje = True
+            ag.evento(t, self, "🛑", f"{self.rotulo(ag)} perdeu mais de {lim:.0%} hoje e parou por hoje (volta amanhã)")
+        return getattr(self, "parou_hoje", False)
 
     def _f(self, cfg):
         return cfg.get("futuros", {})
@@ -139,6 +186,8 @@ class Futuros:
         sobre situações parecidas (≥1 = costuma dar certo → mais alavancagem; <1 = costuma dar errado → menos)."""
         regime = ag.regime(self.par, t_fim)
         cf = dict(self._f(cfg), fator_contra_tendencia=ag.fator_contra_trader(self))
+        if ag.modo5m():   # carreira: a alavancagem máxima é CONQUISTADA
+            cf["alavancagem_max"] = max(cf.get("alavancagem_min", 5), CARREIRA[self.cargo()]["max_alav"])
         conf = max(0.3, min(1.5, ag.confianca_trader(self) * ajuste))
         return dimensionar(self.patrimonio(), self.caixa, preco, abs(preco - stop) / preco, cf,
                            confianca=conf, a_favor=(regime == 0 or regime == lado),
@@ -368,6 +417,7 @@ class Futuros:
                     ag.evento(t, self, "📚", f"{self.rotulo(ag)} aprendeu: '{chave}' {'costuma dar CERTO' if m > 0 else 'costuma dar ERRADO'} "
                                             f"pra ele ({m:+.2f}R em {n} operações) — {'vai com mais confiança' if m > 0 else 'vai evitar e usar menos alavancagem'}")
             self._experimentar(r, t, ag)
+            self.atualizar_carreira(t, ag)
 
     PARAMS_EXPERIMENTO = {"alvo_atr": [3, 4, 5, 6, 7, 8, 10], "stop_atr": [2.5, 3, 3.5, 4, 5, 6],
                           "paciencia_min": [10, 20, 30, 45, 60], "virada": [0.04, 0.06, 0.08, 0.1, 0.12, 0.15]}
@@ -425,6 +475,10 @@ class Futuros:
             if self.posicao:
                 self._fala_posicao(t_fim, md)
             return
+        if self.bateu_limite_do_dia(t, cfg, ag):
+            self.ordem = None
+            self._falar(t, "Bati meu limite de perda do dia. Parei por hoje pra não piorar — amanhã volto com a cabeça fresca.")
+            return
         cf = dict(self._f(cfg), risco_por_operacao=md.get("risco_por_operacao", 0.0025), piramide=None)
         cfg2 = dict(cfg, futuros=cf)
         # 0) ordem limitada da vela anterior: o preço passou por ela? (taxa maker, sem derrapagem)
@@ -468,6 +522,9 @@ class Futuros:
             forcada, fr_base = False, fracao_entrada(dd, i, p)
         else:
             lado = 1 if pl >= ps else -1
+            fr_real = (getattr(ag, "funding_real", None) or {}).get(self.par)
+            if fr_real is not None and abs(pl - ps) < 0.02 and abs(fr_real) > 0.00005:
+                lado = -1 if fr_real > 0 else 1   # quase empate: fica do lado que RECEBE o funding
             m = None
             stop = c - lado * est_p.get("stop_atr", md.get("stop_atr", 4.0)) * a
             alvo = c + lado * est_p.get("alvo_atr", md.get("alvo_atr", 6.0)) * a
@@ -527,6 +584,7 @@ class Futuros:
         pos, e = self.posicao, self.meu_estilo()
         lado = pos["lado"]
         st, al = pos.get("stop_fixo"), pos.get("alvo_fixo")
+        saida = pos.get("saida_pendente")
         if st is None and pos.get("stop"):
             st = pos["stop_fixo"] = pos["stop"]
         if st and ((lado > 0 and l <= st) or (lado < 0 and h >= st)):
@@ -534,6 +592,11 @@ class Futuros:
             return self._fechar_fut(min(st, o) if lado > 0 else max(st, o), motivo, t, cfg, ag)
         if al and ((lado > 0 and h >= al) or (lado < 0 and l <= al)):
             return self._fechar_fut(al, "alvo", t, cfg, ag, maker=True)
+        if saida:   # ordem limitada de saída da vela anterior: executou? senão sai a mercado
+            px = saida["preco"]
+            if (lado > 0 and h >= px) or (lado < 0 and l <= px):
+                return self._fechar_fut(max(px, o) if lado > 0 else min(px, o), saida["motivo"] + " · ordem limitada", t, cfg, ag, maker=True)
+            return self._fechar_fut(c, saida["motivo"] + " · a mercado", t, cfg, ag)
         a0 = pos.get("atr0") or (d.get("atr") or [None])[i] or c * 0.003
         ganho_atr = lado * (c - pos["preco"]) / a0
         # 2) protege o lucro
@@ -562,13 +625,22 @@ class Futuros:
                 # entrada pelo SINAL da estratégia: só sai por "modelo virou" se a virada for o dobro (evita girar à toa)
                 exige = e.get("virada", 0.08) * (1 if pos.get("forcada", True) else 2)
                 if outro - meu >= exige:
-                    return self._fechar_fut(c, f"meu modelo virou ({nome_lado(-lado)} {outro * 100:.0f}% × {meu * 100:.0f}%)", t, cfg, ag)
-        # 4) limite de tempo
-        if t_fim - pos["t"] >= limite:
-            return self._fechar_fut(c, "limite de 2h", t, cfg, ag)
+                    return self._sair_com_limitada(c, f"meu modelo virou ({nome_lado(-lado)} {outro * 100:.0f}% × {meu * 100:.0f}%)", t, cfg, ag)
+        # 4) limite de tempo (a ordem de saída sai um pouco antes, pra dar tempo de executar como limitada)
+        if t_fim - pos["t"] >= limite - 5 * 60_000:
+            return self._sair_com_limitada(c, "limite de 2h", t, cfg, ag)
+
+    def _sair_com_limitada(self, c, motivo, t, cfg, ag):
+        """Saída sem pressa: põe ordem limitada no preço atual (taxa mais barata). Se não executar na próxima vela, sai a mercado."""
+        if not cfg.get("modo", {}).get("saida_limitada", True):
+            return self._fechar_fut(c, motivo, t, cfg, ag)
+        self.posicao["saida_pendente"] = {"preco": c, "motivo": motivo}
+        self._falar(t, f"Vou sair ({motivo}): coloquei ordem limitada a {_fmt(c)} pra pagar menos taxa.")
 
     def _fala_posicao(self, t_fim, md):
         p = self.posicao
+        if p.get("saida_pendente"):
+            return
         px = self.ultimo_preco or p["preco"]
         lucro = p["lado"] * p["qtd"] * (px - p["preco"])
         roe = lucro / p["margem"] * 100 if p.get("margem") else 0

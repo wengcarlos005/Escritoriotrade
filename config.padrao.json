@@ -40,6 +40,8 @@
     "multiplicador_margem": 5,
     "margem_minima_usd": 200,
     "entrada_limitada": true,
+    "saida_limitada": true,
+    "limite_perda_dia": 0.05,
     "tamanho_pela_chance": {"corte": 0.5, "cheio": 0.6, "minimo": 0.05},
     "aprender_ao_vivo": true,
     "moedas_treino": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]

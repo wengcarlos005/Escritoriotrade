@@ -419,7 +419,12 @@ class Agencia:
     def sinais_modelo(self, par, v, i, t_fim):
         from modelo import sinais
         tend = self.tendencia(par, {"intervalo": "4h", "rapida": 20, "lenta": 150}, t_fim)
-        return sinais(v, self._ind_modelo(f"{par}@5m", v), i, tend)
+        return sinais(v, self._ind_modelo(f"{par}@5m", v), i, tend, self._btc(v["t"][i]))
+
+    def _btc(self, t):
+        from modelo import sinais_btc
+        vb = self._buf.get("BTCUSDT@5m")
+        return sinais_btc(vb, self._ind_modelo("BTCUSDT@5m", vb), t) if vb and vb["t"] else (0.0, 0.0)
 
     def _aprender_modelo(self, chave, v):
         """Toda vela nova revela o resultado de 2 horas atrás: o modelo aprende com ele."""
@@ -433,7 +438,7 @@ class Agencia:
             return
         par = chave.split("@")[0]
         ind = self._ind_modelo(chave, v)
-        x = sinais(v, ind, i, self.tendencia(par, {"intervalo": "4h", "rapida": 20, "lenta": 150}, v["t"][i] + 300_000))
+        x = sinais(v, ind, i, self.tendencia(par, {"intervalo": "4h", "rapida": 20, "lenta": 150}, v["t"][i] + 300_000), self._btc(v["t"][i]))
         if x is None:
             return
         fut = self.cfg.get("futuros", {})
@@ -594,6 +599,7 @@ class Agencia:
                               "experimento": getattr(tr, "experimento", None),
                               "experimentos": (getattr(tr, "experimentos", None) or [])[-3:],
                               "mentor": getattr(tr, "mentor", None), "mentorias": getattr(tr, "mentorias", 0),
+                              "cargo": {"estagiario": "🎒 Estagiário", "trader": "💼 Trader", "senior": "🎖️ Sênior"}[tr.cargo()],
                               "ultimos_r": rs[-20:]})
         return saida
 
@@ -840,6 +846,7 @@ class Agencia:
                     ks.add(f"{tr.par}@{reg}")
                 if self.modo5m():
                     ks.add(f"{tr.par}@4h")
+                    ks.add("BTCUSDT@5m")
         return sorted(ks)
 
     def pares(self):

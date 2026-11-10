@@ -15,7 +15,8 @@ import math
 import indicadores
 
 H = 24            # 2 horas em velas de 5 min
-NOMES = ["ret_5m", "ret_30m", "ret_1h", "ret_4h", "dist_media20", "media20_vs_50", "rsi", "volatilidade", "tendencia_4h"]
+NOMES = ["ret_5m", "ret_30m", "ret_1h", "ret_4h", "dist_media20", "media20_vs_50", "rsi", "volatilidade", "tendencia_4h",
+         "btc_30m", "btc_1h"]
 
 
 def _clip(x, a=3.0):
@@ -29,7 +30,19 @@ def preparar(v):
             "e20": indicadores.ema(c, 20), "e50": indicadores.ema(c, 50), "rsi": indicadores.rsi(c, 14)}
 
 
-def sinais(v, ind, i, tend4h=0):
+def sinais_btc(vb, indb, t):
+    """O que o BTC fez na última meia hora e na última hora (o BTC costuma mexer antes das outras moedas)."""
+    if not vb or not vb["t"]:
+        return (0.0, 0.0)
+    import bisect
+    j = bisect.bisect_right(vb["t"], t) - 1
+    if j < 12 or indb["atr"][j] is None or indb["atr"][j] <= 0:
+        return (0.0, 0.0)
+    c, ap = vb["c"], indb["atr"][j] / vb["c"][j]
+    return (_clip((c[j] / c[j - 6] - 1) / ap / math.sqrt(6)), _clip((c[j] / c[j - 12] - 1) / ap / math.sqrt(12)))
+
+
+def sinais(v, ind, i, tend4h=0, btc=(0.0, 0.0)):
     """Vetor de sinais na vela i (ou None se ainda falta histórico)."""
     c = v["c"]
     if i < 50:
@@ -42,7 +55,7 @@ def sinais(v, ind, i, tend4h=0):
     def ret(n):
         return _clip((c[i] / c[i - n] - 1) / ap / math.sqrt(n))
     return [ret(1), ret(6), ret(12), ret(48), _clip((c[i] - e20) / a), _clip((e20 - e50) / a),
-            _clip((rsi - 50) / 25), _clip(a / a100 - 1), float(tend4h)]
+            _clip((rsi - 50) / 25), _clip(a / a100 - 1), float(tend4h), float(btc[0]), float(btc[1])]
 
 
 def resultado(v, ind, i, lado, k_alvo, k_stop, custo, h=H):
@@ -70,6 +83,8 @@ def resultado(v, ind, i, lado, k_alvo, k_stop, custo, h=H):
 class Logistica:
     def __init__(self, n=len(NOMES), pesos=None):
         self.w = list(pesos) if pesos else [0.0] * (n + 1)   # último = viés
+        if len(self.w) < n + 1:   # modelo antigo (menos sinais): os sinais novos começam com peso zero
+            self.w = self.w[:-1] + [0.0] * (n + 1 - len(self.w)) + self.w[-1:]
 
     def chance(self, x):
         z = self.w[-1] + sum(wi * xi for wi, xi in zip(self.w, x))
@@ -131,7 +146,8 @@ class ModeloChance:
 
 NOME_SINAL = {"ret_5m": "a última vela", "ret_30m": "a última meia hora", "ret_1h": "a última hora", "ret_4h": "as últimas 4h",
               "dist_media20": "a distância da média de 20", "media20_vs_50": "a média 20 × 50", "rsi": "o RSI",
-              "volatilidade": "a volatilidade", "tendencia_4h": "a tendência de 4h"}
+              "volatilidade": "a volatilidade", "tendencia_4h": "a tendência de 4h",
+              "btc_30m": "o BTC na última meia hora", "btc_1h": "o BTC na última hora"}
 
 
 def tendencias_4h(v5, v4, filtro=(20, 150)):
@@ -150,6 +166,8 @@ def treinar_do_historico(pares, k_alvo, k_stop, custo, carregar, dias_teste=30, 
     quantas vezes o lado escolhido teria ganhado. Depois retreina com tudo pra usar ao vivo."""
     import random
     por_par = {}
+    vb = carregar("BTCUSDT", "5m")
+    indb = preparar(vb) if vb and vb["t"] else None
     for par in pares:
         v5, v4 = carregar(par, "5m"), carregar(par, "4h")
         if len(v5["t"]) < 2000 or not v4["t"]:
@@ -157,7 +175,7 @@ def treinar_do_historico(pares, k_alvo, k_stop, custo, carregar, dias_teste=30, 
         ind, tg = preparar(v5), tendencias_4h(v5, v4)
         lista = []
         for i in range(60, len(v5["c"]) - H, passo):
-            x = sinais(v5, ind, i, tg[i])
+            x = sinais(v5, ind, i, tg[i], sinais_btc(vb, indb, v5["t"][i]) if indb else (0.0, 0.0))
             if x is None:
                 continue
             lista.append((v5["t"][i], x, resultado(v5, ind, i, 1, k_alvo, k_stop, custo), resultado(v5, ind, i, -1, k_alvo, k_stop, custo)))

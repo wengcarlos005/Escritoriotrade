@@ -285,19 +285,27 @@ const limiteDe = p => p ? (p.limite_t || (MODO5() ? p.t + 2 * 3600e3 : null)) : 
    O MUNDO (em "pixels de arte": cada um vira Z pixels na tela)
    ===================================================================== */
 const SW = 40, SH = 42, PAD = 6, HEAD = 22, M = 12, GAP = 12, WALL = 26, COMUM_H = 80, CEL = 6;
-let COLS, ROWS, AW, AH, WW, WH, COMUM_Y, AREA_POS, SALAS, PORTA, NX, NY, BLOQ, PAISAGEM = null;
+let COLS, ROWS, AW, AH, WW, WH, COMUM_Y, AREA_POS, SALAS, PORTA, NX, NY, BLOQ, PAISAGEM = null, N_AREAS = 6, MAX_FUNC = 10;
 let AREAS = [];   // {k, x, y, team, slots: [{x, y, sx, sy, mesa}], n}
-function definirLayout(paisagem) {
-  // paisagem: áreas largas (6 mesas × 3 fileiras) em 3 colunas; retrato (celular): 4 × 4 em 2 colunas
-  PAISAGEM = paisagem;
-  COLS = paisagem ? 6 : 4; ROWS = paisagem ? 3 : 4;
-  const ac = paisagem ? 3 : 2, ar = paisagem ? 2 : 3;
+function definirLayout(paisagem, nAreas = N_AREAS, maxFunc = MAX_FUNC) {
+  // até 3 times: uma fileira só de áreas grandes (5 mesas × 3 fileiras) e o escritório inteiro fica maior na tela;
+  // 4 a 6 times: 3 colunas × 2 linhas. No celular: uma coluna (até 3 times) ou duas.
+  PAISAGEM = paisagem; N_AREAS = nAreas; MAX_FUNC = maxFunc;
+  const poucos = nAreas <= 3;
+  COLS = paisagem ? (poucos ? 5 : 6) : (poucos ? 3 : 4);
+  // só as fileiras de mesa que os times precisam (+ uma livre pra quem for contratado): escritório maior na tela
+  ROWS = poucos ? Math.max(2, Math.min(4, Math.ceil(maxFunc / COLS) + (maxFunc % COLS === 0 ? 1 : 0))) : (paisagem ? 3 : 4);
+  const ac = paisagem ? (poucos ? Math.max(1, nAreas) : 3) : (poucos ? 1 : 2);
+  const ar = paisagem ? (poucos ? 1 : 2) : (poucos ? Math.max(1, nAreas) : 3);
   AW = COLS * SW + PAD * 2; AH = HEAD + ROWS * SH + 6;
   const AX = c => M + c * (AW + GAP), AY = r => WALL + 10 + r * (AH + GAP);
   WW = M * 2 + ac * AW + (ac - 1) * GAP; COMUM_Y = AY(ar) + 2; WH = COMUM_Y + COMUM_H + 12;
   // 0 = lugar de honra (titular), depois o ranking; a mesa especial fica na última
-  const ordem = paisagem ? [[1, 0], [0, 0], [2, 0], [0, 1], [1, 1], [2, 1]] : [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]];
+  let ordem = paisagem ? [[1, 0], [0, 0], [2, 0], [0, 1], [1, 1], [2, 1]] : [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]];
+  if (poucos) ordem = paisagem ? (nAreas >= 3 ? [[1, 0], [0, 0], [2, 0]] : nAreas === 2 ? [[0, 0], [1, 0]] : [[0, 0]])
+                               : Array.from({length: Math.max(1, nAreas)}, (_, r) => [0, r]);
   AREA_POS = ordem.map(([c, r]) => ({x: AX(c), y: AY(r)}));
+  while (AREA_POS.length < 6) AREA_POS.push(AREA_POS[AREA_POS.length - 1]);
   const L = WW - M * 2, w1 = Math.round(L * 0.22), w2 = Math.round(L * 0.22), w3 = Math.round(L * 0.32);
   SALAS = {
     ceo: {x: M, y: COMUM_Y, w: w1 - 4, h: COMUM_H, nome: 'SALA DO CEO'},
@@ -454,7 +462,8 @@ const PONTOS = {
   cafe: () => ({x: SALAS.cafe.x + rnd(20, SALAS.cafe.w - 20), y: SALAS.cafe.y + rnd(18, 48)}),
   ceo: () => ({x: SALAS.ceo.x + SALAS.ceo.w / 2, y: SALAS.ceo.y + 24}),
   ger: () => ({x: SALAS.ger.x + SALAS.ger.w / 2, y: SALAS.ger.y + 24}),
-  corredor: () => pega([{x: rnd(20, WW - 20), y: AREA_POS[3].y - 6}, {x: rnd(20, WW - 20), y: COMUM_Y - 6}, {x: AREA_POS[1].x - 6, y: rnd(60, COMUM_Y - 10)}]),
+  corredor: () => pega([{x: rnd(20, WW - 20), y: COMUM_Y - 6}, {x: rnd(20, WW - 20), y: COMUM_Y - 8},
+                        ...(N_AREAS > 3 ? [{x: rnd(20, WW - 20), y: AREA_POS[3].y - 6}, {x: AREA_POS[1].x - 6, y: rnd(60, COMUM_Y - 10)}] : [])]),
 };
 function rotulo(tr) { const tm = D && D.times.find(t => t.id === tr.time); return `${tr.nome} do ${tm ? tm.nome : ''}`; }
 
@@ -659,9 +668,12 @@ const CAM = {x: WW / 2, y: WH / 2, z: 1};
 let zMin = 0.5;
 function ajustarTela() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
-  W = tela.clientWidth; H = tela.clientHeight;
-  const pais = W / H >= 1.05;
+  W = tela.clientWidth;
+  const pais = window.innerWidth > 700;
   if (pais !== PAISAGEM) { definirLayout(pais); AG.clear(); SAINDO.clear(); PRIMEIRA = true; if (D) sincronizar(); }
+  // a altura acompanha o formato do escritório: sem faixas vazias e com tudo no maior tamanho possível
+  if (WW && WH) tela.style.height = Math.round(pais ? Math.max(380, Math.min(780, W * WH / WW)) : Math.max(420, Math.min(1400, W * WH / WW))) + 'px';
+  H = tela.clientHeight;
   canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   zMin = Math.min(W / WW, H / WH) * 0.98;
 }
@@ -1162,6 +1174,8 @@ function renderDetalhe() {
     linha('vitórias / derrotas', `${tr.vitorias} / ${tr.derrotas}${n ? ` (${Math.round(tr.vitorias / n * 100)}%)` : ''}`) +
     (tr.liquidacoes != null ? linha('liquidações', tr.liquidacoes ? `💀 ${tr.liquidacoes}` : '0') : '') +
     (tr.desempenho != null ? linha('desempenho', `<span class="${cls(tr.desempenho)}">${pct(tr.desempenho, 1)}</span> do que recebeu${tr.premios ? ` · ⭐ ${tr.premios}× melhor do time` : ''}`) : '') +
+    linha('cargo', ({estagiario: '🎒 Estagiário (até 5x)', trader: '💼 Trader (até 7x)', senior: '🎖️ Sênior (até 10x)'})[tr.nivel || 'estagiario']) +
+    (tr.parou_hoje ? linha('🛑 hoje', 'bateu o limite de perda do dia — volta amanhã') : '') +
     (tr.estilo ? linha('🧬 jeito dele', `${esc(tr.estilo.jeito || 'equilibrado')} · alvo ${tr.estilo.alvo_atr} ATR · stop ${tr.estilo.stop_atr} ATR · paciência ${tr.estilo.paciencia_min || '–'} min`) : '') +
     (tr.modelo_pesos && tr.modelo_pesos.vistos ? linha('🎲 modelo dele', `acertou ${tr.modelo_pesos.acertos}/${tr.modelo_pesos.vistos} operações`) : '') +
     linha('metas batidas', `${tr.metas_batidas || 0} × US$ ${num(metaEmp().meta_lucro_usd || 50, 0)}`) +
@@ -1261,7 +1275,7 @@ function renderAprendizado() {
     const t = D.times.find(x => x.id === a.time) || {}, rs = a.ultimos_r || [], mx = Math.max(1, ...rs.map(Math.abs));
     const barras = rs.length ? `<div class="barras-r" title="últimas operações em R">${rs.map(r => `<i style="height:${Math.max(6, Math.abs(r) / mx * 100)}%;background:${r >= 0 ? 'var(--verde)' : 'var(--vermelho)'};align-self:${r >= 0 ? 'flex-end' : 'flex-start'}"></i>`).join('')}</div>` : '';
     const seta = a.confianca_agora > a.confianca_escola + 0.005 ? '▲' : a.confianca_agora < a.confianca_escola - 0.005 ? '▼' : '=';
-    return `<div class="tcard"><div class="tt"><span class="c" style="background:${corTime(a.time)}"></span>${esc(a.trader || a.nome)} <span class="sub" style="margin:0;font-weight:500">· ${esc(t.emoji || '')} ${esc((t.nome || a.time).replace('Time ', ''))}</span></div>${a.estilo && a.estilo.jeito ? `<div class="ts">jeito: ${esc(a.estilo.jeito)}</div>` : ''}
+    return `<div class="tcard"><div class="tt"><span class="c" style="background:${corTime(a.time)}"></span>${esc(a.trader || a.nome)} <span class="sub" style="margin:0;font-weight:500">· ${esc(t.emoji || '')} ${esc((t.nome || a.time).replace('Time ', ''))}</span></div>${a.estilo && a.estilo.jeito ? `<div class="ts">jeito: ${esc(a.estilo.jeito)}${a.cargo ? ' · ' + esc(a.cargo) : ''}</div>` : ''}
       <div class="lin"><span>operações ao vivo</span><span>${a.operacoes}${a.acerto_pct != null ? ` · acerto ${a.acerto_pct}%` : ''}</span></div>
       <div class="lin"><span>resultado médio</span><span class="${a.media_r != null ? cls(a.media_r) : ''}">${a.media_r != null ? sinal(a.media_r) + num(a.media_r, 2) + 'R por operação' : 'ainda sem operações'}</span></div>
       <div class="lin"><span>confiança</span><span>escola ${num(a.confianca_escola, 2)} → agora <b>${num(a.confianca_agora, 2)}</b> ${seta}</span></div>
@@ -1329,7 +1343,11 @@ async function atualizar() {
     $('rec').className = 'rec' + (vivo ? '' : ' off');
     if (d.vazio || !d.times) { D = null; $('sub').textContent = 'A agência está desligada — abra o 2_ligar_agencia.bat'; return; }
     const primeira = !D;
-    D = d; sincronizar(); reagir(); renderTopo(vivo); renderLado(); relogio();
+    D = d;
+    const nA = Math.min(6, (d.times || []).length || 1);
+    const mf = Math.max(1, ...(d.times || []).map(t => t.funcionarios != null ? t.funcionarios : (d.traders || []).filter(x => x.time === t.id).length));
+    if (nA !== N_AREAS || (nA <= 3 && mf !== MAX_FUNC)) { definirLayout(PAISAGEM, nA, mf); AG.clear(); SAINDO.clear(); PRIMEIRA = true; ajustarTela(); verTudo(); }
+    sincronizar(); reagir(); renderTopo(vivo); renderLado(); relogio();
     if (primeira) verTudo();
   } catch (err) { console.warn(err); $('rec').className = 'rec off'; $('sub').textContent = 'sem conexão com o programa — ele está rodando?'; }
 }
