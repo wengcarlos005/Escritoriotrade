@@ -118,13 +118,15 @@ def baixar(cfg, avisar=print):
             remoto, local = PASTA / nome, DADOS / nome
             if remoto.exists() and _carimbo(remoto) > _carimbo(local):
                 DADOS.mkdir(exist_ok=True)
+                if local.exists() and nome == "simulacao.json":   # cópia de segurança antes de trocar pela da nuvem
+                    shutil.copy2(local, DADOS / f"simulacao_antes_da_nuvem_{time.strftime('%Y%m%d_%H%M')}.json")
                 shutil.copy2(remoto, local)
                 if nome == "simulacao.json":
                     avisar(f"☁️  Continuando de onde parou: trouxe a simulação salva em {_quando(_carimbo(remoto))} "
                            f"(a agência vai recuperar o que aconteceu no mercado desde então).")
 
 
-def enviar(cfg, avisar=print, final=False):
+def enviar(cfg, avisar=print, final=False, forcar=False):
     """Manda a versão atual pra nuvem (em segundo plano a cada poucos minutos; e ao fechar)."""
     if not ativo(cfg) or not _trava.acquire(blocking=final):
         return False
@@ -132,7 +134,7 @@ def enviar(cfg, avisar=print, final=False):
         if not _preparar_pasta(_cfg(cfg)["repo"], avisar):   # olha a nuvem antes de mandar
             return False
         remoto = _carimbo(PASTA / "simulacao.json")
-        if _conhecido["remoto"] is not None and remoto > _conhecido["remoto"]:
+        if not forcar and _conhecido["remoto"] is not None and remoto > _conhecido["remoto"]:
             # outro PC salvou na nuvem DEPOIS que este abriu: não apaga o progresso dele
             if not _conhecido["avisou"] or final:
                 _conhecido["avisou"] = True
@@ -142,7 +144,7 @@ def enviar(cfg, avisar=print, final=False):
         mudou = False
         for nome in ARQUIVOS:
             local, remoto = DADOS / nome, PASTA / nome
-            if local.exists() and (not remoto.exists() or _carimbo(local) >= _carimbo(remoto)):
+            if local.exists() and (forcar or not remoto.exists() or _carimbo(local) >= _carimbo(remoto)):
                 shutil.copy2(local, remoto)
                 mudou = True
         agora = int(time.time() * 1000)
@@ -180,8 +182,9 @@ def talvez_enviar(cfg, avisar=print):
         threading.Thread(target=enviar, args=(cfg, avisar), daemon=True).start()
 
 
-def ligar(salvar_config, cfg_usuario, avisar=print):
-    """Configura a sincronia neste PC (rodar uma vez em cada PC): python rodar.py sincronia"""
+def ligar(salvar_config, cfg_usuario, avisar=print, usar_este=False):
+    """Configura a sincronia neste PC (rodar uma vez em cada PC): python rodar.py sincronia
+    usar_este=True: a simulação DESTE PC passa a valer em todos (manda ela pra nuvem por cima da que estiver lá)."""
     repo = _cfg(cfg_usuario).get("repo") or repo_padrao()
     if not repo:
         avisar("Não achei o endereço do GitHub desta pasta. Rode antes o conectar_ao_github.bat.")
@@ -193,6 +196,18 @@ def ligar(salvar_config, cfg_usuario, avisar=print):
         return False
     cfg_usuario.setdefault("sincronizar", {}).update({"ativo": True, "repo": repo})
     salvar_config(cfg_usuario)
+    if usar_este:
+        sim = DADOS / "simulacao.json"
+        if not sim.exists():
+            avisar("❌ Este PC ainda não tem simulação pra mandar."); return False
+        d = json.loads(sim.read_text(encoding="utf-8"))
+        d["salvo_em"] = int(time.time() * 1000)          # vira a versão mais nova
+        sim.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+        _preparar_pasta(repo, avisar)
+        ok = enviar(cfg_usuario, avisar, final=True, forcar=True)
+        avisar("✅ A simulação DESTE PC agora é a que vale: os outros PCs vão continuar dela." if ok else
+               "❌ Não consegui mandar pra nuvem agora. Confira a internet e rode de novo.")
+        return ok
     baixar(cfg_usuario, avisar)
     enviar(cfg_usuario, avisar, final=True)
     avisar("✅ Sincronia ligada neste PC. Faça o mesmo no outro PC e pronto: a agência continua de onde parou em qualquer um.")

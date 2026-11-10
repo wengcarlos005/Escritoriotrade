@@ -472,7 +472,7 @@ def cmd_sincronia(args):
 
     def salvar_config(c):
         pessoal.write_text(json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
-    sincronia.ligar(salvar_config, meu)
+    sincronia.ligar(salvar_config, meu, usar_este=getattr(args, "usar_este", False))
 
 
 def cmd_binance(args):
@@ -608,7 +608,8 @@ def main():
     sub.add_parser("painel", help="abre o escritório/painel")
     sub.add_parser("zerar", help="apaga a simulação")
     sub.add_parser("resumo", help="mostra um resumo em texto (pra mandar pro Claude)")
-    sub.add_parser("sincronia", help="liga a sincronia entre PCs (mesma simulação em casa e no trabalho)")
+    sc = sub.add_parser("sincronia", help="liga a sincronia entre PCs (mesma simulação em casa e no trabalho)")
+    sc.add_argument("--usar-este", action="store_true", help="a simulação deste PC passa a valer em todos")
     sub.add_parser("binance", help="conecta a conta de futuros da Binance (papel, testnet ou real)")
     args = ap.parse_args()
     preparar_dados()
