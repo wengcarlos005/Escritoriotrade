@@ -122,6 +122,8 @@ class Trader(Futuros):
 
     def aplicar_params_novos(self):
         novos = getattr(self, "params_novos", None)
+        if novos and self.intervalo == "5m" and novos.get("intervalo") != "5m":
+            novos = dict(novos, intervalo="5m")
         if novos:
             self.params, self.intervalo, self.params_novos = novos, novos["intervalo"], None
 
@@ -529,6 +531,8 @@ class Agencia:
                 if not r:
                     continue
                 novos = r["params_atuais"]
+                if self.modo5m():   # no modo 5 min todo mundo continua em velas de 5 min
+                    novos = dict(novos, intervalo="5m")
                 antigos = tm["params"] if not tm.get("membros") else None
                 if not tm.get("membros"):
                     tm["params"], tm["intervalo"] = novos, novos["intervalo"]
@@ -604,6 +608,14 @@ class Agencia:
         o.sprint = d.get("sprint")
         o.sprints = d.get("sprints", [])
         o._iniciar_temporarios()
+        if getattr(o, "modo", None) == "5m":   # conserta quem saiu das velas de 5 min (reestudo antigo)
+            for tr in o.traders:
+                if tr.intervalo != "5m":
+                    tr.params, tr.intervalo, tr.params_novos = dict(tr.params, intervalo="5m"), "5m", None
+            for tm in o.times:
+                if tm.get("params"):
+                    tm["params"] = dict(tm["params"], intervalo="5m")
+                tm["intervalo"] = "5m"
         return o
 
     # --- utilidades -------------------------------------------------------
