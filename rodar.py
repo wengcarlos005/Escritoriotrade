@@ -27,6 +27,7 @@ import gerente
 import mercado
 import painel
 import sincronia
+import operacao_real
 from motor import Agencia, hhmm, moeda
 
 AQUI = Path(__file__).resolve().parent
@@ -323,7 +324,7 @@ def cmd_simular(args):
     print("Ctrl+C pra parar (tudo fica salvo). Deixe esta janela aberta.\n")
 
     try:
-        _laco(args, cfg, esc, ag, fila)
+        _laco(args, cfg, esc, ag, fila, operacao_real.Operacao(cfg))
     except KeyboardInterrupt:
         if sincronia.ativo(cfg):
             print("\n☁️  Guardando na nuvem antes de fechar...")
@@ -332,7 +333,7 @@ def cmd_simular(args):
         raise
 
 
-def _laco(args, cfg, esc, ag, fila):
+def _laco(args, cfg, esc, ag, fila, op=None):
     proxima_busca = 0
     ultima_cotacao = 0
     ultimo_reestudo = 0
@@ -353,6 +354,10 @@ def _laco(args, cfg, esc, ag, fila):
                     ag.rodada(agora)
                     ag.fechar_sprint(agora)
                     resumo_liga(ag)
+                elif cmd.get("acao") == "parar_real" and op:
+                    op.parar_tudo("botão PARAR TUDO no painel")
+                elif cmd.get("acao") == "retomar_real" and op:
+                    op.retomar()
             # 2) Saiu boletim novo da escola?
             novo = escola_mod.carregar()
             if novo and novo.get("gerado_em") != ag.escola_aplicada:
@@ -416,6 +421,8 @@ def _laco(args, cfg, esc, ag, fila):
                 ag.marcar_curva(agora)
                 salvar(ag)
                 sincronia.talvez_enviar(cfg)
+                if op and op.ativo:   # a conta da Binance segue a agência (só no PC marcado pra operar)
+                    op.ciclo(ag, dict(ag.ultimo_preco))
                 proxima_busca = time.time() + args.segundos
             # 5) Relatório diário do gerente
             g_cfg = cfg.get("gerente", {})
@@ -466,6 +473,53 @@ def cmd_sincronia(args):
     def salvar_config(c):
         pessoal.write_text(json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
     sincronia.ligar(salvar_config, meu)
+
+
+def cmd_binance(args):
+    """Conecta a conta de futuros da Binance (chave digitada AQUI, nunca no chat) e escolhe o modo."""
+    import getpass
+    import binance_real
+    pessoal = AQUI / "config.json"
+    meu = json.loads(pessoal.read_text(encoding="utf-8")) if pessoal.exists() else {}
+    print("\n💵 CONTA DA BINANCE — a conta de futuros vai copiar a agência (na proporção).\n")
+    print("  1) papel    — só anota as ordens que mandaria (sem chave, sem risco)")
+    print("  2) testnet  — Binance de TREINO, dinheiro de mentira (crie a chave em testnet.binancefuture.com)")
+    print("  3) real     — DINHEIRO DE VERDADE")
+    print("  4) desligar")
+    op = input("\nEscolha (1-4): ").strip()
+    modo = {"1": "papel", "2": "testnet", "3": "real", "4": "desligado"}.get(op)
+    if not modo:
+        print("Opção inválida."); return
+    if modo in ("testnet", "real"):
+        if modo == "real":
+            print("\n⚠️  ANTES DE SEGUIR, confira na Binance (Gerenciamento de API):")
+            print("   • a chave tem SÓ 'Ativar Futuros' (e leitura) — NUNCA 'Ativar Saques';")
+            print("   • 'Restringir acesso a IPs confiáveis' com o IP deste PC (mais seguro);")
+            print("   • na conta de Futuros USDT-M tem só o valor que você aceita perder.")
+            print("   Recomendado: rodar antes uns dias no modo testnet.")
+            if input("\nDigite EU ENTENDO O RISCO pra continuar: ").strip().upper() != "EU ENTENDO O RISCO":
+                print("Cancelado."); return
+        chave = input("API Key: ").strip()
+        segredo = getpass.getpass("Secret Key (não aparece enquanto digita): ").strip()
+        cli = binance_real.Cliente(modo, chave, segredo)
+        try:
+            cli.sincronizar_relogio()
+            c = cli.conta()
+        except Exception as e:
+            print(f"\n❌ Não consegui entrar na conta: {e}\n   Confira a chave, as permissões de Futuros e a restrição de IP."); return
+        binance_real.salvar_chave(modo, chave, segredo)
+        print(f"\n✅ Conectado ({modo}). Patrimônio em futuros: US$ {c['patrimonio']:,.2f} · posições abertas: {c['posicoes'] or 'nenhuma'}")
+        if c["posicoes"]:
+            print("   ⚠️  Já existem posições abertas nessa conta. A agência vai AJUSTAR essas moedas pro que ela quer ter.")
+    meu.setdefault("conta_binance", {}).update({"modo": modo, "operar_neste_pc": modo != "desligado"})
+    pessoal.write_text(json.dumps(meu, ensure_ascii=False, indent=2), encoding="utf-8")
+    if modo != "desligado":
+        print(f"\nPronto: ESTE PC vai operar a conta em modo {modo.upper()} quando a agência estiver ligada.")
+        print("Travas: perde mais de 15% num dia ou cai abaixo de 50% do que começou → fecha tudo e PARA.")
+        print("Stop de emergência na própria Binance a 20% (protege com o PC desligado).")
+        print("Pra parar na hora: botão PARAR TUDO no painel, ou crie o arquivo dados/PARAR_REAL.")
+    else:
+        print("Operação real desligada neste PC.")
 
 
 def cmd_resumo(args):
@@ -555,12 +609,13 @@ def main():
     sub.add_parser("zerar", help="apaga a simulação")
     sub.add_parser("resumo", help="mostra um resumo em texto (pra mandar pro Claude)")
     sub.add_parser("sincronia", help="liga a sincronia entre PCs (mesma simulação em casa e no trabalho)")
+    sub.add_parser("binance", help="conecta a conta de futuros da Binance (papel, testnet ou real)")
     args = ap.parse_args()
     preparar_dados()
     cmd = args.cmd or menu()
     if cmd == "simular" and not hasattr(args, "segundos"):
         args.segundos, args.sem_navegador = 20, False
-    acoes = {"escola": cmd_escola, "backtest": cmd_escola, "simular": cmd_simular, "painel": cmd_painel, "zerar": cmd_zerar, "resumo": cmd_resumo, "sincronia": cmd_sincronia}
+    acoes = {"escola": cmd_escola, "backtest": cmd_escola, "simular": cmd_simular, "painel": cmd_painel, "zerar": cmd_zerar, "resumo": cmd_resumo, "sincronia": cmd_sincronia, "binance": cmd_binance}
     if cmd not in acoes:
         print("Opção inválida.")
         return

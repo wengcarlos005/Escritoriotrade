@@ -145,6 +145,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if ARQ_LOG_ESCOLA.exists():
                 d["log"] = ARQ_LOG_ESCOLA.read_text(encoding="utf-8", errors="replace").splitlines()[-12:]
             return self._responder(200, d)
+        if caminho == "/api/real":
+            import operacao_real
+            e = operacao_real.carregar_estado()
+            e.pop("papel_preco", None)
+            return self._responder(200, e or {"modo": "desligado"})
         if caminho == "/api/laboratorio":
             return self._responder(200, _ler_json(AQUI / "laboratorio.json") or {"experimentos": []})
         if caminho == "/api/gerente":
@@ -173,6 +178,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception:
             return self._responder(400, {"erro": "pedido inválido"})
 
+        if caminho in ("/api/real/parar", "/api/real/retomar"):
+            if _estado["fila"] is None:
+                if caminho.endswith("parar"):   # agência desligada: deixa o pedido de parar num arquivo (vale ao ligar)
+                    (DADOS / "PARAR_REAL").write_text("parar", encoding="utf-8")
+                    return self._responder(200, {"ok": True, "msg": "Pedido de parada salvo: fecha tudo assim que a agência ligar."})
+                return self._responder(200, {"ok": False, "erro": "A agência não está rodando."})
+            _estado["fila"].put({"acao": "parar_real" if caminho.endswith("parar") else "retomar_real"})
+            return self._responder(200, {"ok": True, "msg": "Pedido enviado."})
         if caminho == "/api/comando":
             if _estado["fila"] is None:
                 return self._responder(200, {"ok": False, "erro": "A simulação não está rodando. Abra com: python rodar.py simular"})

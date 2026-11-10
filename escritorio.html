@@ -224,10 +224,13 @@ details.mais-d summary{cursor:pointer;color:var(--acento);font-weight:600;font-s
   .kpi{min-width:0;flex:1 1 30%}
   .kpi .v{font-size:15px}
   .kpi.real{flex:1 1 100%}
+  .bt-real{font-size:11px}
   .relogio{font-size:11px}
 }
 
 .tela canvas{image-rendering:pixelated;touch-action:none}
+.bt-real{border:0;border-radius:8px;padding:3px 8px;font-weight:800;cursor:pointer;background:#e8eef0;color:#16202e;margin-left:4px}
+.bt-real.parar{background:#e0454b;color:#fff}
 body.modo-video{overflow:hidden;background:#cfd6dc}
 body.modo-video .tela{position:fixed;inset:0;width:100vw;border-radius:0;z-index:50}
 body.modo-video .tela > :not(canvas){display:none !important}
@@ -1517,7 +1520,13 @@ function renderTopo(vivo) {
   // a conta real conta também o lucro/prejuízo das posições abertas (na proporção que ela copia)
   const crAberto = cr0 ? D.traders.reduce((s, t) => { const p = t.posicao; return s + (p && p.real && p.lado ? p.lado * p.qtd * ((t.ultimo_preco || p.preco) - p.preco) * (p.real_escala || 0) : 0); }, 0) : 0;
   const cr = cr0 && {...cr0, patrimonio: cr0.patrimonio + crAberto}, crL = cr ? cr.patrimonio - cr.inicial : 0;
-  $('kpis').innerHTML = [...(cr ? [[`💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}`,
+  const rb = REAL && REAL.modo && REAL.modo !== 'desligado' ? REAL : null;
+  const rbL = rb && rb.patrimonio != null && rb.inicial != null ? rb.patrimonio - rb.inicial : 0;
+  const rbTxt = rb ? (rb.modo === 'real' ? '💰 Binance (REAL)' : rb.modo === 'testnet' ? '🧪 Binance (testnet)' : '📝 Binance (papel)') : '';
+  const rbStatus = !rb ? '' : rb.parado ? `<span class="neg">⛔ PARADA: ${esc(rb.motivo || '')}</span> <button class="bt-real" onclick="pedirReal('retomar')">Retomar</button>`
+    : (rb.status || '').startsWith('erro') ? `<span class="neg">⚠️ ${esc(rb.status)}</span>` : `${Object.keys(rb.posicoes || {}).length} moedas abertas <button class="bt-real parar" onclick="pedirReal('parar')">⛔ PARAR TUDO</button>`;
+  $('kpis').innerHTML = [...(rb ? [[rbTxt, `${rb.patrimonio != null ? usd(rb.patrimonio) : '—'} <small class="${cls(rbL)}" style="font-size:12px">${rb.patrimonio != null ? sinal(rbL) + usd(Math.abs(rbL)) : ''}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${rbStatus}</div>`, '', 'real']] : []),
+    ...(cr ? [[`💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}`,
       `${usd(cr.patrimonio)} <small class="${cls(crL)}" style="font-size:12px">${sinal(crL)}${usd(Math.abs(crL))}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${cr.time === 'agencia' ? `dividida entre os ${D.times.filter(t => !t.especial).length} times` : crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''}</div>`, '', 'real']] : []),
     [cr ? 'patrimônio simulado' : 'patrimônio', usd(total), ''], ['resultado', `${sinal(lucro)}${usd(Math.abs(lucro))}`, cls(lucro)],
     FUT() ? ['posições', `${longs}▲ ${shorts}▼ <small style="font-size:12px;color:var(--suave)">de ${D.traders.length}</small>`, ''] : ['comprados agora', `${abertos.length} de ${D.traders.length}`, ''],
@@ -1537,9 +1546,15 @@ function relogio() {
   const h = horaBrasilia(), n = noite();
   $('relogio').textContent = `${n > 0.5 ? '🌙' : '☀️'} ${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor(h % 1 * 60)).padStart(2, '0')} em Brasília${MODO5() && W >= 600 ? ' · novas entradas a cada 5 min' : ''}`;
 }
+let REAL = null;
+async function pedirReal(acao) {
+  if (acao === 'parar' && !confirm('PARAR TUDO na Binance?\n\nFecha TODAS as posições da conta agora, a mercado, e a agência deixa de operar a conta até você clicar em Retomar.')) return;
+  try { const r = await fetch('/api/real/' + acao, {method: 'POST', body: '{}'}).then(x => x.json()); alert(r.msg || r.erro || 'ok'); } catch (e) { alert('Não consegui falar com o programa.'); }
+}
 async function atualizar() {
   try {
     const d = await fetch('/api/estado', {cache: 'no-store'}).then(r => r.json());
+    try { REAL = await fetch('/api/real', {cache: 'no-store'}).then(r => r.json()); } catch (e) { REAL = null; }
     if (Date.now() - ESCOLA_EM > 60000) { try { const e = await fetch('/api/escola', {cache: 'no-store'}).then(r => r.json()); E = e && !e.vazio ? e : null; } catch (e) {} ESCOLA_EM = Date.now(); }
     const vivo = !d.vazio && d.simulacao_rodando && d.salvo_em && Date.now() - d.salvo_em < 120000;
     $('rec').className = 'rec' + (vivo ? '' : ' off');

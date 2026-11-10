@@ -58,7 +58,14 @@ repositório **privado e vazio** chamado `escritoriotrade-dados` (é lá que a s
 
 Deixe a agência aberta em **um PC por vez**. A chave do gerente e o `config.json` não vão pra nuvem.
 
-## 2.0.1 Rodar num servidor na nuvem (24h, pelo celular)
+## 2.0.1 Operar de verdade na Binance
+
+Passo a passo completo em **[OPERACAO_REAL.md](OPERACAO_REAL.md)**: a conta de futuros copia a agência na proporção,
+nesta ordem — **papel** (só anota) → **testnet** (Binance de treino) → **real**. Conecte com o
+`9_conectar_binance.bat` (a chave é digitada na janela, nunca no chat). Travas: perda máxima no dia, piso, teto de
+exposição, stop de emergência na própria Binance (vale com o PC desligado) e o botão **⛔ PARAR TUDO** no escritório.
+
+## 2.0.2 Rodar num servidor na nuvem (24h, pelo celular)
 
 Quer acompanhar sem deixar o PC ligado? Veja o passo a passo em **[SERVIDOR.md](SERVIDOR.md)**: aluga um servidor
 (~R$ 25–35/mês), cola um comando e a agência fica no ar com HTTPS e senha, atualizando sozinha todo dia.

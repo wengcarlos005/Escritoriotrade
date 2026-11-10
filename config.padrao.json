@@ -156,6 +156,9 @@
     "relatorio_automatico": true,
     "horas_entre_relatorios": 24
   },
+  "conta_binance": {"modo": "desligado", "operar_neste_pc": false, "max_exposicao_x": 4.0, "perda_max_dia_pct": 15, "piso_pct": 50,
+                    "stop_emergencia_pct": 20, "alavancagem_binance": 10, "tolerancia_usd": 15, "tolerancia_pct": 5, "a_cada_segundos": 60,
+                    "capital_papel_usd": 500},
   "conta_real": {"ativo": true, "capital_usd": 500, "modo": "simulado", "regra": "agencia"},
   "painel": {"celular": true}
 }
