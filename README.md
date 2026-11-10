@@ -45,7 +45,20 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório** em pixel-art, com cad
 e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3D** (um andar de escritório dividido por times: cada área tem a cor do time, o ranking, o resultado e o caixa do time; telão de ranking, sala do CEO, sala do Claude, treinamento e copa — arraste pra girar, roda/pinça pra zoom, clique num trader ou numa área; a versão pixel-art antiga continua em `/pixel`),
 **📊 Visão geral** (classificação, times, rodadas), **🎓 Escola** (boletim e botão de nova temporada) e **🧠 Gerente**.
 
-## 2.0 Rodar num servidor na nuvem (24h, pelo celular)
+## 2.0 Usar em mais de um PC (trabalho e casa) — a simulação continua de onde parou
+
+Rode o **`8_sincronizar_entre_pcs.bat`** uma vez em cada PC. Na primeira vez ele abre o GitHub pra você criar um
+repositório **privado e vazio** chamado `escritoriotrade-dados` (é lá que a simulação fica guardada). Daí em diante:
+- ao **ligar**, a agência baixa a versão mais nova (salva em qualquer PC);
+- enquanto roda, ela guarda na nuvem a cada 5 minutos e **ao fechar** (feche com **Ctrl+C**);
+- o tempo em que nenhum PC ficou ligado **não se perde**: ao abrir, ela refaz vela por vela tudo o que aconteceu no
+  mercado (inclusive o fechamento de cada dia e as rodadas), como se nunca tivesse parado;
+- sem internet, continua com os dados do PC e sincroniza depois — e **nunca apaga** o que outro PC salvou mais tarde
+  (avisa pra você reabrir).
+
+Deixe a agência aberta em **um PC por vez**. A chave do gerente e o `config.json` não vão pra nuvem.
+
+## 2.0.1 Rodar num servidor na nuvem (24h, pelo celular)
 
 Quer acompanhar sem deixar o PC ligado? Veja o passo a passo em **[SERVIDOR.md](SERVIDOR.md)**: aluga um servidor
 (~R$ 25–35/mês), cola um comando e a agência fica no ar com HTTPS e senha, atualizando sozinha todo dia.

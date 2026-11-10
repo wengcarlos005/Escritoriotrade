@@ -28,6 +28,7 @@ ARQUIVOS = ["simulacao.json", "escola.json", "escola_agencia.json"]
 PC = socket.gethostname() or "PC"
 _trava = threading.Lock()
 _ultimo_envio = [0.0]
+_conhecido = {"remoto": None, "avisou": False}   # a última versão da nuvem que este PC conhece (pra nunca apagar a de outro PC)
 
 
 def _cfg(cfg):
@@ -86,7 +87,11 @@ def _preparar_pasta(repo, avisar):
     if PASTA.exists():
         shutil.rmtree(PASTA, ignore_errors=True)
     r = _git("clone", "-q", repo, str(PASTA), timeout=180)
-    return r.returncode == 0
+    if r.returncode != 0:
+        return False
+    if _git("-C", str(PASTA), "rev-parse", "--verify", "-q", "origin/main").returncode == 0:
+        _git("-C", str(PASTA), "checkout", "-q", "-B", "main", "origin/main")
+    return True
 
 
 def baixar(cfg, avisar=print):
@@ -95,8 +100,10 @@ def baixar(cfg, avisar=print):
         return
     with _trava:
         if not _preparar_pasta(_cfg(cfg)["repo"], avisar):
+            _conhecido["remoto"] = _carimbo(DADOS / "simulacao.json")   # offline: só sobrescreve a nuvem se ela não andou
             avisar("☁️  Sem acesso à nuvem agora (sem internet ou o GitHub não respondeu) — continuo com os dados deste PC.")
             return
+        _conhecido["remoto"] = _carimbo(PASTA / "simulacao.json")
         uso = PASTA / "em_uso.json"
         if uso.exists():
             try:
@@ -122,7 +129,15 @@ def enviar(cfg, avisar=print, final=False):
     if not ativo(cfg) or not _trava.acquire(blocking=final):
         return False
     try:
-        if not (PASTA / ".git").exists() and not _preparar_pasta(_cfg(cfg)["repo"], avisar):
+        if not _preparar_pasta(_cfg(cfg)["repo"], avisar):   # olha a nuvem antes de mandar
+            return False
+        remoto = _carimbo(PASTA / "simulacao.json")
+        if _conhecido["remoto"] is not None and remoto > _conhecido["remoto"]:
+            # outro PC salvou na nuvem DEPOIS que este abriu: não apaga o progresso dele
+            if not _conhecido["avisou"] or final:
+                _conhecido["avisou"] = True
+                avisar(f"⚠️  Outro PC salvou a simulação na nuvem ({_quando(remoto)}) depois que este abriu. Pra não apagar o progresso "
+                       "dele, este PC NÃO vai mandar a dele. Feche a agência aqui e abra de novo pra continuar da versão mais nova.")
             return False
         mudou = False
         for nome in ARQUIVOS:
@@ -145,6 +160,8 @@ def enviar(cfg, avisar=print, final=False):
         g("reflog", "expire", "--expire=now", "--all")
         g("gc", "-q", "--prune=now")
         _ultimo_envio[0] = time.time()
+        if r.returncode == 0:
+            _conhecido["remoto"] = _carimbo(PASTA / "simulacao.json")
         if r.returncode != 0 and final:
             avisar("☁️  Não consegui mandar pra nuvem agora (sem internet?). Os dados ficaram salvos neste PC e sobem na próxima vez.")
         elif final and mudou:

@@ -318,6 +318,17 @@ def cmd_simular(args):
     resumo_liga(ag)
     print("Ctrl+C pra parar (tudo fica salvo). Deixe esta janela aberta.\n")
 
+    try:
+        _laco(args, cfg, esc, ag, fila)
+    except KeyboardInterrupt:
+        if sincronia.ativo(cfg):
+            print("\n☁️  Guardando na nuvem antes de fechar...")
+            salvar(ag)
+            sincronia.enviar(cfg, final=True)
+        raise
+
+
+def _laco(args, cfg, esc, ag, fila):
     proxima_busca = 0
     ultima_cotacao = 0
     ultimo_reestudo = 0
@@ -422,10 +433,6 @@ def cmd_simular(args):
                             gerente_ocupado.clear()
                     threading.Thread(target=_relatorio, daemon=True).start()
         except KeyboardInterrupt:
-            if sincronia.ativo(cfg):
-                print("\n☁️  Guardando na nuvem antes de fechar...")
-                salvar(ag)
-                sincronia.enviar(cfg, final=True)
             raise
         except Exception as e:
             print(f"⚠️  Algo falhou ({e}). Tento de novo já já.")
