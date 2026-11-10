@@ -320,7 +320,7 @@ const corta = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
 const preco = v => num(v, v < 10 ? 4 : 2);
 const COR_HUMOR = {perigo: '#e0454b', alerta: '#f08a24', normal: '#2fa7c9', confiante: '#18a058'};
 const CORES = ['#f2b632', '#2bb8ad', '#9b7cf0', '#3fcf7e', '#f07a3a', '#ff6fa8', '#5aa9e6'];
-const CURTO = {momentum_aqr: 'MOMENTUM AQR', seykota_rapido: 'SEYKOTA RAPIDO', seykota_medio: 'SEYKOTA MEDIO', seykota_lento: 'SEYKOTA LENTO', seykota: 'SEYKOTA', tartaruga: 'TARTARUGAS', donchian_conjunto: 'CANAIS', momentum: 'MOMENTUM', weinstein: 'WEINSTEIN',
+const CURTO = {momentum_aqr: 'MOMENTUM AQR', seykota_rapido: 'COELHOS CAFEINADOS', seykota_medio: 'RAPOSAS ISENTONAS', seykota_lento: 'TARTARUGAS APOSENTADAS', seykota: 'SEYKOTA', tartaruga: 'TARTARUGAS', donchian_conjunto: 'CANAIS', momentum: 'MOMENTUM', weinstein: 'WEINSTEIN',
   ptj200: 'TUDOR JONES', minervini: 'MINERVINI', williams: 'WILLIAMS', connors: 'CONNORS', raschke: 'RASCHKE', supertrend: 'SUPERTREND',
   macd: 'MACD', squeeze: 'EXPLOSÃO', bollinger: 'BOLLINGER', cruzamento: 'ORIGINAL', rapida: 'MESA', comite: 'COMITÊ'};
 const nomeCurto = id => CURTO[id] || String(id).toUpperCase();
@@ -814,6 +814,7 @@ window.addEventListener('message', ev => {
   if (m.tudo) { const z = Math.max(zMin, (+m.tudo || 1) * zMin); voar(WW / 2 + (m.dx || 0) / z, WH / 2 + (m.dy || 0) / z, z); }
   if (m.focar) { const a = areaDoTime(m.focar); if (a) voar(a.x + AW / 2 + (m.dx || 0), a.y + AH / 2 + (m.dy || 0), Math.min(6, (W / (AW + 16)) * (m.zoom || 1))); }
   if (m.ponto) voar(m.ponto[0], m.ponto[1], m.ponto[2]);
+  if (m.salas) voar(WW / 2 + (m.dx || 0), COMUM_Y + COMUM_H / 2 + (m.dy || 0), Math.min(6, W / WW * (m.salas || 1)));
 });
 const sx = x => (x - CAM.x) * CAM.z + W / 2, sy = y => (y - CAM.y) * CAM.z + H / 2;
 function R(x, y, w, h, cor) {   // retângulo em pixels de arte, alinhado aos pixels da tela
@@ -1475,7 +1476,7 @@ function renderTopo(vivo) {
   const md = (D.cfg && D.cfg.modo) || {};
   const va = D.vol_atual || {};
   const chips = D.modo === '4h_vol'
-    ? ['Futuros', 'Velas de 4h', `Alavancagem ${va.alavancagem != null ? num(va.alavancagem, 1) + 'x agora' : 'pela volatilidade'}`, 'BTC · ETH · SOL', ...(D.times.some(t => String(t.id).startsWith('seykota')) ? [`${D.times.filter(t => String(t.id).startsWith('seykota')).length} ritmos de Seykota${D.times.some(t => t.id === 'momentum_aqr') ? ' + Momentum AQR' : ''}`] : []), 'Mesmo risco pra cada trader']
+    ? ['Futuros', 'Velas de 4h', `Alavancagem ${va.alavancagem != null ? num(va.alavancagem, 1) + 'x agora' : 'pela volatilidade'}`, 'BTC · ETH · SOL', ...(D.times.some(t => String(t.id).startsWith('seykota')) ? [`${D.times.filter(t => String(t.id).startsWith('seykota')).length} times Seykota${D.times.some(t => t.id === 'momentum_aqr') ? ' + Momentum AQR' : ''}`] : []), 'Mesmo risco pra cada trader']
     : D.modo === '5m'
     ? ['Futuros', 'Opera a cada 5 min', `${fc.alavancagem_min || 5}–${fc.alavancagem_max || 10}x`, ...(md.margem_minima_usd ? [`Margem mín. US$${num(md.margem_minima_usd, 0)}`] : []), `Até ${md.limite_horas || 2}h por operação`]
     : ['Futuros', `Perfil ${String(fc.perfil || '').replace('_', ' ')}`, `Até ${alavs.length ? Math.max(...alavs) : 10}x`];

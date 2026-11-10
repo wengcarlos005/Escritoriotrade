@@ -302,6 +302,10 @@ def cmd_simular(args):
         treinar_modelo(cfg, ag)   # sem modelo, ou modelo de uma versão com menos sinais (ex.: antes do BTC)
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
+    for f in cfg["liga"].get("times_fixos") or []:   # nome/emoji novos no config valem já, sem recomeçar a temporada
+        for tm in ag.times:
+            if tm["id"] == f["id"]:
+                tm["nome"], tm["emoji"] = f.get("nome") or tm["nome"], f.get("emoji") or tm["emoji"]
     fora = set(cfg["liga"].get("estrategias_excluidas", []))
     for tm in list(ag.disputando()):
         if tm.get("estrategia") in fora:

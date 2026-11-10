@@ -256,7 +256,7 @@ const corta = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
 const preco = v => num(v, v < 10 ? 4 : 2);
 const COR_HUMOR = {perigo: '#e0454b', alerta: '#f08a24', normal: '#2fa7c9', confiante: '#18a058'};
 const CORES = ['#f2b632', '#2bb8ad', '#9b7cf0', '#3fcf7e', '#f07a3a', '#ff6fa8'];
-const CURTO = {seykota_rapido: 'SEYKOTA RÁPIDO', seykota_medio: 'SEYKOTA MÉDIO', seykota_lento: 'SEYKOTA LENTO', momentum_aqr: 'MOMENTUM AQR', seykota: 'SEYKOTA', tartaruga: 'TARTARUGAS', donchian_conjunto: 'CANAIS', momentum: 'MOMENTUM', weinstein: 'WEINSTEIN',
+const CURTO = {seykota_rapido: 'COELHOS CAFEINADOS', seykota_medio: 'RAPOSAS ISENTONAS', seykota_lento: 'TARTARUGAS APOSENTADAS', momentum_aqr: 'MOMENTUM AQR', seykota: 'SEYKOTA', tartaruga: 'TARTARUGAS', donchian_conjunto: 'CANAIS', momentum: 'MOMENTUM', weinstein: 'WEINSTEIN',
   ptj200: 'TUDOR JONES', minervini: 'MINERVINI', williams: 'WILLIAMS', connors: 'CONNORS', raschke: 'RASCHKE', supertrend: 'SUPERTREND',
   macd: 'MACD', squeeze: 'EXPLOSÃO', bollinger: 'BOLLINGER', cruzamento: 'ORIGINAL', rapida: 'MESA'};
 const nomeCurto = id => CURTO[id] || String(id).toUpperCase();

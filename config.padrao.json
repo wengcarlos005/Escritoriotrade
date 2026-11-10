@@ -21,9 +21,9 @@
     },
     "comite": {"ativo": false, "membros": 3},
     "times_fixos": [
-      {"id": "seykota_rapido", "estrategia": "seykota", "nome": "Seykota Rápido", "emoji": "🐇", "params": {"rapida": 20, "lenta": 100, "stop_atr": 3.0}},
-      {"id": "seykota_medio", "estrategia": "seykota", "nome": "Seykota Médio", "emoji": "🦊", "params": {"rapida": 15, "lenta": 150, "stop_atr": 3.0}},
-      {"id": "seykota_lento", "estrategia": "seykota", "nome": "Seykota Lento", "emoji": "🐢", "params": {"rapida": 50, "lenta": 200, "stop_atr": 3.0}},
+      {"id": "seykota_rapido", "estrategia": "seykota", "nome": "Coelhos Cafeinados", "emoji": "🐇", "params": {"rapida": 20, "lenta": 100, "stop_atr": 3.0}},
+      {"id": "seykota_medio", "estrategia": "seykota", "nome": "Raposas Isentonas", "emoji": "🦊", "params": {"rapida": 15, "lenta": 150, "stop_atr": 3.0}},
+      {"id": "seykota_lento", "estrategia": "seykota", "nome": "Tartarugas Aposentadas", "emoji": "🐢", "params": {"rapida": 50, "lenta": 200, "stop_atr": 3.0}},
       {"id": "momentum_aqr", "estrategia": "tsmom", "nome": "Momentum AQR", "emoji": "🔄", "params": {"n": 360, "stop_atr": 3.0}}
     ],
     "mesa_rapida": {
