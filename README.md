@@ -81,27 +81,23 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   ao vivo), pra não confundir sorte com habilidade. O robô também aprende se vale operar contra a tendência de
   200 dias. E **toda semana a escola reestuda** com os dados mais novos: os times atualizam os parâmetros (quem está
   posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
-- **3 times, 9 traders, US$ 1.500 simulados:** 📈 Seykota, 🦸 Supertrend e 🎩 Tudor Jones, cada um começando com
-  **3 traders** (Ana, Bruno…) de **US$ 166,67** — US$ 500 por time (`liga.capital_total_usd`, `liga.traders_por_time`).
-  Cada time tem **5 moedas** (BTC, ETH, SOL, BNB, XRP), **uma por trader** (dois do mesmo time nunca ficam na mesma).
-  Sem sinal na moeda dele e vendo chance bem melhor em outra livre, o trader **vai até o gerente pedir a troca** (vale
-  na vela seguinte; depois espera 30 min pra trocar de novo).
-- **💵 Conta real (por enquanto simulada):** além do patrimônio simulado dos 9, existe uma conta de **US$ 500** que só
-  o **TOP 1 do dia** opera: na virada do dia, o time com o melhor resultado assume a conta (as posições abertas do time
-  anterior terminam normalmente). Ela copia as operações dos traders desse time, cada um com 1/3 da conta. Hoje é só
-  um placar (`conta_real.modo = "simulado"`): **nenhuma ordem vai pra Binance**.
-- **💰 Margem de US$ 200** por operação (`modo.margem_fixa_usd`), limitada a 95% do caixa do trader — no começo
-  ~US$ 158 —, com **8x a 12x** (Estagiário 8x → Trader 10x → Sênior 12x).
-- **🎯 Mesa de lado (todos aprendem juntos, a cada trade):** continua obrigatório abrir a cada 5 min, mas o LADO agora
-  é calibrado. Cada decisão de qualquer trader entra numa fila; 2 horas depois o mercado revela o que LONG e SHORT
-  teriam dado a partir daquela vela (mesmo alvo/stop, com taxas — um resultado neutro, que não depende das saídas). Com
-  isso a **mesa compartilhada** aprende, o **modelo próprio** do trader aprende, e a **calibração** anota quem acertou
-  o lado. O trader mistura os dois (começa 70% mesa) e o peso se ajusta sozinho conforme quem acerta mais.
-  Configurável em `modo.lado_compartilhado`.
-- **🏢 Economia:** a cada **US$ 8** de lucro novo o trader fica com **US$ 3,20** e manda **US$ 4,80** pro caixa do time;
-  com **US$ 166,67** no caixa o time **contrata** mais um trader (com esse dinheiro, numa moeda livre). O time cresce até
-  **5** (uma moeda cada); **só com o time cheio** a contratação demite o pior. O melhor ganha **US$ 8**. Limite de perda
-  do dia: 20% do caixa.
+- **📐 Modo atual: velas de 4h com alavancagem pela volatilidade** (`modo.tipo = "4h_vol"`). 3 times — 📈 Seykota,
+  🦸 Supertrend e 🎩 Tudor Jones — com 3 traders cada (um em BTC, um em ETH, um em SOL), US$ 1.500 simulados no total.
+  Cada um entra e sai pelos sinais da própria estratégia (comprado ou vendido), em velas de 4h. O TAMANHO de cada
+  operação é decidido na entrada:
+  - **mesmo risco pra cada trader:** quem oscila mais recebe menos dinheiro (volatilidade dos últimos 90 dias);
+  - **alavancagem da agência = alvo de volatilidade ÷ volatilidade da carteira** nos últimos 60 dias (alvo de 60% ao
+    ano, teto de 4x): mercado calmo → mais alavancagem, mercado agitado → menos. A alavancagem de cada posição fica
+    entre 1x e 10x conforme o caixa do trader.
+  Por que assim: nos testes com dados reais (4 anos, sempre com parâmetros escolhidos ANTES de cada período), isso
+  rendeu ~65–72% ao ano com quedas de até ~40–46%, contra ~37% e queda de ~69% com alavancagem fixa de 3x. Velas de
+  5 e 15 min perderam quase tudo por causa das taxas. Passado não garante futuro. Configurável em
+  `modo.alavancagem_por_vol` (`risco_alvo`, `teto`, `teto_trader`, `janela_peso`, `janela_vol`).
+- **💵 Conta real (por enquanto simulada):** US$ 500 que copiam a agência INTEIRA na proporção (1/3 de cada operação),
+  dividida entre os 3 times (`conta_real.regra = "agencia"`). Hoje é só um placar: **nenhuma ordem vai pra Binance**.
+- **🏢 Economia (bônus, caixa do time, contratações):** pausada no modo 4h (`empresa.ativo = false`), porque o controle de
+  risco divide o dinheiro entre os 9 traders. O modo 5 min (`modo.tipo = "5m"`) continua disponível no `config.json`,
+  com a mesa de lado, a margem de US$ 200 e a economia.
 - **🧊 Esfriamento (aprende a evitar as fases ruins):** a agência anota cada operação junto com "como ela vinha nas
   últimas 3 horas" quando abriu. Se aprender (com pelo menos 30 casos) que, depois de perder mais de 1% do capital
   em 3h, as próximas operações costumam perder **mais que o normal**, ela passa a **esfriar**: enquanto a fase ruim

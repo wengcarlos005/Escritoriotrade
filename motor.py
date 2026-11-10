@@ -122,7 +122,9 @@ class Trader(Futuros):
 
     def aplicar_params_novos(self):
         novos = getattr(self, "params_novos", None)
-        if novos and self.intervalo == "5m" and novos.get("intervalo") != "5m":
+        if novos and getattr(self, "intervalo_fixo", None) and novos.get("intervalo") != self.intervalo_fixo:
+            novos = dict(novos, intervalo=self.intervalo_fixo)
+        elif novos and self.intervalo == "5m" and novos.get("intervalo") != "5m":
             novos = dict(novos, intervalo="5m")
         if novos:
             self.params, self.intervalo, self.params_novos = novos, novos["intervalo"], None
@@ -382,7 +384,7 @@ class Agencia:
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self.modo = cfg.get("modo", {}).get("tipo") if cfg.get("futuros", {}).get("ativo") else None
         self.modelo_pesos = None
-        self.versao = 12            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.versao = 13            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.caixa_empresa = 0.0
         self.funding_real = None
@@ -610,6 +612,106 @@ class Agencia:
         filtro = self.cfg.get("futuros", {}).get("regime", {"intervalo": "1d", "rapida": 50, "lenta": 200})
         return tendencia(self._buf.get(f"{par}@{filtro['intervalo']}"), filtro, t_fim, self._tend)
 
+    # --- 📐 ALAVANCAGEM PELA VOLATILIDADE (modo 4h) --------------------------------------------------------
+    # Cada trader tem uma "sombra": o resultado diário que ele teria a 1x (mesmas entradas e saídas, posição = 100% do
+    # caixa). Com as sombras, a agência calcula (só com o passado):
+    #   • o PESO de cada trader: mesmo risco pra todos (quem oscila mais recebe menos dinheiro), pelos últimos 90 dias;
+    #   • a ALAVANCAGEM da agência: alvo de volatilidade ÷ volatilidade da carteira nos últimos 60 dias (com teto).
+    # Mercado calmo → mais alavancagem; mercado agitado → menos. O tamanho é decidido NA ENTRADA de cada operação.
+    def _cfg_vol(self):
+        return self.cfg.get("modo", {}).get("alavancagem_por_vol") or {}
+
+    def vol_ativo(self):
+        return bool(self._cfg_vol().get("ativo")) and self.futuros() and not self.modo5m()
+
+    @staticmethod
+    def _dp(xs):
+        if len(xs) < 2:
+            return 0.0
+        m = sum(xs) / len(xs)
+        return (sum((x - m) ** 2 for x in xs) / (len(xs) - 1)) ** 0.5
+
+    def estado_vol(self):
+        """(alavancagem da agência, volatilidade da carteira ao ano, pesos por trader, dias de histórico)."""
+        cv = self._cfg_vol()
+        vivos = [x for x in self.traders if not getattr(x, "demitido", False) and x.estrategia != "grade"]
+        hist = {x.uid if getattr(x, "uid", None) else self.chave_aprendizado(x): (getattr(x, "sombra", None) or {}).get("hist", []) for x in vivos}
+        jp, jv = cv.get("janela_peso", 90), cv.get("janela_vol", 60)
+        vols = {u: self._dp(h[-jp:]) * 365 ** 0.5 for u, h in hist.items() if len(h) >= 20}
+        if vivos and len(vols) == len(vivos) and all(v > 0 for v in vols.values()):
+            inv = {u: 1 / v for u, v in vols.items()}
+            soma = sum(inv.values())
+            pesos = {u: x / soma for u, x in inv.items()}
+        else:
+            pesos = {u: 1 / max(1, len(vivos)) for u in hist}
+        n = min([len(h) for h in hist.values()] or [0])
+        m = min(jv, n)
+        if m >= 20:
+            port = [sum(pesos[u] * hist[u][-m + j] for u in hist) for j in range(m)]
+            vp = self._dp(port) * 365 ** 0.5
+            k = min(cv.get("teto", 4.0), cv.get("risco_alvo", 0.6) / vp) if vp > 0 else 1.0
+        else:
+            vp, k = None, 1.0
+        return k, vp, pesos, n
+
+    def dimensionar_vol(self, tr, preco, stop):
+        import math
+        cv = self._cfg_vol()
+        k, vp, pesos, n = self.estado_vol()
+        vivos = [x for x in self.traders if not getattr(x, "demitido", False) and x.estrategia != "grade"]
+        E = sum(x.patrimonio() for x in vivos)
+        w = pesos.get(self.chave_aprendizado(tr), 1 / max(1, len(vivos)))
+        notional = k * w * E
+        disp = max(0.0, tr.caixa * 0.95)
+        teto_tr = int(cv.get("teto_trader", 10))
+        L = max(1, min(teto_tr, math.ceil(notional / disp))) if disp > 0 else 1
+        notional = min(notional, disp * L)
+        margem = notional / L if L else notional
+        risco = notional * abs(preco - stop) / preco if preco else 0.0
+        porque = (f"alavancagem da agência {k:.1f}x (carteira oscilando {vp * 100:.0f}% ao ano, alvo {cv.get('risco_alvo', 0.6) * 100:.0f}%)"
+                  if vp else f"alavancagem da agência {k:.1f}x (ainda juntando histórico: {n} dias)")
+        porque += f"; meu peso na carteira: {w * 100:.0f}% (mesmo risco pra todos)"
+        self.vol_atual = {"alavancagem": round(k, 2), "vol_carteira": round(vp, 3) if vp else None, "dias": n}
+        return {"notional": notional, "margem": margem, "alavancagem": L, "risco_usd": risco, "porque": porque, "a_favor": True}
+
+    def atualizar_sombra(self, tr, c, t):
+        """Resultado do dia a 1x (mesmo lado da posição dele), pra medir a volatilidade de cada trader."""
+        s = getattr(tr, "sombra", None) or {"dia": None, "r": 0.0, "hist": [], "c": None}
+        dia = (t - 3 * 3_600_000) // 86_400_000
+        if s["dia"] is not None and dia != s["dia"]:
+            s["hist"] = (s["hist"] + [round(s["r"], 6)])[-200:]
+            s["r"] = 0.0
+        if s["c"] and tr.posicao and "lado" in tr.posicao:
+            s["r"] += tr.posicao["lado"] * (c / s["c"] - 1)
+        s["dia"], s["c"] = dia, c
+        tr.sombra = s
+
+    def aquecer_sombra(self, tr, est, v, d, ve, de, p):
+        """Na 1ª vez: refaz, com o histórico que já está na memória, as entradas e saídas que ele teria feito (a 1x)."""
+        lado, m, s = 0, None, {"dia": None, "r": 0.0, "hist": [], "c": None}
+        n = len(v["c"]) - 1
+        for i in range(60, n):
+            c, t = v["c"][i], v["t"][i]
+            dia = (t - 3 * 3_600_000) // 86_400_000
+            if s["dia"] is not None and dia != s["dia"]:
+                s["hist"] = (s["hist"] + [round(s["r"], 6)])[-200:]
+                s["r"] = 0.0
+            if s["c"] and lado:
+                s["r"] += lado * (c / s["c"] - 1)
+            s["dia"], s["c"] = dia, c
+            if lado:
+                r = checar_saida(est, d if lado > 0 else de, v if lado > 0 else ve, i, p, m)
+                if r:
+                    lado, m = 0, None
+            if not lado:
+                compra, venda = pode_entrar(est, d, v, i, p), pode_entrar(est, de, ve, i, p)
+                if compra != venda:
+                    lado = 1 if compra else -1
+                    dd, vv = (d, v) if compra else (de, ve)
+                    s_, a_ = niveis_de_entrada(dd, i, p, vv["c"][i])
+                    m = {"preco": vv["c"][i], "stop": s_, "alvo": a_, "barras": 0, "maxc": vv["c"][i]}
+        tr.sombra = s
+
     # --- 🎯 VANTAGEM POR SITUAÇÃO: abrir a cada 5 min é um DIREITO, não obrigação -------------------------
     # A cada vela de cada moeda, a agência anota em que SITUAÇÃO o mercado estava (lado, tendência de 4h, RSI,
     # distância da média, volatilidade) e, 2 horas depois, quanto LONG e SHORT teriam dado ali (em R, já com taxas,
@@ -770,7 +872,15 @@ class Agencia:
     def marcar_conta_real(self, tr, pos, t):
         """Na hora que a posição abre: ela também roda na conta real? (só se o time dele é o top 1 do dia)."""
         cr = self._conta_real()
-        if cr is None or not pos or self.time_da_conta_real(t) != tr.time:
+        if cr is None or not pos:
+            return
+        if (self.cfg.get("conta_real") or {}).get("regra") == "agencia":
+            # a conta real copia a agência INTEIRA, na proporção (ex.: US$ 500 ÷ US$ 1.500 = 1/3 de cada operação)
+            E = sum(x.patrimonio() for x in self.traders if not getattr(x, "demitido", False))
+            pos["real"] = True
+            pos["real_escala"] = round(cr["patrimonio"] / E, 6) if E > 0 else 0.0
+            return
+        if self.time_da_conta_real(t) != tr.time:
             return
         n = max(1, len(self.do_time(tr.time)))
         vaga = cr["patrimonio"] / n
@@ -796,6 +906,12 @@ class Agencia:
         if not linhas:
             return
         top = max(linhas, key=lambda x: x["lucro_pct"])
+        if (self.cfg.get("conta_real") or {}).get("regra") == "agencia":
+            cr["dias"] = (cr["dias"] + [{"fim": t, "time": "agencia", "lucro": round(cr.get("hoje", 0.0), 2),
+                                         "patrimonio": round(cr["patrimonio"], 2)}])[-120:]
+            cr["hoje"] = 0.0
+            cr["time"] = "agencia"
+            return
         cr["dias"] = (cr["dias"] + [{"fim": t, "time": cr["time"], "lucro": round(cr.get("hoje", 0.0), 2),
                                      "patrimonio": round(cr["patrimonio"], 2), "top_do_dia": top["id"]}])[-120:]
         cr["hoje"] = 0.0
@@ -1040,7 +1156,7 @@ class Agencia:
         e o que sobrar no caixa do time vai pro caixa da empresa (a contagem zera)."""
         e = self._empresa()
         custo = e.get("custo_contratacao_usd", 500)
-        if (tm.get("caixa_time") or 0) < custo:
+        if not e.get("contratar", True) or (tm.get("caixa_time") or 0) < custo:
             return
         membros = self.do_time(tm["id"])
         if not membros:
@@ -1184,11 +1300,12 @@ class Agencia:
         if self.cfg["liga"].get("capital_total_usd"):   # o dinheiro total da agência dividido entre todos os traders
             capital = self.cfg["liga"]["capital_total_usd"] / max(1, len(escolhidos) * por_time)
         self.modo = self.cfg.get("modo", {}).get("tipo") if self.futuros() else None
-        if self.modo5m():   # todos operam em velas de 5 min
+        itv_forcado = "5m" if self.modo5m() else (self.cfg.get("modo", {}).get("intervalo_forcado") if self.futuros() else None)
+        if itv_forcado:   # todos operam no mesmo tamanho de vela (5 min, ou 4h no modo de alavancagem pela volatilidade)
             def em5(r):
                 r = dict(r)
                 if r.get("params_atuais"):
-                    r["params_atuais"] = dict(r["params_atuais"], intervalo="5m")
+                    r["params_atuais"] = dict(r["params_atuais"], intervalo=itv_forcado)
                 if r.get("comite"):
                     r["comite"] = [em5(m) for m in r["comite"]]
                 return r
@@ -1211,6 +1328,8 @@ class Agencia:
                             self.cfg["liga"].get("emoji_trader", "🤖"), par, 0.0, "trader", t,
                             tm["id"], r["id"], r["params_atuais"])
                 tr.capital_inicial = capital
+                if itv_forcado:
+                    tr.intervalo_fixo = itv_forcado
                 tr.ultimo_preco = self.ultimo_preco.get(par)
                 tr.alavancagem = tm["alavancagem"]
                 self.traders.append(tr)
@@ -1632,6 +1751,13 @@ class Agencia:
         if not v or len(v["c"]) < 60:
             return
         n, preco = len(v["c"]), v["c"][-1]
+        if self.vol_ativo():   # antes de abrir qualquer coisa, todos aquecem a "sombra" (pra medir a volatilidade certa)
+            for x in self.traders:
+                vx = self._buf.get(x.chave)
+                if vx and len(vx["c"]) >= 60 and not (getattr(x, "sombra", None) or {}).get("hist") and x.estrategia != "grade":
+                    ex = POR_ID[x.estrategia]
+                    vex = espelho(vx)
+                    self.aquecer_sombra(x, ex, vx, ex.calcular(vx, x.params), vex, ex.calcular(vex, x.params), x.params)
         for tr in self.traders:
             if tr.chave != chave or tr.posicao or tr.trades or getattr(tr, "sincronizado", False):
                 continue

@@ -302,6 +302,11 @@ class Futuros:
     def _sinal_fut(self, est, v, d, ve, de, i, cfg, ag):
         o, h, l, c, t = v["o"][i], v["h"][i], v["l"][i], v["c"][i], v["t"][i]
         p = self.params
+        vol = ag.vol_ativo()
+        if vol:
+            if not (getattr(self, "sombra", None) or {}).get("hist"):
+                ag.aquecer_sombra(self, est, v, d, ve, de, p)
+            ag.atualizar_sombra(self, c, t)
         if self.posicao and not self._checar_liquidacao(o, h, l, t, cfg, ag):
             lado = self.posicao["lado"]
             dd, vv = (d, v) if lado > 0 else (de, ve)
@@ -310,8 +315,10 @@ class Futuros:
                 self._fechar_fut(r[0] if lado > 0 else 1 / r[0], r[1], t, cfg, ag)
             else:
                 self._niveis_reais()
-                self._piramide(c, t, cfg, ag)
-        self._checar_pausa(t, ag)
+                if not vol:
+                    self._piramide(c, t, cfg, ag)
+        if not vol:
+            self._checar_pausa(t, ag)
         if self.posicao or self.pausado_ate:
             return
         compra = pode_entrar(est, d, v, i, p)
@@ -324,10 +331,15 @@ class Futuros:
         stop, alvo = niveis_de_entrada(dd, i, p, cc)
         m = {"preco": cc, "stop": stop, "alvo": alvo, "barras": 0, "maxc": cc}
         stop_real = stop if lado > 0 else 1 / stop
-        j = self._julgar(lado, c, stop_real, cfg, ag, t + passo_ms(self.intervalo), fracao_entrada(dd, i, p))
-        self._abrir_fut(lado, j, c, t, m, cfg, ag)
+        if vol:
+            j = ag.dimensionar_vol(self, c, stop_real)
+        else:
+            j = self._julgar(lado, c, stop_real, cfg, ag, t + passo_ms(self.intervalo), fracao_entrada(dd, i, p))
+        self._abrir_fut(lado, j, c, t, m, cfg, ag, maker=bool(vol and (cfg.get("modo") or {}).get("entrada_limitada")))
         if self.posicao:
             self.posicao.update(unidades=1, ultimo=c, dist0=abs(c - stop_real) / c)
+            if vol:
+                ag.marcar_conta_real(self, self.posicao, t)
 
     def _piramide(self, c, t, cfg, ag):
         """PIRÂMIDE (regra das Tartarugas): a cada meia distância do stop a favor, soma mais uma unidade
@@ -868,10 +880,15 @@ class Futuros:
             m = replay(est, dd, vv, p)
             if m:
                 stop_real = m["stop"] if lado > 0 else 1 / m["stop"]
-                j = self._julgar(lado, preco, stop_real, cfg, ag, t_fim, fracao_entrada(dd, n - 1, p))
+                if ag.vol_ativo():
+                    j = ag.dimensionar_vol(self, preco, stop_real)
+                else:
+                    j = self._julgar(lado, preco, stop_real, cfg, ag, t_fim, fracao_entrada(dd, n - 1, p))
                 self._abrir_fut(lado, j, preco, t, m, cfg, ag, sincronizando=True)
                 if self.posicao:
                     self.posicao.update(unidades=1, ultimo=preco, dist0=abs(preco - stop_real) / preco)
+                    if ag.vol_ativo():
+                        ag.marcar_conta_real(self, self.posicao, t)
                 return
 
     def gatilho_fut(self, est, d, v, de, ve, i):

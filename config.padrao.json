@@ -6,7 +6,7 @@
   "liga": {
     "times": 3,
     "estrategias_excluidas": ["macd", "momentum"],
-    "moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"],
+    "moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
     "capital_por_trader_usd": 1000,
     "capital_total_usd": 1500,
     "traders_por_time": 3,
@@ -35,14 +35,16 @@
   },
 
   "modo": {
-    "tipo": "5m",
+    "tipo": "4h_vol",
+    "intervalo_forcado": "4h",
+    "alavancagem_por_vol": {"ativo": true, "risco_alvo": 0.6, "teto": 4, "teto_trader": 10, "janela_peso": 90, "janela_vol": 60},
     "limite_horas": 2,
     "alvo_atr": 6.0,
     "stop_atr": 4.0,
     "risco_por_operacao": 0.0025,
     "margem_caixa_inicial": true,
     "margem_fixa_usd": 200,
-    "trocar_moeda": true,
+    "trocar_moeda": false,
     "troca_espera_min": 30,
     "carreira_alavancagem": [8, 10, 12],
     "entrada_limitada": true,
@@ -88,7 +90,7 @@
   },
 
   "empresa": {
-    "ativo": true,
+    "ativo": false,
     "meta_lucro_usd": 8,
     "bonus_funcionario_usd": 3.2,
     "para_caixa_do_time_usd": 4.8,
@@ -148,6 +150,6 @@
     "relatorio_automatico": true,
     "horas_entre_relatorios": 24
   },
-  "conta_real": {"ativo": true, "capital_usd": 500, "modo": "simulado"},
+  "conta_real": {"ativo": true, "capital_usd": 500, "modo": "simulado", "regra": "agencia"},
   "painel": {"celular": true}
 }
