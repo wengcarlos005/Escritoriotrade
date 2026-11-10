@@ -8,6 +8,7 @@ da grade), funding a cada 8h (quem está comprado paga, vendido recebe, na médi
 Liquidação: se a perda da posição comer a margem (menos a margem de manutenção), perde a margem inteira.
 """
 import bisect
+import random
 
 import indicadores
 from estrategias import BARRAS_POR_DIA, checar_saida, fracao_entrada, niveis_de_entrada, pode_entrar
@@ -136,12 +137,12 @@ class Futuros:
     def _julgar(self, lado, preco, stop, cfg, ag, t_fim, fracao=1.0):
         """Decide o tamanho e a alavancagem DESTA operação (ver dimensionar)."""
         regime = ag.regime(self.par, t_fim)
-        cf = dict(self._f(cfg), fator_contra_tendencia=ag.fator_contra(self.time, self.estrategia))
+        cf = dict(self._f(cfg), fator_contra_tendencia=ag.fator_contra_trader(self))
         return dimensionar(self.patrimonio(), self.caixa, preco, abs(preco - stop) / preco, cf,
-                           confianca=ag.confianca_viva(self.time, self.estrategia), a_favor=(regime == 0 or regime == lado),
+                           confianca=ag.confianca_trader(self), a_favor=(regime == 0 or regime == lado),
                            fracao=fracao * self._fracao_humor(cfg), regime=regime)
 
-    def _abrir_fut(self, lado, j, preco, t, m, cfg, ag, sincronizando=False, stop=None):
+    def _abrir_fut(self, lado, j, preco, t, m, cfg, ag, sincronizando=False, stop=None, maker=False):
         """j = resultado de dimensionar(): notional, margem, alavancagem, risco e o porquê."""
         f = self._f(cfg)
         notional, margem, L = j["notional"], j["margem"], j["alavancagem"]
@@ -149,7 +150,7 @@ class Futuros:
             notional, margem = self.caixa * L, self.caixa
         if notional < cfg["ordem_minima_usd"] or margem <= 0:
             return
-        taxa = notional * f.get("taxa_taker", 0.0005)
+        taxa = notional * f.get("taxa_maker" if maker else "taxa_taker", 0.0005)
         self.caixa -= taxa
         self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + taxa
         self.volume = getattr(self, "volume", 0.0) + notional
@@ -193,6 +194,7 @@ class Futuros:
         self._falar(t, ("Fechei " if lucro >= 0 else "Perdi ") + f"{'+' if lucro >= 0 else '-'}US$ {abs(lucro):.2f} "
                        f"({pct:+.1f}% na margem) no {nome_lado(p['lado'])} {p['alavancagem']:g}x — {motivo}.")
         ag.aprender(self, p, lucro, t)
+        self._aprender_com_operacao(p, lucro)
 
     def _checar_liquidacao(self, o, h, l, t, cfg, ag):
         p = self.posicao
@@ -284,6 +286,50 @@ class Futuros:
         ag.evento(t, self, "➕", f"{self.rotulo(ag)} aumentou o {nome_lado(lado)} (pirâmide {p['unidades']}/{pir.get('max_unidades')}): "
                                f"+US$ {dn:,.0f}, a operação já estava ganhando")
 
+    # ------------------------------------------------------------------ cada funcionário é INDEPENDENTE
+    def meu_estilo(self):
+        """Personalidade própria (sorteada uma vez): até onde busca o alvo, onde põe o stop, quanta chance
+        exige pra apostar cheio e quanto ousa. Dois robôs da mesma moeda decidem diferente."""
+        if not getattr(self, "estilo", None) or "paciencia_min" not in self.estilo:
+            rnd = random.Random(f"estilo|{self.time}|{self.nome}|{self.criado_em}")
+            e = {"alvo_atr": rnd.choice([4, 5, 6, 7, 8]), "stop_atr": rnd.choice([3, 3.5, 4, 5]),
+                 "corte": round(rnd.uniform(0.47, 0.55), 3), "ousadia": round(rnd.uniform(0.7, 1.3), 2),
+                 "paciencia_min": rnd.choice([10, 20, 30, 45]), "virada": round(rnd.uniform(0.05, 0.12), 3),
+                 "trail_atr": rnd.choice([1.5, 2.0, 2.5])}
+            jeito = []
+            jeito.append("ousado" if e["ousadia"] >= 1.15 else "cauteloso" if e["ousadia"] <= 0.85 else "equilibrado")
+            jeito.append("paciente" if e["alvo_atr"] >= 7 else "rápido" if e["alvo_atr"] <= 4 else "")
+            jeito.append("exigente" if e["corte"] >= 0.53 else "")
+            jeito.append("teimoso" if e["paciencia_min"] >= 45 else "")
+            e["jeito"] = ", ".join(x for x in jeito if x)
+            self.estilo = e
+        return self.estilo
+
+    def meu_modelo(self, ag):
+        """Modelo de chance PRÓPRIO: nasce de uma cópia do modelo da agência, com o 'jeito' dele (pesos levemente
+        diferentes), e daí em diante aprende SÓ com as operações dele."""
+        if getattr(self, "_mod", None) is None:
+            from modelo import ModeloChance
+            if not getattr(self, "modelo_pesos", None):
+                base = ag.modelo().para_dict()
+                rnd = random.Random(f"modelo|{self.time}|{self.nome}|{self.criado_em}")
+                mexe = lambda w: [x * (1 + rnd.uniform(-0.4, 0.4)) + rnd.gauss(0, 0.03) for x in w]
+                self.modelo_pesos = {"long": mexe(base["long"]), "short": mexe(base["short"]), "vistos": 0, "acertos": 0}
+            self._mod = ModeloChance(self.modelo_pesos)
+        return self._mod
+
+    def _aprender_com_operacao(self, p, lucro):
+        x = p.get("x")
+        if not x or getattr(self, "_mod", None) is None and not getattr(self, "modelo_pesos", None):
+            return
+        from modelo import ModeloChance
+        if getattr(self, "_mod", None) is None:
+            self._mod = ModeloChance(self.modelo_pesos)
+        y = 1 if lucro > 0 else 0
+        (self._mod.long if p["lado"] > 0 else self._mod.short).aprender(x, y, 0.03)
+        self._mod.vistos += 1
+        self._mod.acertos += y
+
     # ------------------------------------------------------------------ MODO 5 MIN: opera sempre
     def _falar(self, t, texto):
         self.fala, self.fala_t = texto, t
@@ -298,69 +344,134 @@ class Futuros:
         limite = md.get("limite_horas", 2) * 3_600_000
         pos = self.posicao
         if pos and not self._checar_liquidacao(o, h, l, t, cfg, ag):
-            lado = pos["lado"]
-            r = None
-            if pos.get("m"):
-                dd, vv = (d, v) if lado > 0 else (de, ve)
-                r = checar_saida(est, dd, vv, i, p, pos["m"])
-                if r:
-                    r = (r[0] if lado > 0 else 1 / r[0], r[1])
-            else:
-                st, al = pos.get("stop_fixo"), pos.get("alvo_fixo")
-                if st and ((lado > 0 and l <= st) or (lado < 0 and h >= st)):
-                    r = (min(st, o) if lado > 0 else max(st, o), "stop")
-                elif al and ((lado > 0 and h >= al) or (lado < 0 and l <= al)):
-                    r = (al, "alvo")
-            if not r and t_fim - pos["t"] >= limite:
-                r = (c, "limite de 2h")
-            if r:
-                self._fechar_fut(r[0], r[1], t, cfg, ag, maker=(r[1] == "alvo"))
-            else:
-                self._niveis_reais()
-                if not pos.get("m"):
-                    pos["stop"], pos["alvo"] = pos.get("stop_fixo"), pos.get("alvo_fixo")
+            self._gerir_posicao(est, v, d, i, cfg, ag, t_fim, limite)
         self._checar_pausa(t, ag)
         if self.posicao or self.pausado_ate:
             if self.posicao:
                 self._fala_posicao(t_fim, md)
             return
-        # 1) sinal da própria estratégia
-        compra = pode_entrar(est, d, v, i, p) if est.id != "chance" else False
-        venda = (ve is not None and pode_entrar(est, de, ve, i, p)) if est.id != "chance" else False
         cf = dict(self._f(cfg), risco_por_operacao=md.get("risco_por_operacao", 0.0025), piramide=None)
         cfg2 = dict(cfg, futuros=cf)
-        if compra != venda:
-            lado = 1 if compra else -1
-            dd, vv = (d, v) if compra else (de, ve)
-            cc = vv["c"][i]
-            stop, alvo = niveis_de_entrada(dd, i, p, cc)
-            m = {"preco": cc, "stop": stop, "alvo": alvo, "barras": 0, "maxc": cc}
-            stop_real = stop if lado > 0 else 1 / stop
-            j = self._julgar(lado, c, stop_real, cfg2, ag, t_fim, fracao_entrada(dd, i, p))
-            self._abrir_fut(lado, j, c, t, m, cfg2, ag)
-            if self.posicao:
-                self.posicao.update(forcada=False, chance=None, limite_t=self.posicao["t"] + limite)
-                self._falar(t, f"Minha estratégia ({est.nome}) deu sinal: abri {nome_lado(lado)} {j['alavancagem']}x.")
-            return
-        # 2) sem sinal: OBRIGADO a abrir no lado com maior chance de WIN
+        # 0) ordem limitada da vela anterior: o preço passou por ela? (taxa maker, sem derrapagem)
+        ordem = getattr(self, "ordem", None)
+        if ordem:
+            self.ordem = None
+            lado, px = ordem["lado"], ordem["preco"]
+            if (lado > 0 and l <= px) or (lado < 0 and h >= px):
+                self._abrir_fut(lado, ordem["j"], px, t, ordem["m"], cfg2, ag, stop=ordem.get("stop_fixo"), maker=True)
+                if self.posicao:
+                    self.posicao.update(ordem["extra"], limite_t=self.posicao["t"] + limite)
+                    if not ordem["m"]:
+                        self.posicao.update(stop=ordem["stop_fixo"], alvo=ordem["extra"].get("alvo_fixo"))
+                    self._falar(t, f"Minha ordem limitada executou: {nome_lado(lado)} {ordem['j']['alavancagem']}x a {_fmt(px)}"
+                                   f" (paguei taxa de ordem limitada, a mais barata). " + ordem["porque"])
+                return
+        # 1) decide o lado: sinal da estratégia ou, sem sinal, a maior chance de WIN (obrigatório)
         x = ag.sinais_modelo(self.par, v, i, t_fim)
         a = d.get("atr", [None])[i] if d.get("atr") else None
         if x is None or not a:
             self._falar(t, "Esperando histórico suficiente pra calcular a chance de WIN.")
             return
-        lado, chance, outra = ag.modelo().melhor_lado(x)
-        stop = c - lado * md.get("stop_atr", 3.0) * a
-        alvo = c + lado * md.get("alvo_atr", 3.0) * a
-        j = self._julgar(lado, c, stop, cfg2, ag, t_fim, 1.0)
-        self._abrir_fut(lado, j, c, t, None, cfg2, ag, stop=stop)
-        if self.posicao:
-            self.posicao.update(forcada=True, chance=round(chance, 3), chance_outro=round(outra, 3), alvo_fixo=alvo,
-                                alvo=alvo, limite_t=self.posicao["t"] + limite)
+        est_p = self.meu_estilo()
+        meu = self.meu_modelo(ag)
+        pl, ps = meu.chances(x)
+        compra = pode_entrar(est, d, v, i, p) if est.id != "chance" else False
+        venda = (ve is not None and pode_entrar(est, de, ve, i, p)) if est.id != "chance" else False
+        if compra != venda:
+            lado = 1 if compra else -1
+            dd, vv = (d, v) if compra else (de, ve)
+            cc = vv["c"][i]
+            st_m, _ = niveis_de_entrada(dd, i, p, cc)
+            m = None   # a saída é a do próprio funcionário (stop, alvo, modelo, tempo), não o sinal de saída da estratégia
+            stop = st_m if lado > 0 else 1 / st_m
+            alvo = c + lado * est_p.get("alvo_atr", md.get("alvo_atr", 6.0)) * a
+            forcada, fr_base = False, fracao_entrada(dd, i, p)
+        else:
+            lado = 1 if pl >= ps else -1
+            m = None
+            stop = c - lado * est_p.get("stop_atr", md.get("stop_atr", 4.0)) * a
+            alvo = c + lado * est_p.get("alvo_atr", md.get("alvo_atr", 6.0)) * a
+            forcada, fr_base = True, 1.0
+        chance, outra = (pl, ps) if lado > 0 else (ps, pl)
+        # 2) TAMANHO pela chance: obrigado a abrir sempre, mas pequeno quando a chance é fraca (menos taxa)
+        tc = md.get("tamanho_pela_chance") or {}
+        fr = 1.0
+        if tc:
+            corte = est_p.get("corte", tc.get("corte", 0.5))
+            fr = max(tc.get("minimo", 0.05), min(1.0, (chance - corte) / max(1e-6, tc.get("cheio", 0.6) - tc.get("corte", 0.5))))
+        j = self._julgar(lado, c, stop, cfg2, ag, t_fim, fr_base * fr * est_p.get("ousadia", 1.0))
+        # margem: 5× a calculada e NUNCA menos que US$ 200 (pedido do CEO), sem passar do caixa
+        mult, minimo = md.get("multiplicador_margem", 1.0), md.get("margem_minima_usd", 0.0)
+        if mult != 1.0 or minimo:
+            margem = min(max(j["margem"] * mult, minimo), self.caixa * 0.95)
+            j = dict(j, margem=margem, notional=margem * j["alavancagem"])
+        extra = {"forcada": forcada, "chance": round(chance, 3), "chance_outro": round(outra, 3), "tamanho_pct": round(fr * 100), "atr0": a,
+                 "x": [round(z, 4) for z in x]}
+        if alvo:
+            extra.update(alvo_fixo=alvo, alvo=alvo)
+        if forcada:
             from modelo import NOME_SINAL
-            motivos = [NOME_SINAL.get(n, n) for n in ag.modelo().explicar(x, lado)]
-            self._falar(t, f"Sem sinal da estratégia: abri {nome_lado(lado)} {j['alavancagem']}x forçado — chance de WIN "
-                           f"{chance * 100:.0f}% (contra {outra * 100:.0f}% do outro lado)"
-                           + (f"; sinais a favor: {' e '.join(motivos)}" if motivos else "") + ".")
+            motivos = [NOME_SINAL.get(n, n) for n in meu.explicar(x, lado)]
+            porque = (f"Sem sinal da estratégia, fui no lado que o MEU modelo acha melhor: {chance * 100:.0f}% contra {outra * 100:.0f}%"
+                      + (f" (a favor: {' e '.join(motivos)})" if motivos else "") + ".")
+        else:
+            porque = f"Minha estratégia ({est.nome}) deu sinal; meu modelo dá {chance * 100:.0f}% de chance."
+        porque += f" Meu jeito: {est_p['jeito']} (alvo {est_p['alvo_atr']:g} ATR, stop {est_p['stop_atr']:g} ATR)."
+        tamanho = "posição cheia" if fr >= 0.999 else f"posição de {fr * 100:.0f}% do tamanho (chance fraca = aposta pequena, menos taxa)"
+        if md.get("entrada_limitada", True):
+            self.ordem = {"lado": lado, "preco": c, "j": j, "m": m, "stop_fixo": stop if not m else None, "extra": extra,
+                          "porque": porque + " " + tamanho.capitalize() + "."}
+            self._falar(t, f"Coloquei ordem limitada de {nome_lado(lado)} {j['alavancagem']}x a {_fmt(c)} — {tamanho}. {porque} "
+                           "Se não executar, tento de novo em 5 min.")
+            return
+        self._abrir_fut(lado, j, c, t, m, cfg2, ag, stop=stop if not m else None)
+        if self.posicao:
+            self.posicao.update(extra, limite_t=self.posicao["t"] + limite)
+            self._falar(t, f"Abri {nome_lado(lado)} {j['alavancagem']}x — {tamanho}. {porque}")
+
+    def _gerir_posicao(self, est, v, d, i, cfg, ag, t_fim, limite):
+        """Saída INTELIGENTE (cada um com o seu jeito), revista a cada 5 min:
+        1) stop e alvo; 2) andou 1 ATR a favor → stop no zero a zero; andou 2 ATR → stop acompanha o preço;
+        3) depois da paciência mínima, reavalia com o próprio modelo: se a chance virou pro outro lado, sai;
+        4) no fim das 2 horas, fecha."""
+        o, h, l, c, t = v["o"][i], v["h"][i], v["l"][i], v["c"][i], v["t"][i]
+        pos, e = self.posicao, self.meu_estilo()
+        lado = pos["lado"]
+        st, al = pos.get("stop_fixo"), pos.get("alvo_fixo")
+        if st is None and pos.get("stop"):
+            st = pos["stop_fixo"] = pos["stop"]
+        if st and ((lado > 0 and l <= st) or (lado < 0 and h >= st)):
+            motivo = "stop no zero a zero" if lado * (st - pos["preco"]) >= 0 else ("stop móvel" if pos.get("stop_movido") else "stop")
+            return self._fechar_fut(min(st, o) if lado > 0 else max(st, o), motivo, t, cfg, ag)
+        if al and ((lado > 0 and h >= al) or (lado < 0 and l <= al)):
+            return self._fechar_fut(al, "alvo", t, cfg, ag, maker=True)
+        a0 = pos.get("atr0") or (d.get("atr") or [None])[i] or c * 0.003
+        ganho_atr = lado * (c - pos["preco"]) / a0
+        # 2) protege o lucro
+        if ganho_atr >= 1.0 and lado * ((st or 0) - pos["preco"]) < 0:
+            novo = pos["preco"] * (1 + lado * 0.001)          # zero a zero + as taxas
+            pos["stop_fixo"] = pos["stop"] = novo
+            pos["stop_movido"] = True
+            self._falar(t, f"Andou {ganho_atr:.1f} ATR a meu favor: movi o stop pro zero a zero. Agora não perco mais nessa.")
+            return
+        if ganho_atr >= 2.0:
+            novo = c - lado * e.get("trail_atr", 2.0) * a0
+            if lado * (novo - (pos.get("stop_fixo") or novo)) > 0:
+                pos["stop_fixo"] = pos["stop"] = novo
+                pos["stop_movido"] = True
+        # 3) reavalia com o próprio modelo (depois da paciência mínima)
+        minutos = (t_fim - pos["t"]) / 60_000
+        if minutos >= e.get("paciencia_min", 20):
+            x = ag.sinais_modelo(self.par, v, i, t_fim)
+            if x is not None:
+                pl, ps = self.meu_modelo(ag).chances(x)
+                meu, outro = (pl, ps) if lado > 0 else (ps, pl)
+                pos["chance_agora"] = round(meu, 3)
+                if outro - meu >= e.get("virada", 0.08):
+                    return self._fechar_fut(c, f"meu modelo virou ({nome_lado(-lado)} {outro * 100:.0f}% × {meu * 100:.0f}%)", t, cfg, ag)
+        # 4) limite de tempo
+        if t_fim - pos["t"] >= limite:
+            return self._fechar_fut(c, "limite de 2h", t, cfg, ag)
 
     def _fala_posicao(self, t_fim, md):
         p = self.posicao
@@ -368,9 +479,13 @@ class Futuros:
         lucro = p["lado"] * p["qtd"] * (px - p["preco"])
         roe = lucro / p["margem"] * 100 if p.get("margem") else 0
         resta = max(0, (p.get("limite_t") or t_fim) - t_fim) // 60_000
-        origem = f"forçado, chance {p['chance'] * 100:.0f}%" if p.get("forcada") else "sinal da estratégia"
+        e = self.meu_estilo()
+        origem = (f"forçado, chance {p['chance'] * 100:.0f}%" if p.get("forcada") else "sinal da estratégia") \
+            + (f", {p['tamanho_pct']}% do tamanho" if p.get("tamanho_pct") and p["tamanho_pct"] < 100 else "")
+        agora = f" Meu modelo ainda dá {p['chance_agora'] * 100:.0f}% pra esse lado, sigo." if p.get("chance_agora") else ""
+        prot = " Stop já protegendo o lucro." if p.get("stop_movido") else ""
         self._falar(t_fim, f"{nome_lado(p['lado'])} {p['alavancagem']:g}x ({origem}): {'+' if lucro >= 0 else '-'}US$ {abs(lucro):.2f} "
-                           f"({roe:+.1f}% na margem). Fecho em até {resta} min.")
+                           f"({roe:+.1f}% na margem).{prot}{agora} Fecho no alvo, se o modelo virar ou em até {resta} min.")
 
     # ------------------------------------------------------------------ alunos de peso (carteira contínua)
     def _stop_peso(self, d, i, c, lado):

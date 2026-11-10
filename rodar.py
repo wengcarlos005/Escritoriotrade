@@ -55,6 +55,9 @@ def carregar_config():
             print(f"⚠️  Não consegui ler o config.json ({e}). Usando só os padrões.")
     # perfil de risco (moderado / agressivo / muito_agressivo); o que você escrever direto no config.json vale por cima
     fut = cfg.get("futuros", {})
+    if fut.get("pagar_taxas_com_bnb"):   # Binance dá 10% de desconto na taxa de futuros pagando com BNB
+        fut["taxa_taker"] = round(fut.get("taxa_taker", 0.0005) * 0.9, 7)
+        fut["taxa_maker"] = round(fut.get("taxa_maker", 0.0002) * 0.9, 7)
     perfil = (fut.get("perfis") or {}).get(fut.get("perfil"))
     if perfil:
         explicito = meu.get("futuros", {}) if isinstance(meu.get("futuros"), dict) else {}
@@ -154,6 +157,12 @@ def escolher_times(cfg, esc):
     return lista[:n]
 
 
+def custo_ida_e_volta(cfg):
+    fut, md = cfg.get("futuros", {}), cfg.get("modo", {})
+    entrada = fut.get("taxa_maker", 0.0002) if md.get("entrada_limitada", True) else fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
+    return entrada + fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
+
+
 def treinar_modelo(cfg, ag):
     """Modo 5 min: treina o modelo de chance de WIN com o histórico de 5 min (e mede nos últimos 30 dias)."""
     import historico
@@ -168,7 +177,7 @@ def treinar_modelo(cfg, ag):
             except Exception as e:
                 print(f"   (não consegui atualizar {par} {itv}: {e})")
     fut = cfg.get("futuros", {})
-    custo = 2 * (fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002))
+    custo = custo_ida_e_volta(cfg)
     m, stats = modelo.treinar_do_historico(pares, md.get("alvo_atr", 3.0), md.get("stop_atr", 3.0), custo,
                                            lambda p, i: historico.como_dicionario(historico.carregar(p, i)))
     if m:
@@ -238,7 +247,7 @@ def cmd_simular(args):
         else:
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
-            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 5):
+            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 7):
                 backup = DADOS / f"simulacao_antiga_{time.strftime('%Y%m%d_%H%M')}.json"
                 shutil.copy2(ARQ_SIM, backup)
                 novo = ("MODO 5 MIN: todo mundo abre uma operação a cada 5 min, até 2h cada, 5x a 10x" if cfg.get("modo", {}).get("tipo") == "5m"

@@ -104,7 +104,9 @@ class Trader(Futuros):
         return o
 
     def para_dict(self):
-        return dict(self.__dict__)
+        if getattr(self, "_mod", None) is not None:
+            self.modelo_pesos = self._mod.para_dict()
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
     def patrimonio(self):
         p = self.posicao
@@ -378,7 +380,7 @@ class Agencia:
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self.modo = cfg.get("modo", {}).get("tipo") if cfg.get("futuros", {}).get("ativo") else None
         self.modelo_pesos = None
-        self.versao = 5            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.versao = 7            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.caixa_empresa = 0.0
         self.funding_real = None
@@ -432,8 +434,10 @@ class Agencia:
         x = sinais(v, ind, i, self.tendencia(par, {"intervalo": "4h", "rapida": 20, "lenta": 150}, v["t"][i] + 300_000))
         if x is None:
             return
-        custo = 2 * (self.cfg.get("futuros", {}).get("taxa_taker", 0.0005) + self.cfg.get("futuros", {}).get("derrapagem", 0.0002))
-        ka, ks = md.get("alvo_atr", 3.0), md.get("stop_atr", 3.0)
+        fut = self.cfg.get("futuros", {})
+        entrada = fut.get("taxa_maker", 0.0002) if md.get("entrada_limitada", True) else fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
+        custo = entrada + fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
+        ka, ks = md.get("alvo_atr", 6.0), md.get("stop_atr", 4.0)
         self.modelo().aprender(x, resultado(v, ind, i, 1, ka, ks, custo), resultado(v, ind, i, -1, ka, ks, custo))
 
     # --- aprendizado: cada operação fechada ensina alguma coisa ---------------------------------
@@ -448,21 +452,48 @@ class Agencia:
         if risco <= 0:
             return
         r = max(-3.0, min(6.0, lucro / risco))
-        m = self._mem(f"{tr.time}|{tr.estrategia}")
+        m = self._mem(f"{tr.time}|{tr.nome}")
         m["r"] = (m["r"] + [round(r, 3)])[-60:]
         if not pos.get("a_favor", True):
             m["r_contra"] = (m["r_contra"] + [round(r, 3)])[-40:]
-        c = self.confianca_viva(tr.time, tr.estrategia)
+        c = self.confianca_trader(tr)
         ant = m.get("anunciada") or self.time(tr.time).get("confianca") or 1.0
-        if abs(c - ant) >= 0.1:
+        if abs(c - ant) >= 0.15:
             m["anunciada"] = c
             ult = m["r"][-20:]
-            tm = self.time(tr.time)
-            self.evento(t, None, "🧠", f"{tm['emoji']} {tm['nome']} aprendeu com as operações: confiança {ant:.2f} → {c:.2f} "
+            self.evento(t, tr, "🧠", f"{tr.rotulo(self)} aprendeu com as próprias operações: confiança {ant:.2f} → {c:.2f} "
                                       f"(últimas {len(ult)}: {sum(ult) / len(ult):+.2f}R em média) — "
                                       + ("vai arriscar um pouco mais" if c > ant else "vai arriscar menos"))
 
+    def confianca_trader(self, tr):
+        """Confiança de UM funcionário: parte da nota da escola e vai pro que ELE fez ao vivo."""
+        return self._confianca(self.time(tr.time).get("confianca") or 1.0, f"{tr.time}|{tr.nome}")
+
+    def _confianca(self, prior, chave):
+        m = (getattr(self, "aprendizado", None) or {}).get(chave)
+        if not m or not m["r"]:
+            return round(prior, 2)
+        rs = m["r"][-40:]
+        media = max(-0.9, min(1.0, sum(rs) / len(rs)))
+        vivo = max(0.5, min(1.5, prior * (1 + media)))
+        w = len(rs) / (len(rs) + self.cfg.get("aprendizado", {}).get("operacoes_meio_peso", 20))
+        return round((1 - w) * prior + w * vivo, 2)
+
+    def fator_contra_trader(self, tr):
+        base = self.cfg.get("futuros", {}).get("fator_contra_tendencia", 0.5)
+        m = (getattr(self, "aprendizado", None) or {}).get(f"{tr.time}|{tr.nome}")
+        if not m or not m["r_contra"]:
+            return base
+        rs = m["r_contra"][-30:]
+        aprendido = max(0.2, min(1.0, base + 0.5 * sum(rs) / len(rs)))
+        w = len(rs) / (len(rs) + 10)
+        return round((1 - w) * base + w * aprendido, 2)
+
     def confianca_viva(self, time_id, estrategia=None):
+        """Confiança média do time (cada funcionário tem a sua)."""
+        membros = self.do_time(time_id)
+        if membros:
+            return round(sum(self.confianca_trader(m) for m in membros) / len(membros), 2)
         """Confiança = o que a escola achou (prior) misturado com o que aconteceu ao vivo.
         Com poucas operações vale quase só a escola; com 20 operações, metade/metade (evita confundir sorte com habilidade)."""
         tm = self.time(time_id)
@@ -523,16 +554,17 @@ class Agencia:
     def resumo_aprendizado(self):
         saida = []
         for tm in self.times:
-            if tm.get("especial"):
-                continue
-            for est in (tm.get("membros") or [tm.get("estrategia")]):
-                m = (getattr(self, "aprendizado", None) or {}).get(f"{tm['id']}|{est}") or {"r": [], "r_contra": []}
+            for tr in self.do_time(tm["id"]):
+                m = (getattr(self, "aprendizado", None) or {}).get(f"{tm['id']}|{tr.nome}") or {"r": [], "r_contra": []}
                 rs = m["r"]
-                saida.append({"time": tm["id"], "estrategia": est, "nome": POR_ID[est].nome if est in POR_ID else est,
+                mp = getattr(tr, "modelo_pesos", None) or {}
+                saida.append({"time": tm["id"], "estrategia": tr.estrategia, "nome": tr.nome, "trader": tr.nome,
+                              "estilo": getattr(tr, "estilo", None),
                               "operacoes": len(rs), "media_r": round(sum(rs) / len(rs), 2) if rs else None,
                               "acerto_pct": round(sum(1 for x in rs if x > 0) / len(rs) * 100) if rs else None,
-                              "confianca_escola": tm.get("confianca") or 1.0, "confianca_agora": self.confianca_viva(tm["id"], est),
-                              "contra_operacoes": len(m["r_contra"]), "fator_contra": self.fator_contra(tm["id"], est),
+                              "confianca_escola": tm.get("confianca") or 1.0, "confianca_agora": self.confianca_trader(tr),
+                              "contra_operacoes": len(m["r_contra"]), "fator_contra": self.fator_contra_trader(tr),
+                              "modelo_vistos": mp.get("vistos", 0), "modelo_acertos": mp.get("acertos", 0),
                               "ultimos_r": rs[-20:]})
         return saida
 

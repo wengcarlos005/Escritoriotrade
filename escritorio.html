@@ -1162,6 +1162,8 @@ function renderDetalhe() {
     linha('vitórias / derrotas', `${tr.vitorias} / ${tr.derrotas}${n ? ` (${Math.round(tr.vitorias / n * 100)}%)` : ''}`) +
     (tr.liquidacoes != null ? linha('liquidações', tr.liquidacoes ? `💀 ${tr.liquidacoes}` : '0') : '') +
     (tr.desempenho != null ? linha('desempenho', `<span class="${cls(tr.desempenho)}">${pct(tr.desempenho, 1)}</span> do que recebeu${tr.premios ? ` · ⭐ ${tr.premios}× melhor do time` : ''}`) : '') +
+    (tr.estilo ? linha('🧬 jeito dele', `${esc(tr.estilo.jeito || 'equilibrado')} · alvo ${tr.estilo.alvo_atr} ATR · stop ${tr.estilo.stop_atr} ATR · paciência ${tr.estilo.paciencia_min || '–'} min`) : '') +
+    (tr.modelo_pesos && tr.modelo_pesos.vistos ? linha('🎲 modelo dele', `acertou ${tr.modelo_pesos.acertos}/${tr.modelo_pesos.vistos} operações`) : '') +
     linha('metas batidas', `${tr.metas_batidas || 0} × US$ ${num(metaEmp().meta_lucro_usd || 50, 0)}`) +
     linha('bônus recebido', usd(tr.bonus_recebido || 0)) +
     (tr.tipo === 'contratado' ? linha('crachá', '🧑‍💼 contratado com o caixa do time') : '') +

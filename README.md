@@ -81,10 +81,17 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   ao vivo), pra não confundir sorte com habilidade. O robô também aprende se vale operar contra a tendência de
   200 dias. E **toda semana a escola reestuda** com os dados mais novos: os times atualizam os parâmetros (quem está
   posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
-- **🤝 Time Comitê:** as 3 melhores estratégias da escola dividindo o mesmo dinheiro (um robô por estratégia e moeda).
-  Na escola de futuros caiu menos e ganhou menos que o Seykota sozinho — a liga vai mostrar ao vivo.
-- **5 times:** os 4 melhores alunos da escola de futuros + o Time Comitê. Cada time tem **5 traders** (BTC, ETH,
-  SOL, BNB, XRP), com **US$ 1.000 de mentira** cada (o Comitê tem 15, com US$ 333 cada).
+- **5 times:** os 5 melhores alunos da escola. Cada time tem **5 traders** (BTC, ETH, SOL, BNB, XRP), com
+  **US$ 1.000 de mentira** cada. (O Time Comitê foi desligado; `liga.comite.ativo: true` traz de volta.)
+- **🧬 Cada trader é independente:** tem o **próprio modelo de chance** (nasce de uma cópia do modelo da agência com
+  pesos um pouco diferentes e depois aprende **só com as operações dele**), o **próprio jeito** (alvo, stop, ousadia,
+  paciência, quanta chance exige) e a **própria confiança**. Dois robôs de BTC de times diferentes podem estar um LONG
+  e outro SHORT ao mesmo tempo.
+- **💰 Margem:** toda operação usa **pelo menos US$ 200 de margem** (`modo.margem_minima_usd`), com alavancagem de
+  **5x a 10x** — então cada posição vale de US$ 1.000 a US$ 2.000.
+- **🧠 Saída inteligente (revista a cada 5 min, com o jeito de cada um):** stop e alvo; andou 1 ATR a favor → stop no
+  zero a zero; andou 2 ATR → o stop acompanha o preço; depois da paciência mínima, se o próprio modelo passar a dar
+  mais chance pro outro lado, ele sai; no fim das 2 horas, fecha.
 - **Rodada toda segunda-feira, 00:00** (a 1ª depois de uma semana inteira). Pontuação = retorno das
   **últimas 4 semanas** − metade da maior queda no período. O 1º vira **🏆 titular**; os outros, **reserva**.
   (Uma semana sozinha é ruído demais — por isso olhamos 4.)
