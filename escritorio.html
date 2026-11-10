@@ -145,6 +145,80 @@ h1 span{color:var(--acento)}
 .tabela td.dir,.tabela th.dir{text-align:right}
 @media (max-width:700px){.grade-times{grid-template-columns:minmax(0,1fr)}.pos-l .l2{padding-left:0}}
 .aviso{text-align:center;color:var(--suave);font-size:12px;margin-top:16px}
+/* ---- estilo "corretora": badges, tabela de posições, cards ---- */
+.bdg{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;white-space:nowrap;vertical-align:middle}
+.bdg.l{background:#e3f6ec;color:#0f8a4a} .bdg.s{background:#fdeaea;color:#d0343a} .bdg.n{background:#eef1ef;color:#6d7a71}
+.bdg.cg{background:#fff4dc;color:#9a6400}
+.chips{display:inline-flex;flex-wrap:wrap;gap:4px;vertical-align:middle;margin-left:4px}
+.chips .ch{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:#fff;border:1px solid var(--linha);color:var(--texto);white-space:nowrap}
+.chips .ch.fut{background:#fff1d6;border-color:#f3dfb2;color:#8a5a00}
+.bx-help{font-size:12px;color:var(--suave);margin:2px 0 10px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}
+.bx-help b{color:var(--texto)}
+.bx{border:1px solid var(--linha);border-radius:12px;overflow:hidden;font-variant-numeric:tabular-nums}
+.bx-row{display:grid;grid-template-columns:minmax(150px,1.5fr) .95fr .85fr 1fr 1fr 1fr minmax(120px,1.25fr) minmax(96px,1fr);gap:8px;align-items:center;
+  padding:9px 12px;border-top:1px solid #eef1ee;font-size:13px}
+.bx-row:hover{background:#fafcf9}
+.bx-row>div{min-width:0}
+.bx-row .r{text-align:right}
+.bx-head{background:#f7f9f6;color:#8a948d;font-size:11px;font-weight:600;padding-top:7px;padding-bottom:7px;border-top:0}
+.bx-head:hover{background:#f7f9f6}
+.bx-sym b{font-size:13.5px} .bx-sym .pp{color:#9aa39d;font-size:11px;margin-left:3px}
+.bx-sym .q{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11.5px;color:var(--suave)}
+.bx-pnl{font-weight:700;font-size:14.5px;line-height:1.15} .bx-pnl small{display:block;font-size:11.5px;font-weight:600}
+.bx-liq{color:#d97a00}
+.bx-sub{display:block;font-size:11px;color:#9aa39d;margin-top:1px}
+.bx-time{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;background:#f2f6f1;border-top:1px solid var(--linha);font-size:13px}
+.bx-time:first-child{border-top:0}
+.bx-time .c{width:9px;height:9px;border-radius:50%;flex:none}
+.bx-time .nm{font-weight:700}
+.bx-time .k{color:var(--suave);font-size:12px}
+.bx-time .k b{color:var(--texto)}
+.bx-time .dir{margin-left:auto;display:flex;gap:12px;align-items:center}
+.bx-fora{padding:7px 12px;border-top:1px solid #eef1ee;font-size:12px;color:var(--suave);display:flex;flex-wrap:wrap;gap:4px 12px}
+.bx-fora span{white-space:nowrap}
+.bx-row.h7{grid-template-columns:minmax(92px,.9fr) minmax(130px,1.3fr) minmax(150px,1.4fr) minmax(110px,1fr) .7fr minmax(120px,1.2fr) .75fr}
+@media (max-width:760px){
+  .bx{border:0;overflow:visible}
+  .bx-head{display:none}
+  .bx-row,.bx-row.h7{grid-template-columns:1fr 1fr 1fr;gap:8px 10px;border:1px solid var(--linha);border-radius:12px;margin-top:8px;padding:11px 12px}
+  .bx-row>div[data-l]::before{content:attr(data-l);display:block;font-size:10.5px;color:#9aa39d;font-weight:600;margin-bottom:1px}
+  .bx-row .bx-sym{grid-column:1 / span 2}
+  .bx-row .bx-pnlc{grid-column:3;grid-row:1;text-align:right}
+  .bx-row .r{text-align:left}
+  .bx-row .bx-pnlc.r{text-align:right}
+  .bx-time{border-radius:10px;margin-top:12px;border:0}
+  .bx-fora{border:0;padding:6px 2px}
+}
+/* painel do funcionário */
+.dt-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:13px;color:var(--suave)}
+.dt-pos{border:1px solid var(--linha);border-radius:12px;padding:12px;margin-bottom:10px}
+.dt-sym{display:flex;align-items:center;gap:6px;font-size:13px}
+.dt-sym b{font-size:14px}
+.dt-pnl{font-family:var(--titulo);font-size:30px;font-weight:700;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
+.dt-roe{font-size:12.5px;font-weight:600;margin-top:1px}
+.dt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-top:10px;font-size:12.5px;font-variant-numeric:tabular-nums}
+.dt-grid span{display:block;font-size:11px;color:#9aa39d}
+.dt-grid b{font-weight:600}
+.dt-vazio{border:1px dashed #cfd7d1;border-radius:12px;padding:12px;margin-bottom:10px;color:var(--suave);font-size:13px}
+.dt-fala{background:#fff;border:2px solid #1d1d1f;border-radius:4px;padding:6px 9px;margin-bottom:10px;font-family:VT323,monospace;font-size:18px;line-height:1.1}
+.dt-des{background:var(--card2);border-radius:12px;padding:11px 12px}
+.dt-des h4{margin:0 0 8px;font-size:12px;color:var(--suave);font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+.dt-acerto{height:6px;border-radius:4px;background:#fdeaea;overflow:hidden;margin-top:4px}
+.dt-acerto i{display:block;height:100%;background:var(--verde)}
+details.mais-d{margin-top:10px;font-size:13px}
+details.mais-d summary{cursor:pointer;color:var(--acento);font-weight:600;font-size:12.5px}
+.ap-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.ap{border:1px solid var(--linha);border-radius:12px;padding:10px 12px;font-size:12.5px}
+.ap .t1{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13.5px}
+.ap .t1 .c{width:8px;height:8px;border-radius:50%}
+.ap .t1 .bdg{margin-left:auto}
+.ap .nums{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:8px 0 4px;font-variant-numeric:tabular-nums}
+.ap .nums span{display:block;font-size:10.5px;color:#9aa39d}
+.ap .nums b{font-size:14px}
+.ap .lc{font-size:12px;margin-top:3px}
+.dica .dl{display:flex;align-items:center;gap:6px;margin-top:4px;font-family:Inter,system-ui,sans-serif;font-size:13px;white-space:nowrap}
+.dica .dl b{display:inline;font-size:14px}
+.dica .dk{display:block;font-family:Inter,system-ui,sans-serif !important;font-size:11.5px !important;color:var(--suave) !important;margin-top:2px}
 @media (max-width:700px){
   .tela{height:390px}
   .kpi{min-width:0;flex:1 1 30%}
@@ -194,8 +268,8 @@ h1 span{color:var(--acento)}
         <div class="banner" id="banner"></div>
       </div>
       <div class="legenda">
-        <span><b style="color:#18a058">▲</b> comprado (long) · <b style="color:#e0454b">▼</b> vendido (short) · 7x = alavancagem daquela operação</span>
-        <span>arraste pra mover · roda/pinça pra zoom · clique num funcionário pra fixar a fala dele</span>
+        <span><b style="color:#18a058">▲</b> Comprado (Long): ganha se subir · <b style="color:#e0454b">▼</b> Vendido (Short): ganha se cair · na plaquinha: lucro/prejuízo agora</span>
+        <span>clique num funcionário pra ver o resultado dele · arraste e use a roda pra navegar</span>
       </div>
     </div>
     <div class="lado">
@@ -205,8 +279,8 @@ h1 span{color:var(--acento)}
     </div>
   </div>
   <div class="card ops" id="ops">
-    <div class="ops-cab"><h3>📋 Mesa de operações</h3>
-      <div class="abinhas"><button data-ops="pos" class="on">Posições abertas</button><button data-ops="hist">Histórico de operações</button><button data-ops="apr">🧠 Aprendizado</button></div></div>
+    <div class="ops-cab"><h3>📋 Operações</h3>
+      <div class="abinhas"><button data-ops="pos" class="on">Posições</button><button data-ops="hist">Histórico</button><button data-ops="apr">🧠 Aprendizado</button></div></div>
     <div id="ops-corpo"><div class="vazio">aguardando…</div></div>
   </div>
   <div class="aviso">simulação com preços reais e dinheiro de mentira · não é recomendação de investimento · <a href="/3d" style="color:inherit">versão 3D</a> · <a href="/pixel" style="color:inherit">versão antiga</a></div>
@@ -222,6 +296,18 @@ const num = (v, c = 2) => (v == null || isNaN(v)) ? '—' : Math.abs(v).toLocale
 const sinal = v => (v >= 0 ? '+' : '-');
 const usd = v => (v < 0 ? '-' : '') + 'US$ ' + num(v);
 const usd0 = v => (v < 0 ? '−' : '+') + 'US$ ' + num(Math.abs(v), Math.abs(v) >= 100 ? 0 : 2);
+const usdS = v => (v < 0 ? '−' : '+') + 'US$ ' + num(Math.abs(v));                 // sempre com sinal
+const pctS = (v, c = 2) => v == null ? '—' : (v < 0 ? '−' : '+') + num(Math.abs(v), c) + '%';
+const nomeLado = l => l > 0 ? 'Long' : 'Short';
+const nomeLadoPt = l => l > 0 ? 'Comprado' : 'Vendido';
+const badgeLado = (l, x) => l ? `<span class="bdg ${l > 0 ? 'l' : 's'}">${nomeLado(l)}${x ? ' ' + x + 'x' : ''}</span>` : '';
+const simbolo = tr => `${String(tr.par || tr.nome).replace('USDT', '')}/USDT`;
+const CARGOS = {estagiario: ['🎒', 'Estagiário', 5], trader: ['💼', 'Trader', 7], senior: ['🎖️', 'Sênior', 10]};
+const cargoBadge = tr => { const c = CARGOS[tr.nivel || 'estagiario'] || CARGOS.estagiario; return `<span class="bdg cg" title="pode usar até ${c[2]}x">${c[0]} ${c[1]}</span>`; };
+const MOTIVO = [[/liquida/i, 'Liquidado 💀'], [/zero a zero/i, 'Saiu no zero a zero'], [/stop m[óo]vel/i, 'Stop protegendo lucro'], [/^stop/i, 'Stop'],
+                [/alvo/i, 'Alvo atingido 🎯'], [/modelo virou/i, 'Mudou de ideia'], [/limite de 2h|tempo/i, 'Tempo (2h)'], [/sinal de sa/i, 'Sinal de saída'],
+                [/encerrad|mesa/i, 'Encerrado'], [/degrau/i, 'Degrau']];
+const motivoCurto = m => { const t = String(m || ''); for (const [re, n] of MOTIVO) if (re.test(t)) return n; return corta(t.split(' (')[0].split(' ·')[0], 22); };
 const pct = (v, c = 1) => v == null ? '—' : sinal(v) + num(v, c) + '%';
 const cls = v => v >= 0 ? 'pos' : 'neg';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
@@ -515,23 +601,20 @@ function sincronizar() {
    ===================================================================== */
 function falaDe(tr) {
   if (!tr) return '';
-  if (tr.fala && (!tr.fala_t || Date.now() - tr.fala_t < 15 * 60e3)) return tr.fala;
   const p = tr.posicao, m = moedaDe(tr);
-  if (tr.pausado_ate) return `Pausa no café até ${hm(tr.pausado_ate)}. Volto já.`;
+  // a fala curta do motor (≤ ~45 letras) vale se for recente; textos antigos e longos são refeitos aqui
+  if (tr.fala && tr.fala.length <= 60 && (!tr.fala_t || Date.now() - tr.fala_t < 15 * 60e3)) return tr.fala;
+  if (tr.parou_hoje && !p) return 'Parei por hoje 🛑';
+  if (tr.pausado_ate) return 'Pausa no café ☕';
   if (p) {
-    const a = abertoTr(tr), x = alavDe(tr), lado = ladoDe(tr) > 0 ? 'LONG' : 'SHORT', lim = limiteDe(p);
-    let s = `${p.lado != null ? lado : 'Comprado'}${x && p.lado != null ? ' ' + x + 'x' : ''} em ${m}: ${usd0(a.usd)} (${pct(a.pct, 0)}${p.lado != null ? ' na margem' : ''}).`;
-    if (p.forcada) s += ` Forçado, chance ${Math.round((p.chance || 0.5) * 100)}%.`;
-    if (lim) s += ` Fecho em ${curto(lim - Date.now())}.`;
-    else if (p.lotes) s += ` ${p.lotes} degrau${p.lotes > 1 ? 's' : ''} aberto${p.lotes > 1 ? 's' : ''}.`;
-    return s;
+    const a = abertoTr(tr), x = alavDe(tr);
+    if (p.saida_pendente) return 'Saindo da posição…';
+    return `${p.lado != null ? nomeLadoPt(ladoDe(tr)) : 'Comprado'}${x && p.lado != null ? ' ' + x + 'x' : ''} · ${usdS(a.usd)} (${pctS(a.pct, 1)})${p.stop_movido ? ' 🔒' : ''}`;
   }
+  if (tr.ordem) return `Ordem de ${tr.ordem.lado > 0 ? 'compra' : 'venda'} ${((tr.ordem.j || {}).alavancagem || '')}x em ${preco(tr.ordem.preco)} ⏳`;
   const ult = (tr.trades || [])[tr.trades.length - 1];
-  if (ult && Date.now() - ult.t_saida < 45 * 60e3)
-    return `${ult.lucro >= 0 ? 'Fechei' : 'Perdi'} ${usd0(ult.lucro)} no ${ult.lado != null ? (ult.lado > 0 ? 'LONG' : 'SHORT') : 'trade'} (${ult.motivo}).${MODO5() ? ' Próxima em 5 min.' : ''}`;
-  if (MODO5()) return `Sem posição. Em 5 min abro o lado com mais chance.`;
-  if (tr.distancia != null) return `Esperando: falta ${num(Math.abs(tr.distancia), 1)}% de ${tr.distancia > 0 ? 'alta pra LONG' : 'queda pra SHORT'}.`;
-  return tr.gatilho ? `Esperando: ${corta(tr.gatilho, 54)}` : 'Esperando o próximo sinal.';
+  if (ult && Date.now() - ult.t_saida < 45 * 60e3) return `Fechei: ${usdS(ult.lucro)} ${ult.lucro >= 0 ? '✅' : '❌'}`;
+  return MODO5() ? 'Esperando a próxima vela' : 'Esperando o sinal';
 }
 function estadoTr(tr) {
   if (!tr) return 0;
@@ -542,19 +625,19 @@ function estadoTr(tr) {
 function linhaConversa(a, b) {
   const ta = a.tr, tb = b.tr; if (!ta || !tb) return ['Tudo certo por aí?', 'Tudo, focado aqui!'];
   const ea = abertoTr(ta), eb = abertoTr(tb);
-  const fa = ea ? `Tô ${ladoDe(ta) > 0 ? 'LONG' : 'SHORT'} em ${moedaDe(ta)}: ${usd0(ea.usd)}.` :
-    ((ta.trades || []).length ? `Fechei ${usd0(ta.trades[ta.trades.length - 1].lucro)} no último.` : 'Tô sem posição, esperando.');
+  const fa = ea ? `Tô ${nomeLadoPt(ladoDe(ta)).toLowerCase()} em ${moedaDe(ta)}: ${usdS(ea.usd)}.` :
+    ((ta.trades || []).length ? `Fechei ${usdS(ta.trades[ta.trades.length - 1].lucro)} no último.` : 'Tô sem posição agora.');
   let fb;
   if (ea && ea.usd > 0) fb = pega(['Boa! Protege esse lucro.', 'Mandou bem! Sobe o stop.', 'Show! Segura até o alvo.']);
   else if (ea && ea.usd < 0) fb = pega(['Calma, respeita o stop.', 'Segura o risco, tá no plano.', 'Faz parte, o stop protege.']);
-  else fb = eb ? `Eu tô ${ladoDe(tb) > 0 ? 'LONG' : 'SHORT'} em ${moedaDe(tb)}: ${usd0(eb.usd)}.` : pega(['Eu também, mercado parado.', 'Paciência que o sinal vem.', 'Bora pro café depois?']);
+  else fb = eb ? `Eu tô ${nomeLadoPt(ladoDe(tb)).toLowerCase()} em ${moedaDe(tb)}: ${usdS(eb.usd)}.` : pega(['Eu também, mercado parado.', 'Paciência que vem.', 'Bora pro café depois?']);
   return [fa, fb];
 }
 function comentarioGerente(tr) {
   const a = abertoTr(tr), m = moedaDe(tr);
   if (a && a.usd > 0) return pega([`Bom trade, ${m}! Protege o lucro.`, `Isso aí, ${m}! ${usd0(a.usd)} no bolso?`, `${m}, não devolve esse lucro!`]);
   if (a && a.usd < 0) return pega([`Cuidado com o risco, ${m}.`, `${m}, respeita o stop, ok?`, `Sem vingança no mercado, ${m}.`]);
-  if (tr.posicao && tr.posicao.forcada) return `Forçado de novo, ${m}? Confere a chance.`;
+  if (tr.parou_hoje) return `${m}, descansa hoje. Amanhã tem mais.`;
   if ((tr.desempenho || 0) < -10) return `${m}, cuidado: você é o próximo a sair…`;
   return pega([`Paciência, ${m}.`, `Tudo sob controle, ${m}?`, `${m}, segue o plano.`]);
 }
@@ -625,6 +708,26 @@ function confete(x, y, n = 30, raio = 30) {
 }
 function banner(txt) { const b = $('banner'); b.textContent = txt; b.classList.add('on'); clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove('on'), 4800); }
 function flash() { const f = $('flash'); f.classList.add('on'); setTimeout(() => f.classList.remove('on'), 260); setTimeout(() => f.classList.add('on'), 420); setTimeout(() => f.classList.remove('on'), 640); }
+function falaEvento(e) {
+  const t = e.texto || '', v = (t.match(/US\$ ?([\d.,]+)/) || [])[1], x = (t.match(/(\d+)x/) || [])[1];
+  const val = v ? parseFloat(v.replace(/,/g, '')) : null, $v = val != null ? 'US$ ' + num(val) : '';
+  switch (e.emoji) {
+    case '✅': return `Ganhei +${$v} ✅`;
+    case '❌': return `Perdi −${$v} ❌`;
+    case '📈': return /REBAIXADO/.test(t) ? 'Fui rebaixado… 📉' : `Comprei${x ? ' ' + x + 'x' : ''} 📈`;
+    case '📉': return /REBAIXADO/.test(t) ? 'Fui rebaixado… 📉' : `Vendi${x ? ' ' + x + 'x' : ''} 📉`;
+    case '💵': return 'Bati a meta! Bônus 💵';
+    case '🛑': return 'Parei por hoje 🛑';
+    case '🎉': return 'Fui promovido! 🎉';
+    case '🧪': return /FICA/.test(t) ? 'Meu teste deu certo 🧪' : 'Testei e voltei atrás 🧪';
+    case '📚': return 'Aprendi uma coisa nova 📚';
+    case '🎓': return 'Recebi mentoria 🎓';
+    case '💀': return 'Fui liquidado 💀';
+    case '🧠': return 'Ajustei minha confiança 🧠';
+    case '⭐': return 'Fui o melhor do time ⭐';
+    default: return `${e.emoji} ${corta(textoSemNome(e), 40)}`;
+  }
+}
 function textoSemNome(e) {
   let t = e.texto || '';
   if (e.quem && t.startsWith(e.quem)) t = t.slice(e.quem.length).trim();
@@ -641,8 +744,8 @@ function reagir() {
   for (const e of novos.slice(-14)) {
     const a = e.quem ? porRotulo.get(e.quem) : null;
     const area = areaDoTime(e.time || (a && a.time));
-    const txt = `${e.emoji} ${corta(textoSemNome(e), 80)}`;
-    if (a) a.falar(txt, 7000, 5);
+    const txt = a ? falaEvento(e) : `${e.emoji} ${corta(textoSemNome(e), 46)}`;
+    if (a) a.falar(txt, 6500, 5);
     if (e.emoji === '✅' && a) { a.pulo = 1; if (area) moedas(a.x, a.y - 12, area.x + AW - 30, area.y + 8, 4); }
     else if (e.emoji === '⭐' && a) a.pulo = 1;
     else if (e.emoji === '❌' && a) a.triste = agora + 6000;
@@ -814,8 +917,8 @@ function desenharParticulas(dt) {
 /* ---------- textos (na resolução da tela) ---------- */
 const FONTE_BOLHA = 'VT323, monospace', FONTE_PLACA = 'Silkscreen, monospace';
 const CACHE_TXT = new Map();
-function quebrar(txt, maxW, fonte) {
-  const ch = fonte + '|' + maxW + '|' + txt;
+function quebrar(txt, maxW, fonte, maxL = 3) {
+  const ch = fonte + '|' + maxW + '|' + maxL + '|' + txt;
   if (CACHE_TXT.has(ch)) return CACHE_TXT.get(ch);
   ctx.font = fonte;
   const palavras = txt.split(' '), linhas = []; let atual = '';
@@ -824,7 +927,7 @@ function quebrar(txt, maxW, fonte) {
     if (ctx.measureText(t).width > maxW && atual) { linhas.push(atual); atual = p; } else atual = t;
   }
   if (atual) linhas.push(atual);
-  if (linhas.length > 3) { linhas.length = 3; linhas[2] = linhas[2].replace(/.{0,2}$/, '…'); }
+  if (linhas.length > maxL) { linhas.length = maxL; linhas[maxL - 1] = linhas[maxL - 1].replace(/.{0,2}$/, '…'); }
   const w = Math.max(...linhas.map(l => ctx.measureText(l).width));
   const r = {linhas, w};
   if (CACHE_TXT.size > 600) CACHE_TXT.clear();
@@ -865,27 +968,35 @@ function desenharPlacasArea(a) {
   }
 }
 function desenharPlaca(ag) {
+  // plaquinha em 2 linhas: "BTC ▼5x" e embaixo o lucro/prejuízo AGORA (verde/vermelho) — dá pra ler de longe
   const s = ag.slot; if (!s || !ag.tr) return;
-  const z = CAM.z; if (z < 1.12) return;
-  const fs = Math.max(8, Math.min(12, Math.round(3.6 * z)));
+  const z = CAM.z; if (z < 0.95) return;
+  const tr = ag.tr, fs = Math.max(8, Math.min(13, Math.round(3.6 * z)));
   ctx.font = `${fs}px ${FONTE_PLACA}`;
-  const nome = (ag.tr.time === 'comite' ? ag.tr.nome.split(' ')[0] : moedaDe(ag.tr)).toUpperCase().slice(0, 6);
-  const lado = ladoDe(ag.tr), x = alavDe(ag.tr);
-  const chip = lado && ag.tr.posicao ? (x ? x + 'x' : '') : '';
-  const tw = ctx.measureText(nome).width, cw = chip ? ctx.measureText(chip).width + fs + 4 : 0;
-  const w = tw + cw + 8, h = fs + 5, cx = sx(s.x), y = sy(s.sy + 29);
-  const X = Math.round(cx - w / 2), Y = Math.round(y);
-  ctx.fillStyle = '#23272d'; ctx.fillRect(X, Y, w, h);
-  ctx.fillStyle = '#ffffff'; ctx.textBaseline = 'middle'; ctx.fillText(nome, X + 4, Y + h / 2 + 0.5);
-  if (chip) {
-    const ax = X + 4 + tw + 3, ay = Y + h / 2, tri = Math.max(3, fs * 0.4);
+  const nome = moedaDe(tr).toUpperCase().slice(0, 5);
+  const lado = ladoDe(tr), x = alavDe(tr), p = tr.posicao, ab = p ? abertoTr(tr) : null;
+  const lev = p && lado ? `${x || ''}X` : '';
+  let l2, cor2;
+  if (p && lado) { l2 = (ab.usd < 0 ? '-$' : '+$') + num(Math.abs(ab.usd), Math.abs(ab.usd) >= 100 ? 0 : 2); cor2 = ab.usd >= 0 ? '#5df29a' : '#ff8080'; }
+  else if (tr.parou_hoje) { l2 = 'PAROU'; cor2 = '#ffb4b4'; }
+  else if (tr.ordem) { l2 = 'ORDEM'; cor2 = '#ffd76a'; }
+  else { l2 = 'AGUARD.'; cor2 = '#aab3b9'; }
+  const tri = Math.max(3, fs * 0.42), w1 = ctx.measureText(nome).width + (lev ? 3 + tri + 2 + ctx.measureText(lev).width : 0);
+  const w = Math.round(Math.max(w1, ctx.measureText(l2).width) + 8), lh = fs + 2, h = lh * 2 + 3;
+  const X = Math.round(sx(s.x) - w / 2), Y = Math.round(sy(s.sy + 28));
+  ctx.fillStyle = p ? (ab.usd >= 0 ? '#163a26' : '#3d1a1c') : '#23272d'; ctx.fillRect(X, Y, w, h);
+  ctx.textBaseline = 'middle';
+  const y1 = Y + 2 + lh / 2, y2 = y1 + lh;
+  let px = X + Math.round((w - w1) / 2);
+  ctx.fillStyle = '#ffffff'; ctx.fillText(nome, px, y1 + 0.5); px += ctx.measureText(nome).width + 3;
+  if (lev) {
     ctx.fillStyle = lado > 0 ? '#3fdc86' : '#ff6b6b';
     ctx.beginPath();
-    if (lado > 0) { ctx.moveTo(ax, ay + tri * 0.6); ctx.lineTo(ax + tri, ay + tri * 0.6); ctx.lineTo(ax + tri / 2, ay - tri * 0.7); }
-    else { ctx.moveTo(ax, ay - tri * 0.6); ctx.lineTo(ax + tri, ay - tri * 0.6); ctx.lineTo(ax + tri / 2, ay + tri * 0.7); }
-    ctx.fill();
-    ctx.fillText(chip, ax + tri + 2, Y + h / 2 + 0.5);
+    if (lado > 0) { ctx.moveTo(px, y1 + tri * 0.6); ctx.lineTo(px + tri, y1 + tri * 0.6); ctx.lineTo(px + tri / 2, y1 - tri * 0.7); }
+    else { ctx.moveTo(px, y1 - tri * 0.6); ctx.lineTo(px + tri, y1 - tri * 0.6); ctx.lineTo(px + tri / 2, y1 + tri * 0.7); }
+    ctx.fill(); ctx.fillText(lev, px + tri + 2, y1 + 0.5);
   }
+  ctx.fillStyle = cor2; ctx.textAlign = 'center'; ctx.fillText(l2, X + w / 2, y2 + 0.5); ctx.textAlign = 'left';
 }
 /* bolhas: quem fala agora (sem bagunça: no máximo N, sem sobrepor) */
 let ROT_IDX = 0, ROT_T = 0, ROT_SEL = new Set();
@@ -903,7 +1014,7 @@ function escolherRotativas(agora, n) {
 }
 const visivelNaTela = (x, y) => { const X = sx(x), Y = sy(y); return X > -20 && X < W + 20 && Y > -20 && Y < H + 20; };
 function desenharBolhas(agora) {
-  const movel = W < 600, max = movel ? 4 : Math.min(12, Math.max(6, Math.round(CAM.z * 4)));
+  const movel = W < 600, max = movel ? 3 : Math.min(8, Math.max(4, Math.round(CAM.z * 3)));
   const fs = Math.max(movel ? 13 : 14, Math.min(19, Math.round(5.6 * CAM.z + 4)));
   const fonte = `${fs}px ${FONTE_BOLHA}`, maxW = Math.min(movel ? 150 : 210, Math.max(110, 60 * CAM.z));
   const cands = [];
@@ -923,7 +1034,7 @@ function desenharBolhas(agora) {
   let n = 0;
   for (const c of cands) {
     if (n >= max) break;
-    const q = quebrar(c.txt, maxW, fonte);
+    const q = quebrar(c.txt, maxW, fonte, 2);
     const w = Math.ceil(q.w) + 10, h = q.linhas.length * lh + 6;
     const ax = sx(c.a.x), ay = sy(c.a.y - 17) - 6, meio = sy(c.a.y - 8), baixo = sy(c.a.y + (c.a.sentado ? 22 : 4));
     const cabe = (X, Y) => X >= 2 && Y >= 2 && X + w <= W - 2 && Y + h <= H - 2 && !postos.some(p => X < p.x + p.w + 2 && X + w + 2 > p.x && Y < p.y + p.h + 2 && Y + h + 2 > p.y);
@@ -1053,7 +1164,11 @@ function dica(ev) {
   if (!h || !h.agente) { d.style.opacity = 0; canvas.style.cursor = h && h.area ? 'pointer' : ''; return; }
   const a = h.agente;
   const nome = a.tr ? `${a.tr.tipo === 'contratado' ? '🧑‍💼' : '🤖'} ${a.tr.nome} · ${nomeCurto(a.time)}` : a.tipo === 'cao' ? `🐶 ${(D.cfg.mascote || {}).nome || 'Rex'}` : a.tipo === 'gerente' ? '🧠 Claude, o gerente' : '😎 Você, o CEO';
-  d.innerHTML = `<b>${esc(nome)}</b><span>${esc(corta(a.tr ? falaDe(a.tr) : estadoInfo(a).txt, 70))}</span>`;
+  if (a.tr && a.tr.posicao) {
+    const tr = a.tr, p = tr.posicao, ab = abertoTr(tr), lim = limiteDe(p);
+    d.innerHTML = `<b>${esc(nome)}</b><span class="dl">${badgeLado(ladoDe(tr), alavDe(tr))} <b class="${cls(ab.usd)}">${usdS(ab.usd)}</b> <small class="${cls(ab.pct)}">${pctS(ab.pct, 1)}</small></span>`
+      + `<span class="dk">${simbolo(tr)} · entrada ${preco(p.preco)}${lim ? ' · fecha em ' + curto(lim - Date.now()) : ''}</span>`;
+  } else d.innerHTML = `<b>${esc(nome)}</b><span>${esc(corta(a.tr ? falaDe(a.tr) : estadoInfo(a).txt, 60))}</span>`;
   const r = tela.getBoundingClientRect(); let x = ev.clientX - r.left + 14, y = ev.clientY - r.top + 12;
   if (x + 260 > r.width) x -= 280;
   d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.opacity = 1; canvas.style.cursor = 'pointer';
@@ -1121,7 +1236,12 @@ function renderLado() {
     <span class="nome">${t.titular ? '★ ' : ''}${esc(t.emoji)} ${esc(t.nome.replace('Time ', ''))}</span>
     <span class="n" title="caixa do time: US$ ${num(t.caixa_time || 0, 0)} de ${num(custoContratar(), 0)} pra contratar">${barraHtml(caixaFrac(t), t.titular ? '#e2a72e' : corTime(t.id)).replace('cx-barra', 'cx-barra mini')}</span><span class="${cls(t.resultado_pct)}">${pct(t.resultado_pct, 1)}</span></div>`).join('');
   const evs = (D.eventos || []).slice(-7).reverse();
-  $('feed').innerHTML = evs.length ? evs.map(e => `<div class="ev"><span>${esc(e.emoji)}</span><div style="flex:1;min-width:0">${esc(corta(e.texto, 96))}</div><span class="q">${hm(e.t)}</span></div>`).join('') : '<div class="vazio">nada ainda…</div>';
+  const feedTxt = e => {
+    const tr = e.quem && D.traders.find(x => rotulo(x) === e.quem);
+    if (tr && /^[✅❌📈📉💵🛑🎉🧪📚🎓💀⭐]/u.test(e.emoji)) { const tm = D.times.find(t => t.id === tr.time) || {}; return `<b>${esc(tr.nome)}</b> <span class="sub" style="margin:0">${esc((tm.nome || '').replace('Time ', ''))}</span> · ${esc(falaEvento(e).replace(/\s*[\p{Extended_Pictographic}\u{FE0F}]+$/u, ''))}`; }
+    return esc(corta(e.texto, 90));
+  };
+  $('feed').innerHTML = evs.length ? evs.map(e => `<div class="ev"><span>${esc(e.emoji)}</span><div style="flex:1;min-width:0">${feedTxt(e)}</div><span class="q">${hm(e.t)}</span></div>`).join('') : '<div class="vazio">nada ainda…</div>';
   renderDetalhe();
   renderOps();
 }
@@ -1159,29 +1279,43 @@ function renderDetalhe() {
     $('det-t').textContent = a.tipo === 'cao' ? `🐶 ${D.cfg.mascote.nome}` : a.tipo === 'gerente' ? '🧠 Claude, o gerente' : '😎 Você, o CEO';
     $('det').innerHTML = agoraH + pens + seguir; return;
   }
-  const tr = a.tr, n = tr.vitorias + tr.derrotas, p = tr.posicao;
-  $('det-t').textContent = `${emojiTr(tr)} ${tr.nome} · ${nomeCurto(a.time)}`;
-  $('det').innerHTML = agoraH + `<div class="pensa" style="margin:0 0 8px;background:#fff;border:2px solid #1d1d1f;border-radius:4px;font-family:VT323,monospace;font-size:18px;line-height:1.15">💬 ${esc(falaDe(tr))}</div>` +
+  const tr = a.tr, n = tr.vitorias + tr.derrotas, p = tr.posicao, tm = D.times.find(t => t.id === tr.time) || {};
+  $('det-t').textContent = `${emojiTr(tr)} ${tr.nome}`;
+  let topo = `<div class="dt-top">${esc(tm.emoji || '')} ${esc((tm.nome || '').replace('Time ', 'Time '))} ${cargoBadge(tr)}${tr.parou_hoje ? ' <span class="bdg s">parou hoje</span>' : ''}</div>`;
+  let pos;
+  if (p) {
+    const ab = abertoTr(tr), lim = limiteDe(p), x = alavDe(tr);
+    pos = `<div class="dt-pos"><div class="dt-sym"><b>${simbolo(tr)}</b><span class="sub" style="margin:0">Perp</span>${badgeLado(ladoDe(tr), x)}${p.stop_movido ? ' <span class="bdg l" title="o stop já está acima da entrada">🔒 lucro protegido</span>' : ''}</div>
+      <div class="dt-pnl ${cls(ab.usd)}">${usdS(ab.usd)}</div><div class="dt-roe ${cls(ab.pct)}">ROE ${pctS(ab.pct, 2)} <span class="sub" style="margin:0;font-weight:500">· lucro sobre a margem</span></div>
+      <div class="dt-grid"><div><span>Entrada</span><b>${preco(p.preco)}</b></div><div><span>Preço atual</span><b>${preco(tr.ultimo_preco || p.preco)}</b></div>
+        <div><span>Liquidação</span><b class="bx-liq">${p.preco_liquidacao ? preco(p.preco_liquidacao) : '—'}</b></div><div><span>Margem</span><b>${usd(p.margem || p.custo || 0)}</b></div>
+        <div><span>Tamanho</span><b>${usd(p.notional || p.qtd * p.preco)}</b></div><div><span>Fecha em</span><b>${p.saida_pendente ? 'saindo…' : lim ? curto(lim - Date.now()) : '—'}</b></div></div></div>`;
+  } else {
+    const st = tr.parou_hoje ? 'Parou por hoje (bateu o limite de perda do dia) 🛑' : tr.ordem ? `Ordem de ${tr.ordem.lado > 0 ? 'compra' : 'venda'} ${((tr.ordem.j || {}).alavancagem || '')}x em ${preco(tr.ordem.preco)} esperando executar ⏳` : 'Sem posição agora — abre na próxima vela de 5 min.';
+    pos = `<div class="dt-vazio">${st}</div>`;
+  }
+  const fala = `<div class="dt-fala">💬 ${esc(corta(falaDe(tr), 90))}</div>`;
+  const ac = n ? tr.vitorias / n : 0;
+  const des = `<div class="dt-des"><h4>Desempenho</h4><div class="dt-grid" style="margin-top:0">
+      <div><span>Patrimônio</span><b>${usd(patrimonio(tr))}</b></div>
+      <div><span>Lucro realizado</span><b class="${cls(tr.lucro_realizado)}">${usdS(tr.lucro_realizado || 0)}</b></div>
+      <div><span>Acertos</span><b>${tr.vitorias} ✔ · ${tr.derrotas} ✘</b>${n ? `<div class="dt-acerto"><i style="width:${(ac * 100).toFixed(0)}%"></i></div>` : ''}</div>
+      <div><span>Desempenho</span><b class="${cls(tr.desempenho || 0)}">${tr.desempenho != null ? pctS(tr.desempenho, 1) : '—'}</b></div>
+      <div><span>Metas batidas</span><b>${tr.metas_batidas || 0} × US$ ${num(metaEmp().meta_lucro_usd || 50, 0)}</b></div>
+      <div><span>Bônus recebido</span><b>${usd(tr.bonus_recebido || 0)}</b></div></div></div>`;
+  const expl = tr.explicacao || (tr.fala && tr.fala.length > 60 ? tr.fala : '');
+  const mais = `<details class="mais-d"><summary>Mais detalhes</summary>` + agoraH +
     linha('estratégia', `${esc(tr.estrategia_emoji)} ${esc(tr.estrategia_nome)} (${esc(tr.intervalo)})`) +
-    (alavDe(tr) ? linha('alavancagem', `<b>${alavDe(tr)}x</b>`) : '') +
-    (p ? linha('posição', `${chipLado(tr) || 'comprado'} a ${preco(p.preco)}`) : linha('posição', 'fora do mercado')) +
-    (p ? linha('agora', (() => { const ab = abertoTr(tr); return `<span class="${cls(ab.usd)}">${sinal(ab.usd)}${usd(Math.abs(ab.usd))} (${pct(ab.pct, 1)}${p.lado != null ? ' na margem' : ''})</span>`; })()) : '') +
-    (p && p.forcada ? linha('entrada', `forçada · chance ${Math.round((p.chance || 0.5) * 100)}%`) : (p ? linha('entrada', 'sinal da estratégia') : '')) +
-    (p && limiteDe(p) ? linha('fecha em', curto(limiteDe(p) - Date.now()) + ' (limite de 2h)') : '') +
-    (p && p.preco_liquidacao ? linha('liquida em', `<span class="neg">${preco(p.preco_liquidacao)}</span>`) : '') +
-    linha('patrimônio', usd(patrimonio(tr))) +
-    linha('lucro realizado', `<span class="${cls(tr.lucro_realizado)}">${sinal(tr.lucro_realizado)}${usd(Math.abs(tr.lucro_realizado))}</span>`) +
-    linha('vitórias / derrotas', `${tr.vitorias} / ${tr.derrotas}${n ? ` (${Math.round(tr.vitorias / n * 100)}%)` : ''}`) +
+    (p && p.forcada != null ? linha('por que entrou', p.forcada ? `sem sinal da estratégia · modelo dava ${Math.round((p.chance || 0.5) * 100)}%` : 'sinal da estratégia') : '') +
+    (p && p.stop ? linha('stop', preco(p.stop)) : '') + (p && p.alvo ? linha('alvo', preco(p.alvo)) : '') +
+    linha('cargo', (({estagiario: '🎒 Estagiário (até 5x)', trader: '💼 Trader (até 7x)', senior: '🎖️ Sênior (até 10x)'})[tr.nivel || 'estagiario'])) +
     (tr.liquidacoes != null ? linha('liquidações', tr.liquidacoes ? `💀 ${tr.liquidacoes}` : '0') : '') +
-    (tr.desempenho != null ? linha('desempenho', `<span class="${cls(tr.desempenho)}">${pct(tr.desempenho, 1)}</span> do que recebeu${tr.premios ? ` · ⭐ ${tr.premios}× melhor do time` : ''}`) : '') +
-    linha('cargo', ({estagiario: '🎒 Estagiário (até 5x)', trader: '💼 Trader (até 7x)', senior: '🎖️ Sênior (até 10x)'})[tr.nivel || 'estagiario']) +
-    (tr.parou_hoje ? linha('🛑 hoje', 'bateu o limite de perda do dia — volta amanhã') : '') +
     (tr.estilo ? linha('🧬 jeito dele', `${esc(tr.estilo.jeito || 'equilibrado')} · alvo ${tr.estilo.alvo_atr} ATR · stop ${tr.estilo.stop_atr} ATR · paciência ${tr.estilo.paciencia_min || '–'} min`) : '') +
     (tr.modelo_pesos && tr.modelo_pesos.vistos ? linha('🎲 modelo dele', `acertou ${tr.modelo_pesos.acertos}/${tr.modelo_pesos.vistos} operações`) : '') +
-    linha('metas batidas', `${tr.metas_batidas || 0} × US$ ${num(metaEmp().meta_lucro_usd || 50, 0)}`) +
-    linha('bônus recebido', usd(tr.bonus_recebido || 0)) +
     (tr.tipo === 'contratado' ? linha('crachá', '🧑‍💼 contratado com o caixa do time') : '') +
-    linha('humor', `<span style="color:${COR_HUMOR[tr.humor]}">●</span> ${tr.humor}`) + pens + seguir.replace('</div>',
+    linha('humor', `<span style="color:${COR_HUMOR[tr.humor]}">●</span> ${tr.humor}`) +
+    (expl ? `<div class="pensa"><b>EXPLICAÇÃO</b>${esc(expl)}</div>` : '') + `</details>`;
+  $('det').innerHTML = topo + pos + fala + des + mais + seguir.replace('</div>',
       '<button class="bt" data-ver="pos">📋 posições</button><button class="bt" data-ver="hist">🕘 histórico</button></div>');
 }
 document.addEventListener('click', ev => {
@@ -1207,40 +1341,43 @@ function aberto(tr) {   // lucro/prejuízo em aberto: US$ e % sobre a margem (ou
   if (p.lado != null) { const v = p.lado * p.qtd * (px - p.preco), base = p.margem || p.custo || 1; return {usd: v, pct: v / base * 100, mov: (px / p.preco - 1) * 100}; }
   const v = p.qtd * px - p.custo; return {usd: v, pct: v / (p.custo || 1) * 100, mov: (px / p.preco - 1) * 100};
 }
-function linhaPosicao(tr) {
-  const p = tr.posicao, bebe = tr.tipo === 'bebe' ? '👶 ' : tr.tipo === 'contratado' ? '🧑‍💼 ' : '', S = ' <span class="sep">·</span> ';
-  const rot = tr.time === 'comite' ? tr.nome : moedaDe(tr);
-  if (!p) {
-    const fal = tr.distancia != null ? (FUT() ? `falta ${num(Math.abs(tr.distancia), 1)}% de ${tr.distancia > 0 ? 'alta pra LONG' : 'queda pra SHORT'}` : `falta ${num(tr.distancia, 1)}% de alta`) : 'esperando o sinal';
-    return `<div class="pos-l fora" title="${esc(tr.gatilho || '')}"><div class="l1"><span class="m">${bebe}${esc(rot)}</span><span class="chip cinza">FORA</span>
-      <span style="color:var(--suave);font-size:12px">🎯 ${fal}</span><span class="res" style="color:var(--suave);font-weight:500">${usd(patrimonio(tr))}</span></div></div>`;
-  }
-  const a = aberto(tr), x = p.alavancagem || alavDe(tr);
-  const l2 = [`entrou <b>${preco(p.preco)}</b>${p.lotes ? ` (${p.lotes} degraus)` : ''} → agora <b>${preco(tr.ultimo_preco || p.preco)}</b> (${pct(a.mov, 2)})`,
-    p.stop ? `stop ${preco(p.stop)}` : '', p.preco_liquidacao ? `<span class="neg">💀 liquida em ${preco(p.preco_liquidacao)}</span>` : '',
-    p.unidades > 1 ? `<b>➕ pirâmide ${p.unidades}/${((D.cfg.futuros || {}).piramide || {}).max_unidades || p.unidades}</b>` : '',
-    p.margem ? `margem ${usd(p.margem)}` : '', p.risco_usd ? `risco ${usd(p.risco_usd)} se bater o stop` : '', `há ${duracao(Date.now() - p.t)}`].filter(Boolean).map(x => `<span class="it">${x}</span>`).join(S);
-  return `<div class="pos-l"><div class="l1"><span class="m">${bebe}${esc(rot)}</span>${chipOp(p.lado, x)}
-    <span class="res ${cls(a.usd)}">${sinal(a.usd)}${usd(Math.abs(a.usd))}<small>${pct(a.pct, 1)}${p.lado != null ? ' na margem' : ''}</small></span></div>
-    <div class="l2">${l2}${p.porque ? `<div class="porque">🧠 ${x}x porque: ${esc(p.porque.split('; ')[1] ? p.porque.split('; ')[1].replace(/^\d+x porque /, '') : p.porque)}</div>` : ''}</div></div>`;
+function celulasPos(tr) {
+  const p = tr.posicao, ab = aberto(tr), x = p.alavancagem || alavDe(tr), lim = limiteDe(p);
+  const quem = moedaDe(tr) !== tr.nome ? `<span>${esc(tr.nome)}</span>` : '';
+  return `<div class="bx-sym"><b>${simbolo(tr)}</b><span class="pp">Perp</span><div class="q">${badgeLado(p.lado, x)}${quem}${p.stop_movido ? '<span title="lucro protegido">🔒</span>' : ''}</div></div>
+    <div class="r" data-l="Tamanho">${usd(p.notional || p.qtd * p.preco)}</div>
+    <div class="r" data-l="Margem">${usd(p.margem || p.custo || 0)}</div>
+    <div class="r" data-l="Entrada">${preco(p.preco)}</div>
+    <div class="r" data-l="Preço atual">${preco(tr.ultimo_preco || p.preco)}</div>
+    <div class="r bx-liq" data-l="Liquidação">${p.preco_liquidacao ? preco(p.preco_liquidacao) : '—'}</div>
+    <div class="r bx-pnlc" data-l="PNL (ROE)"><div class="bx-pnl ${cls(ab.usd)}">${usdS(ab.usd)}<small>${pctS(ab.pct, 2)}</small></div></div>
+    <div class="r" data-l="Tempo">${duracao(Date.now() - p.t)}<span class="bx-sub">${p.saida_pendente ? 'saindo…' : lim ? 'fecha em ' + curto(lim - Date.now()) : ''}</span></div>`;
+}
+function semPosicao(tr) {
+  const m = moedaDe(tr);
+  if (tr.parou_hoje) return `<span>${esc(m)} · parou por hoje 🛑</span>`;
+  if (tr.ordem) return `<span>${esc(m)} · ordem ${badgeLado(tr.ordem.lado, (tr.ordem.j || {}).alavancagem)} em ${preco(tr.ordem.preco)} ⏳</span>`;
+  return `<span>${esc(m)} · aguardando</span>`;
 }
 function renderPosicoes() {
   const times = [...D.times].sort((a, b) => (b.titular - a.titular) || (a.especial ? 1 : 0) - (b.especial ? 1 : 0) || (a.lugar || 9) - (b.lugar || 9));
   const abertos = D.traders.filter(t => t.posicao), tot = abertos.reduce((s, t) => s + aberto(t).usd, 0);
-  const explica = FUT()
-    ? `<b>▲ LONG</b> ganha quando o preço <b>sobe</b>; <b>▼ SHORT</b> ganha quando o preço <b>cai</b>. "Na margem" é quanto o dinheiro colocado na operação rendeu — a alavancagem multiplica o movimento do preço (10x: 1% no preço = 10% na margem). Se o preço chegar no 💀, o robô perde a margem inteira. Agora: <b>${abertos.length}</b> posições abertas, somando <b class="${cls(tot)}">${sinal(tot)}${usd(Math.abs(tot))}</b> em aberto.`
-    : `Cada linha é um robô. Verde = ganhando, vermelho = perdendo (ainda não realizado). Agora: <b>${abertos.length}</b> posições abertas, somando <b class="${cls(tot)}">${sinal(tot)}${usd(Math.abs(tot))}</b>.`;
-  return `<p class="explica">${explica}</p><div class="grade-times">${times.map(t => {
-    const membros = D.traders.filter(x => x.time === t.id).sort((a, b) => !!b.posicao - !!a.posicao);
-    const ab = membros.filter(x => x.posicao), soma = ab.reduce((s, x) => s + aberto(x).usd, 0);
-    const papel = t.titular ? '★ titular' : t.especial ? 'fora da disputa' : t.lugar + 'º · reserva';
-    return `<div class="tcard${SEL && SEL.tipo === 'time' && SEL.id === t.id ? ' sel' : ''}" data-tcard="${t.id}">
-      <div class="tt"><span class="c" style="background:${corTime(t.id)}"></span>${esc(t.emoji)} ${esc(t.nome)}${alavTxt(t) ? ` <span class="tag" style="margin:0">${alavTxt(t)}</span>` : ''}
-        <span class="r ${cls(t.resultado_pct)}">${pct(t.resultado_pct, 2)}</span></div>
-      <div class="cx-linha"><span>💰 caixa do time</span>${barraHtml(caixaFrac(t), t.titular ? '#e2a72e' : corTime(t.id))}<b>${usd(t.caixa_time || 0)}</b><span class="sub" style="margin:0">/ ${num(custoContratar(), 0)} · ${nFunc(t)} func.</span></div>
-      <div class="ts">${papel} · ${esc(t.estrategia_nome)} · velas de ${esc(t.intervalo)} · ${ab.length} de ${membros.length} posicionados${t.segurar_pct != null ? ` · segurar as mesmas moedas: ${pct(t.segurar_pct, 2)}` : ''}${ab.length ? ` · em aberto <b class="${cls(soma)}">${sinal(soma)}${usd(Math.abs(soma))}</b>` : ''}</div>
-      ${membros.map(linhaPosicao).join('')}</div>`;
-  }).join('')}</div>`;
+  const ajuda = `<div class="bx-help"><span><b>${abertos.length}</b> posições abertas · PNL aberto <b class="${cls(tot)}">${usdS(tot)}</b></span>
+    <span title="Long (comprado) ganha se o preço subir. Short (vendido) ganha se cair. ROE = lucro ou prejuízo sobre a margem. Liquidação = preço em que a margem inteira é perdida.">ⓘ Long ganha se subir · Short ganha se cair · ROE = lucro sobre a margem</span></div>`;
+  const head = `<div class="bx-row bx-head"><div>Moeda</div><div class="r">Tamanho</div><div class="r">Margem</div><div class="r">Entrada</div><div class="r">Preço atual</div><div class="r">Liquidação</div><div class="r">PNL (ROE %)</div><div class="r">Tempo</div></div>`;
+  const corpo = times.map(t => {
+    const membros = D.traders.filter(x => x.time === t.id);
+    const ab = membros.filter(x => x.posicao).sort((a, b) => aberto(b).usd - aberto(a).usd), fora = membros.filter(x => !x.posicao);
+    const soma = ab.reduce((s, x) => s + aberto(x).usd, 0);
+    const rk = t.titular ? '★ 1º' : t.especial ? '⚡' : `${t.lugar}º`;
+    return `<div class="bx-time"><span class="c" style="background:${corTime(t.id)}"></span><span class="nm">${rk} ${esc(t.emoji)} ${esc(t.nome.replace('Time ', ''))}</span>
+        <span class="k">temporada <b class="${cls(t.resultado_pct)}">${pctS(t.resultado_pct, 2)}</b></span>
+        <span class="k" title="caixa do time pra contratar">💰 ${barraHtml(caixaFrac(t), t.titular ? '#e2a72e' : corTime(t.id)).replace('cx-barra', 'cx-barra mini')} <b>${usd(t.caixa_time || 0)}</b> / ${num(custoContratar(), 0)}</span>
+        <span class="dir"><span class="k">PNL aberto <b class="${cls(soma)}">${usdS(soma)}</b></span></span></div>`
+      + ab.map(tr => `<div class="bx-row">${celulasPos(tr)}</div>`).join('')
+      + (fora.length ? `<div class="bx-fora">${fora.map(semPosicao).join('')}</div>` : '');
+  }).join('');
+  return ajuda + `<div class="bx">${head}${corpo}</div>`;
 }
 function renderHistorico() {
   const nomeT = id => { const t = D.times.find(x => x.id === id); return t ? `${t.emoji} ${t.nome.replace('Time ', '')}` : id; };
@@ -1250,43 +1387,42 @@ function renderHistorico() {
   const soma = ops.reduce((s, o) => s + o.lucro, 0), ganhos = ops.filter(o => o.lucro > 0).length;
   const filtros = `<div class="filtros"><button data-hist="todos" class="${HIST_TIME === 'todos' ? 'on' : ''}">Todos</button>${D.times.map(t =>
     `<button data-hist="${t.id}" class="${HIST_TIME === t.id ? 'on' : ''}"><span style="color:${corTime(t.id)}">●</span> ${esc(nomeT(t.id))}</button>`).join('')}</div>`;
-  const resumo = ops.length ? `<div class="resumo-h">
-      <div class="kpi"><div class="r">operações mostradas</div><div class="v">${ops.length}</div></div>
-      <div class="kpi"><div class="r">acerto</div><div class="v">${Math.round(ganhos / ops.length * 100)}%</div></div>
-      <div class="kpi"><div class="r">resultado somado</div><div class="v ${cls(soma)}">${sinal(soma)}${usd(Math.abs(soma))}</div></div></div>` : '';
-  const corpo = ops.length ? `<div class="tabela"><table><tr><th>fechou</th><th>time</th><th>moeda</th><th>operação</th><th>entrada → saída</th><th>durou</th><th>por quê saiu</th><th class="dir">em R</th><th class="dir">resultado</th></tr>${
-    ops.slice(0, HIST_LIM).map(o => `<tr><td>${dataHora(o.t_saida)}</td><td><span style="color:${corTime(o.time)}">●</span> ${esc(nomeT(o.time))}</td>
-      <td><b>${esc(moedaDe(o.tr))}</b></td><td>${chipOp(o.lado, o.alavancagem)}</td><td>${preco(o.entrada)} → ${preco(o.saida)}</td>
-      <td>${duracao(o.t_saida - o.t_entrada)}</td><td>${esc(o.motivo)}</td><td class="dir ${o.r != null ? cls(o.r) : ''}">${o.r != null ? sinal(o.r) + num(o.r, 2) + 'R' : '—'}</td>
-      <td class="dir ${cls(o.lucro)}"><b>${sinal(o.lucro)}${usd(Math.abs(o.lucro))}</b> <small>(${pct(o.pct, 1)})</small></td></tr>`).join('')}</table></div>` +
-      (ops.length > HIST_LIM ? `<button class="bt mais" data-mais="1">mostrar mais (${ops.length - HIST_LIM} restantes)</button>` : '')
-    : '<div class="vazio">Nenhuma operação fechada ainda. Os times de velas diárias e de 4h operam pouco; a Mesa de Grade é quem mais opera.</div>';
-  return `<p class="explica">As operações já fechadas, da mais nova pra mais antiga (as últimas de cada robô). O resultado já desconta taxas e funding; a % é sobre a margem usada. <b>R</b> = resultado ÷ risco planejado: +2R é ganhar o dobro do que arriscou; −1R é bater o stop.</p>${filtros}${resumo}${corpo}`;
+  const resumo = ops.length ? `<div class="bx-help"><span><b>${ops.length}</b> operações fechadas</span><span>acerto <b>${Math.round(ganhos / ops.length * 100)}%</b></span>
+      <span>PNL somado <b class="${cls(soma)}">${usdS(soma)}</b></span><span class="sub" style="margin:0">já descontadas as taxas</span></div>` : '';
+  const head = `<div class="bx-row h7 bx-head"><div>Quando</div><div>Moeda</div><div>Entrada → Saída</div><div class="r">PNL (ROE %)</div><div class="r">Durou</div><div>Por que saiu</div><div>Time</div></div>`;
+  const linhas = ops.slice(0, HIST_LIM).map(o => `<div class="bx-row h7">
+      <div data-l="Quando">${dataHora(o.t_saida)}</div>
+      <div class="bx-sym"><b>${moedaDe(o.tr)}/USDT</b><div class="q">${badgeLado(o.lado, o.alavancagem)}</div></div>
+      <div data-l="Entrada → Saída">${preco(o.entrada)} → ${preco(o.saida)}</div>
+      <div class="r bx-pnlc" data-l="PNL (ROE)"><div class="bx-pnl ${cls(o.lucro)}">${usdS(o.lucro)}<small>${pctS(o.pct, 2)}</small></div></div>
+      <div class="r" data-l="Durou">${duracao(o.t_saida - o.t_entrada)}</div>
+      <div data-l="Por que saiu">${esc(motivoCurto(o.motivo))}</div>
+      <div data-l="Time"><span style="color:${corTime(o.time)}">●</span> ${esc(nomeT(o.time))}</div></div>`).join('');
+  const corpo = ops.length ? `<div class="bx">${head}${linhas}</div>` + (ops.length > HIST_LIM ? `<button class="bt mais" data-mais="1">mostrar mais (${ops.length - HIST_LIM})</button>` : '')
+    : '<div class="vazio">Nenhuma operação fechada ainda.</div>';
+  return filtros + resumo + corpo;
 }
 function renderAprendizado() {
   const lista = D.aprendizado_resumo || [];
   if (!lista.length) return '<div class="vazio">O aprendizado aparece no modo futuros.</div>';
-  const explica = `<p class="explica"><b>Como eles aprendem</b> (cada um sozinho, do seu jeito):<br>
-    <b>1. A cada vela de 5 min</b> o modelo de cada um descobre o que teria acontecido 2h antes (com o alvo e o stop DELE) e se ajusta um pouquinho.<br>
-    <b>2. A cada operação</b> o modelo aprende mais forte com o que ele mesmo fez, e ele anota a <b>situação</b> (lado, tendência de 4h, mercado calmo ou volátil). Situação que costuma dar errado → evita o lado e usa menos alavancagem; que costuma dar certo → mais confiança.<br>
-    <b>3. A cada 30 operações</b> ele faz um <b>🧪 experimento</b> no próprio jeito (alvo, stop, paciência…) por mais 30 operações: se o resultado médio melhorar, fica; senão, volta.<br>
-    <b>4. Na empresa:</b> todo contratado nasce <b>treinado pelo melhor</b> do time, e toda semana o pior recebe <b>🎓 mentoria</b> do melhor. A confiança mistura a nota da escola com o resultado ao vivo (20 operações = metade/metade), pra não confundir sorte com habilidade. <b>R</b> = resultado ÷ risco planejado.</p>`;
-  return explica + `<div class="apr">${lista.map(a => {
-    const t = D.times.find(x => x.id === a.time) || {}, rs = a.ultimos_r || [], mx = Math.max(1, ...rs.map(Math.abs));
-    const barras = rs.length ? `<div class="barras-r" title="últimas operações em R">${rs.map(r => `<i style="height:${Math.max(6, Math.abs(r) / mx * 100)}%;background:${r >= 0 ? 'var(--verde)' : 'var(--vermelho)'};align-self:${r >= 0 ? 'flex-end' : 'flex-start'}"></i>`).join('')}</div>` : '';
-    const seta = a.confianca_agora > a.confianca_escola + 0.005 ? '▲' : a.confianca_agora < a.confianca_escola - 0.005 ? '▼' : '=';
-    return `<div class="tcard"><div class="tt"><span class="c" style="background:${corTime(a.time)}"></span>${esc(a.trader || a.nome)} <span class="sub" style="margin:0;font-weight:500">· ${esc(t.emoji || '')} ${esc((t.nome || a.time).replace('Time ', ''))}</span></div>${a.estilo && a.estilo.jeito ? `<div class="ts">jeito: ${esc(a.estilo.jeito)}${a.cargo ? ' · ' + esc(a.cargo) : ''}</div>` : ''}
-      <div class="lin"><span>operações ao vivo</span><span>${a.operacoes}${a.acerto_pct != null ? ` · acerto ${a.acerto_pct}%` : ''}</span></div>
-      <div class="lin"><span>resultado médio</span><span class="${a.media_r != null ? cls(a.media_r) : ''}">${a.media_r != null ? sinal(a.media_r) + num(a.media_r, 2) + 'R por operação' : 'ainda sem operações'}</span></div>
-      <div class="lin"><span>confiança</span><span>escola ${num(a.confianca_escola, 2)} → agora <b>${num(a.confianca_agora, 2)}</b> ${seta}</span></div>
-      <div class="lin"><span>contra a tendência de 200 dias</span><span>${a.contra_operacoes} ops · arrisca ${Math.round(a.fator_contra * 100)}% do normal</span></div>
-      ${a.modelo_vistos ? `<div class="lin"><span>🎲 modelo dele</span><span>acertou ${a.modelo_acertos}/${a.modelo_vistos}</span></div>` : ''}
-      ${a.experimento ? `<div class="lin"><span>🧪 testando</span><span>${esc(a.experimento.param)} ${a.experimento.antes} → ${a.experimento.depois} (${a.experimento.n}/30)</span></div>` : ''}
-      ${(a.experimentos || []).map(x => `<div class="lin"><span>🧪 testou</span><span>${esc(x.param)} ${x.antes}→${x.depois}: ${x.ficou ? '<b class="pos">ficou</b>' : 'voltou'} (${sinal(x.novo)}${num(x.novo, 2)}R × ${sinal(x.base)}${num(x.base, 2)}R)</span></div>`).join('')}
-      ${a.mentor ? `<div class="lin"><span>🎓 treinado por</span><span>${esc(a.mentor)}</span></div>` : ''}${a.mentorias ? `<div class="lin"><span>🎓 mentorias</span><span>${a.mentorias}</span></div>` : ''}
-      ${(a.licoes || []).length ? `<div style="margin-top:6px;font-size:12px"><b>📚 o que aprendeu:</b>${a.licoes.map(l => `<div class="${cls(l.media_r)}" style="margin-top:2px">${l.media_r >= 0 ? '✔' : '✘'} ${esc(l.situacao)}: ${sinal(l.media_r)}${num(l.media_r, 2)}R (${l.n}×)</div>`).join('')}</div>` : ''}
-      ${barras || '<div class="vazio" style="margin-top:8px">as barrinhas das últimas operações aparecem aqui</div>'}</div>`;
-  }).join('')}</div>`;
+  const explica = `<details class="mais-d" style="margin:0 0 10px"><summary>Como eles aprendem?</summary><p class="explica" style="margin-top:6px">
+    <b>A cada 5 min</b> cada um confere o que teria acontecido e ajusta o próprio modelo.
+    <b>A cada operação</b> anota a situação (comprado/vendido, tendência, mercado calmo ou agitado): o que costuma dar errado ele evita e usa menos alavancagem.
+    <b>A cada 30 operações</b> testa uma mudança no próprio jeito e só fica com ela se melhorar.
+    <b>Na empresa</b>, quem é contratado aprende com o melhor do time, e toda semana o pior recebe mentoria.</p></details>`;
+  const cards = lista.map(a => {
+    const t = D.times.find(x => x.id === a.time) || {};
+    const tr = D.traders.find(x => x.nome === (a.trader || a.nome) && x.time === a.time);
+    const lic = (a.licoes || []).slice(0, 2).map(l => `<div class="lc ${cls(l.media_r)}">${l.media_r >= 0 ? '✔ bom' : '✘ ruim'}: ${esc(l.situacao.replace('LONG', 'comprado').replace('SHORT', 'vendido'))}</div>`).join('');
+    const testes = (a.experimentos || []).length, deu = (a.experimentos || []).filter(x => x.ficou).length;
+    return `<div class="ap"><div class="t1"><span class="c" style="background:${corTime(a.time)}"></span>${esc(a.trader || a.nome)} <span class="sub" style="margin:0;font-weight:500">${esc((t.nome || '').replace('Time ', ''))}</span>${tr ? cargoBadge(tr) : ''}</div>
+      <div class="nums"><div><span>Operações</span><b>${a.operacoes}</b></div><div><span>Acerto</span><b>${a.acerto_pct != null ? a.acerto_pct + '%' : '—'}</b></div>
+        <div><span>Confiança</span><b class="${a.confianca_agora >= a.confianca_escola ? 'pos' : 'neg'}">${num(a.confianca_agora, 2)}</b></div></div>
+      ${lic || '<div class="lc sub" style="margin:0">ainda aprendendo…</div>'}
+      ${a.experimento ? `<div class="lc sub" style="margin:2px 0 0">🧪 testando uma mudança (${a.experimento.n}/30)</div>` : testes ? `<div class="lc sub" style="margin:2px 0 0">🧪 ${testes} teste${testes > 1 ? 's' : ''} · ${deu} deu certo</div>` : ''}
+      ${a.mentor ? `<div class="lc sub" style="margin:2px 0 0">🎓 treinado por ${esc(a.mentor)}</div>` : ''}</div>`;
+  }).join('');
+  return explica + `<div class="ap-cards">${cards}</div>`;
 }
 function renderOps() {
   if (!D) return;
@@ -1310,10 +1446,10 @@ function renderTopo(vivo) {
   const alavs = D.times.filter(t => !t.especial).map(t => t.alavancagem).filter(Boolean);
   const fc = (D.cfg && D.cfg.futuros) || {};
   const md = (D.cfg && D.cfg.modo) || {};
-  const regra = D.modo === '5m'
-    ? `⚡ futuros · MODO 5 MIN: todo mundo abre a cada 5 min (sinal da estratégia ou a maior chance de WIN) · até ${md.limite_horas || 2}h por operação · risco ${num((md.risco_por_operacao || 0) * 100, 2)}% · ${fc.alavancagem_min || 5}x a ${fc.alavancagem_max || 10}x`
-    : `⚡ futuros · perfil ${esc(String(fc.perfil || '').replace('_', ' '))} · risco ${num((fc.risco_por_operacao || 0) * 100, 0)}% por operação${fc.piramide ? ' + pirâmide' : ''} · alavancagem por julgamento${alavs.length ? ` até ${Math.max(...alavs)}x` : ''}`;
-  const tagFut = FUT() ? `<span class="tag">${regra}</span> <span class="tag" style="background:#e3f1e7;color:#2f7d57" title="${D.fonte_dados === 'futuros' ? 'preço do contrato perpétuo e funding real da Binance' : 'a API de futuros não respondeu: preço à vista e funding médio'}">${D.fonte_dados === 'futuros' ? 'dados de futuros reais' : 'dados: aproximação à vista'}</span>` : '';
+  const chips = D.modo === '5m'
+    ? ['Futuros', 'Opera a cada 5 min', `${fc.alavancagem_min || 5}–${fc.alavancagem_max || 10}x`, ...(md.margem_minima_usd ? [`Margem mín. US$${num(md.margem_minima_usd, 0)}`] : []), `Até ${md.limite_horas || 2}h por operação`]
+    : ['Futuros', `Perfil ${String(fc.perfil || '').replace('_', ' ')}`, `Até ${alavs.length ? Math.max(...alavs) : 10}x`];
+  const tagFut = FUT() ? `<span class="chips">${chips.map((c, k) => `<span class="ch${k === 0 ? ' fut' : ''}">${esc(c)}</span>`).join('')}<span class="ch" title="${D.fonte_dados === 'futuros' ? 'preço do contrato perpétuo e funding real da Binance' : 'a API de futuros não respondeu: usando o preço à vista'}">${D.fonte_dados === 'futuros' ? '📡 preços de futuros' : '📡 preços à vista'}</span></span>` : '';
   $('sub').innerHTML = vivo ? `Temporada ${temp.numero} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · titular: <b>${esc(tit.emoji)} ${esc(tit.nome)}</b> ${tagFut}`
                             : `A agência está desligada — mostrando os últimos dados salvos ${tagFut}`;
   const sp = D.sprint_atual, liq = D.traders.reduce((s, t) => s + (t.liquidacoes || 0), 0);
