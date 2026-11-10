@@ -26,6 +26,7 @@ import escola as escola_mod
 import gerente
 import mercado
 import painel
+import sincronia
 from motor import Agencia, hhmm, moeda
 
 AQUI = Path(__file__).resolve().parent
@@ -240,6 +241,7 @@ def resumo_liga(ag):
 
 def cmd_simular(args):
     cfg = carregar_config()
+    sincronia.baixar(cfg)   # outro PC salvou algo mais novo? continua de lá
     esc = escola_mod.carregar()
     if not esc:
         print("🎓 A escola ainda não rodou — rodando agora pra montar os times (na 1ª vez baixa o histórico: pode levar uns minutos)...")
@@ -363,11 +365,11 @@ def cmd_simular(args):
                 ultimo_reestudo = time.time()
                 painel.rodar_escola_em_segundo_plano()
                 ag.evento(agora, None, "🎓", "A escola começou a reestudar com os dados mais novos (os times atualizam quando terminar)")
-            # 3) Rodada da semana e fim da sprint (de 1 dia, por padrão)
-            if agora >= ag.temporada["proxima_rodada"]:
+            # 3) Rodada da semana e fim da sprint (de 1 dia, por padrão) — só depois de recuperar as velas perdidas
+            if proxima_busca and agora >= ag.temporada["proxima_rodada"]:
                 ag.rodada(agora)
                 resumo_liga(ag)
-            if ag.sprint and agora >= ag.sprint["fim"]:
+            if proxima_busca and ag.sprint and agora >= ag.sprint["fim"]:
                 retro = ag.fechar_sprint(agora)
                 if retro and gerente.status()[0]:
                     threading.Thread(target=lambda r=retro: _retro(r), daemon=True).start()
@@ -385,10 +387,20 @@ def cmd_simular(args):
                 if len(novas) > 40:
                     print(f"⏩ Recuperando {len(novas)} velas que fecharam enquanto o programa estava desligado...")
                 for t, chave, v in novas:
+                    # vela por vela, na ordem do tempo: rodadas e sprints (dias) fecham na hora certa, mesmo na recuperação
+                    tf = t + mercado.INTERVALOS_MS[chave.split("@")[1]]
+                    if tf < agora:
+                        if tf >= ag.temporada["proxima_rodada"]:
+                            ag.rodada(tf)
+                        if ag.sprint and tf >= ag.sprint["fim"]:
+                            ag.fechar_sprint(tf)
                     ag.processar_vela(chave, v)
+                    if tf < agora:
+                        ag.marcar_curva(tf)
                 ag.atualizar_precos(mercado.precos(ag.pares()))
                 ag.marcar_curva(agora)
                 salvar(ag)
+                sincronia.talvez_enviar(cfg)
                 proxima_busca = time.time() + args.segundos
             # 5) Relatório diário do gerente
             g_cfg = cfg.get("gerente", {})
@@ -410,6 +422,10 @@ def cmd_simular(args):
                             gerente_ocupado.clear()
                     threading.Thread(target=_relatorio, daemon=True).start()
         except KeyboardInterrupt:
+            if sincronia.ativo(cfg):
+                print("\n☁️  Guardando na nuvem antes de fechar...")
+                salvar(ag)
+                sincronia.enviar(cfg, final=True)
             raise
         except Exception as e:
             print(f"⚠️  Algo falhou ({e}). Tento de novo já já.")
@@ -423,6 +439,22 @@ def _retro(sprint):
         print(f"  🧠 O gerente escreveu a retrospectiva da sprint {sprint['numero']} (aba Sprints)")
     except Exception as e:
         print(f"  🧠 O gerente não conseguiu escrever a retrospectiva: {e}")
+
+
+def cmd_sincronia(args):
+    """Liga a sincronia entre PCs (a mesma simulação no trabalho e em casa)."""
+    pessoal = AQUI / "config.json"
+    meu = {}
+    if pessoal.exists():
+        try:
+            meu = json.loads(pessoal.read_text(encoding="utf-8"))
+        except Exception:
+            print("⚠️  Não consegui ler o config.json — conserte ou apague ele e rode de novo.")
+            return
+
+    def salvar_config(c):
+        pessoal.write_text(json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
+    sincronia.ligar(salvar_config, meu)
 
 
 def cmd_resumo(args):
@@ -511,12 +543,13 @@ def main():
     sub.add_parser("painel", help="abre o escritório/painel")
     sub.add_parser("zerar", help="apaga a simulação")
     sub.add_parser("resumo", help="mostra um resumo em texto (pra mandar pro Claude)")
+    sub.add_parser("sincronia", help="liga a sincronia entre PCs (mesma simulação em casa e no trabalho)")
     args = ap.parse_args()
     preparar_dados()
     cmd = args.cmd or menu()
     if cmd == "simular" and not hasattr(args, "segundos"):
         args.segundos, args.sem_navegador = 20, False
-    acoes = {"escola": cmd_escola, "backtest": cmd_escola, "simular": cmd_simular, "painel": cmd_painel, "zerar": cmd_zerar, "resumo": cmd_resumo}
+    acoes = {"escola": cmd_escola, "backtest": cmd_escola, "simular": cmd_simular, "painel": cmd_painel, "zerar": cmd_zerar, "resumo": cmd_resumo, "sincronia": cmd_sincronia}
     if cmd not in acoes:
         print("Opção inválida.")
         return
