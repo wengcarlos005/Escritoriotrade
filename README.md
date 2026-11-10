@@ -81,11 +81,9 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   ao vivo), pra não confundir sorte com habilidade. O robô também aprende se vale operar contra a tendência de
   200 dias. E **toda semana a escola reestuda** com os dados mais novos: os times atualizam os parâmetros (quem está
   posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
-- **3 times, 9 traders, US$ 500 no total:** 📈 Seykota, 🦸 Supertrend e 🎩 Tudor Jones, cada um com **3 traders**
-  (BTC, ETH, SOL) e ~US$ 55 cada (`liga.capital_total_usd`). As posições continuam do mesmo tamanho de antes
-  (US$ 1.000–2.000, como se a margem fosse US$ 200 a 5x–10x): como o caixa é pequeno, a margem é ~80% do caixa e a
-  **alavancagem compensa** (até 125x no BTC, 100x no ETH, 75x nas outras). ⚠️ Com alavancagem tão alta a liquidação fica
-  a ~1–2% do preço: num teste de 3 dias, os times perderam entre 33% e 97%. Contratação com US$ 50 no caixa do time.
+- **3 times:** 📈 Seykota, 🦸 Supertrend e 🎩 Tudor Jones (os melhores da escola, tirando os que o CEO encerrou:
+  `liga.estrategias_excluidas` = MACD e Momentum). Cada time tem **5 traders** (BTC, ETH, SOL, BNB, XRP), com
+  **US$ 1.000 de mentira** cada. Sem Time Comitê e sem Mesa da Chance (`liga.mesa_rapida.ativo: false`).
 - **🧬 Cada trader é independente:** tem o **próprio modelo de chance** (nasce de uma cópia do modelo da agência com
   pesos um pouco diferentes e depois aprende **só com as operações dele**), o **próprio jeito** (alvo, stop, ousadia,
   paciência, quanta chance exige) e a **própria confiança**. Dois robôs de BTC de times diferentes podem estar um LONG

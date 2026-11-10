@@ -248,7 +248,7 @@ def cmd_simular(args):
         else:
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
-            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 8):
+            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 7):
                 backup = DADOS / f"simulacao_antiga_{time.strftime('%Y%m%d_%H%M')}.json"
                 shutil.copy2(ARQ_SIM, backup)
                 novo = ("MODO 5 MIN: todo mundo abre uma operação a cada 5 min, até 2h cada, 5x a 10x" if cfg.get("modo", {}).get("tipo") == "5m"
