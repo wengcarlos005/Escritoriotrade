@@ -378,17 +378,18 @@ function definirLayout(paisagem, nAreas = N_AREAS, maxFunc = MAX_FUNC) {
   // até 3 times: uma fileira só de áreas grandes (5 mesas × 3 fileiras) e o escritório inteiro fica maior na tela;
   // 4 a 6 times: 3 colunas × 2 linhas. No celular: uma coluna (até 3 times) ou duas.
   PAISAGEM = paisagem; N_AREAS = nAreas; MAX_FUNC = maxFunc;
-  const poucos = nAreas <= 3;
-  COLS = paisagem ? (poucos ? 5 : 6) : (poucos ? 3 : 4);
+  const poucos = nAreas <= 3, quatro = nAreas === 4;   // 4 times: grade simétrica 2 × 2
+  COLS = paisagem ? (poucos ? 5 : quatro ? 7 : 6) : (poucos ? 3 : 4);
   // só as fileiras de mesa que os times precisam (+ uma livre pra quem for contratado): escritório maior na tela
-  ROWS = poucos ? Math.max(2, Math.min(4, Math.ceil(maxFunc / COLS) + (maxFunc % COLS === 0 ? 1 : 0))) : (paisagem ? 3 : 4);
-  const ac = paisagem ? (poucos ? Math.max(1, nAreas) : 3) : (poucos ? 1 : 2);
-  const ar = paisagem ? (poucos ? 1 : 2) : (poucos ? Math.max(1, nAreas) : 3);
+  ROWS = (poucos || quatro) ? Math.max(2, Math.min(4, Math.ceil(maxFunc / COLS) + (maxFunc % COLS === 0 ? 1 : 0))) : (paisagem ? 3 : 4);
+  const ac = paisagem ? (poucos ? Math.max(1, nAreas) : quatro ? 2 : 3) : (poucos ? 1 : 2);
+  const ar = paisagem ? (poucos ? 1 : 2) : (poucos ? Math.max(1, nAreas) : quatro ? 2 : 3);
   AW = COLS * SW + PAD * 2; AH = HEAD + ROWS * SH + 6;
   const AX = c => M + c * (AW + GAP), AY = r => WALL + 10 + r * (AH + GAP);
   WW = M * 2 + ac * AW + (ac - 1) * GAP; COMUM_Y = AY(ar) + 2; WH = COMUM_Y + COMUM_H + 12;
   // 0 = lugar de honra (titular), depois o ranking; a mesa especial fica na última
   let ordem = paisagem ? [[1, 0], [0, 0], [2, 0], [0, 1], [1, 1], [2, 1]] : [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]];
+  if (quatro) ordem = [[0, 0], [1, 0], [0, 1], [1, 1]];
   if (poucos) ordem = paisagem ? (nAreas >= 3 ? [[1, 0], [0, 0], [2, 0]] : nAreas === 2 ? [[0, 0], [1, 0]] : [[0, 0]])
                                : Array.from({length: Math.max(1, nAreas)}, (_, r) => [0, r]);
   AREA_POS = ordem.map(([c, r]) => ({x: AX(c), y: AY(r)}));
@@ -1468,7 +1469,10 @@ function renderTopo(vivo) {
   $('sub').innerHTML = vivo ? `Temporada ${temp.numero} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · titular: <b>${esc(tit.emoji)} ${esc(tit.nome)}</b> ${tagFut}`
                             : `A agência está desligada — mostrando os últimos dados salvos ${tagFut}`;
   const sp = D.sprint_atual, liq = D.traders.reduce((s, t) => s + (t.liquidacoes || 0), 0);
-  const cr = D.conta_real, crTm = cr && D.times.find(x => x.id === cr.time), crL = cr ? cr.patrimonio - cr.inicial : 0;
+  const cr0 = D.conta_real, crTm = cr0 && D.times.find(x => x.id === cr0.time);
+  // a conta real conta também o lucro/prejuízo das posições abertas (na proporção que ela copia)
+  const crAberto = cr0 ? D.traders.reduce((s, t) => { const p = t.posicao; return s + (p && p.real && p.lado ? p.lado * p.qtd * ((t.ultimo_preco || p.preco) - p.preco) * (p.real_escala || 0) : 0); }, 0) : 0;
+  const cr = cr0 && {...cr0, patrimonio: cr0.patrimonio + crAberto}, crL = cr ? cr.patrimonio - cr.inicial : 0;
   $('kpis').innerHTML = [...(cr ? [[`💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}`,
       `${usd(cr.patrimonio)} <small class="${cls(crL)}" style="font-size:12px">${sinal(crL)}${usd(Math.abs(crL))}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${cr.time === 'agencia' ? `dividida entre os ${D.times.filter(t => !t.especial).length} times` : crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''}</div>`, '', 'real']] : []),
     [cr ? 'patrimônio simulado' : 'patrimônio', usd(total), ''], ['resultado', `${sinal(lucro)}${usd(Math.abs(lucro))}`, cls(lucro)],
@@ -1500,7 +1504,7 @@ async function atualizar() {
     D = d;
     const nA = Math.min(6, (d.times || []).length || 1);
     const mf = Math.max(1, ...(d.times || []).map(t => t.funcionarios != null ? t.funcionarios : (d.traders || []).filter(x => x.time === t.id).length));
-    if (nA !== N_AREAS || (nA <= 3 && mf !== MAX_FUNC)) { definirLayout(PAISAGEM, nA, mf); AG.clear(); SAINDO.clear(); PRIMEIRA = true; ajustarTela(); verTudo(); }
+    if (nA !== N_AREAS || (nA <= 4 && mf !== MAX_FUNC)) { definirLayout(PAISAGEM, nA, mf); AG.clear(); SAINDO.clear(); PRIMEIRA = true; ajustarTela(); verTudo(); }
     sincronizar(); reagir(); renderTopo(vivo); renderLado(); relogio();
     if (primeira) verTudo();
   } catch (err) { console.warn(err); $('rec').className = 'rec off'; $('sub').textContent = 'sem conexão com o programa — ele está rodando?'; }
