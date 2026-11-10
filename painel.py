@@ -59,6 +59,23 @@ def rodar_escola_em_segundo_plano():
     return True
 
 
+def _do_proprio_pc(ip):
+    return ip in ("127.0.0.1", "::1", "::ffff:127.0.0.1") or ip.startswith("127.")
+
+
+def ip_da_rede():
+    """O IP deste PC na rede Wi-Fi/cabo (não manda nada pela internet: só pergunta ao sistema qual placa usaria)."""
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return None if ip.startswith("127.") else ip
+    except Exception:
+        return None
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -114,6 +131,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         caminho = self.path.split("?")[0]
+        if not _do_proprio_pc(self.client_address[0]):   # celular / outro aparelho: só olha, não mexe
+            return self._responder(403, {"ok": False, "erro": "Pelo celular é só pra acompanhar — comandos e chave só no PC."})
         try:
             tam = int(self.headers.get("Content-Length") or 0)
             corpo = json.loads(self.rfile.read(tam).decode("utf-8") or "{}")
@@ -166,13 +185,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._responder(404, {"erro": "não encontrado"})
 
 
-def iniciar(arquivo_sim=ARQ_SIM, fila=None, porta=8000, abrir_navegador=True, bloquear=False):
+def iniciar(arquivo_sim=ARQ_SIM, fila=None, porta=8000, abrir_navegador=True, bloquear=False, celular=True):
+    """celular=True: também aceita conexões de outros aparelhos da sua rede (celular no mesmo Wi-Fi), só pra olhar."""
     _estado["fila"] = fila
     _estado["arquivo_sim"] = arquivo_sim
     servidor = None
     for p in range(porta, porta + 20):
         try:
-            servidor = http.server.ThreadingHTTPServer(("127.0.0.1", p), Handler)
+            servidor = http.server.ThreadingHTTPServer(("0.0.0.0" if celular else "127.0.0.1", p), Handler)
             break
         except OSError:
             continue
@@ -180,6 +200,11 @@ def iniciar(arquivo_sim=ARQ_SIM, fila=None, porta=8000, abrir_navegador=True, bl
         raise SystemExit("Não achei nenhuma porta livre entre 8000 e 8019.")
     url = f"http://127.0.0.1:{servidor.server_address[1]}"
     print(f"🖥️  Escritório e painel em {url}  (painel: {url}/painel)")
+    if celular:
+        ip = ip_da_rede()
+        if ip:
+            print(f"📱 No celular (no mesmo Wi-Fi): http://{ip}:{servidor.server_address[1]}   — só pra acompanhar")
+            print("   (se o Windows perguntar sobre o firewall, marque 'Redes privadas' e clique em Permitir)")
     if abrir_navegador:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     if bloquear:

@@ -394,6 +394,7 @@ class Agencia:
         self._tend = {}
         self._mcache = {}
         self._modelo_obj = None
+        self._esf_cache = self._bat_cache = None
         self.ao_evento = None
 
     def futuros(self):
@@ -607,6 +608,81 @@ class Agencia:
         """Tendência de longo prazo (velas diárias, média 50 × 200): +1 alta, −1 baixa, 0 sem dados."""
         filtro = self.cfg.get("futuros", {}).get("regime", {"intervalo": "1d", "rapida": 50, "lenta": 200})
         return tendencia(self._buf.get(f"{par}@{filtro['intervalo']}"), filtro, t_fim, self._tend)
+
+    # --- ESFRIAMENTO: a agência aprende a não insistir nas horas ruins -----------------------------------
+    # Ela anota o resultado de cada operação junto com "como a agência vinha nas últimas horas" quando ela abriu.
+    # Se aprender que, depois de algumas horas no vermelho, as próximas operações costumam perder MAIS que o normal,
+    # passa a esfriar: enquanto a fase ruim dura, só o trader mais afiado (o batedor) continua operando — ele
+    # segue testando o mercado e, assim, a agência continua aprendendo se ainda vale esfriar.
+    def _esf(self):
+        e = getattr(self, "esfriamento", None)
+        if not isinstance(e, dict):
+            e = self.esfriamento = {"fechadas": [], "apos_ruim": [], "normal": [], "ligado": False, "vezes": 0}
+        return e
+
+    def _cfg_esf(self):
+        return self.cfg.get("modo", {}).get("esfriamento") or {}
+
+    def resultado_recente(self, t):
+        """Lucro/prejuízo (US$) da agência inteira nas últimas horas (janela do esfriamento)."""
+        e = self._esf()
+        jan = self._cfg_esf().get("janela_horas", 3) * 3_600_000
+        e["fechadas"] = [f for f in e["fechadas"] if f[0] > t - jan]
+        return sum(f[1] for f in e["fechadas"] if f[0] <= t)
+
+    def limiar_esfriamento(self):
+        cap = self.cfg["liga"].get("capital_total_usd") or sum(getattr(tr, "capital_inicial", 0) or 0 for tr in self.traders) or 500
+        return -abs(self._cfg_esf().get("limiar_pct", 0.01)) * cap
+
+    def registrar_esfriamento(self, pos, lucro, t):
+        e = self._esf()
+        e["fechadas"].append([t, round(lucro, 4)])
+        if pos.get("ag_recente") is not None:
+            k = "apos_ruim" if pos["ag_recente"] < self.limiar_esfriamento() else "normal"
+            e[k] = (e[k] + [round(lucro, 4)])[-300:]
+
+    def esfriamento_aprendido(self):
+        """(vale esfriar?, US$/operação depois de horas ruins, US$/operação no resto, nº de casos ruins)."""
+        e, c = self._esf(), self._cfg_esf()
+        r, n = e["apos_ruim"], e["normal"]
+        if len(r) < c.get("min_casos", 30) or len(n) < 30:
+            return False, None, None, len(r)
+        mr, mn = sum(r) / len(r), sum(n) / len(n)
+        return (mr < 0 and mr < mn), mr, mn, len(r)
+
+    def esfriando(self, t):
+        """True quando a agência está numa fase ruim E já aprendeu que operar nessas fases dá prejuízo."""
+        if not self._cfg_esf().get("ativo"):
+            return False
+        cache = getattr(self, "_esf_cache", None)
+        if cache and cache[0] == t:
+            return cache[1]
+        e = self._esf()
+        recente = self.resultado_recente(t)
+        vale, mr, mn, n = self.esfriamento_aprendido()
+        on = bool(vale and recente < self.limiar_esfriamento())
+        if on != e.get("ligado"):
+            e["ligado"] = on
+            h = self._cfg_esf().get("janela_horas", 3)
+            if on:
+                e["vezes"] = e.get("vezes", 0) + 1
+                self.evento(t, None, "🧊", f"Agência ESFRIANDO: perdeu US$ {abs(recente):.2f} nas últimas {h}h. Aprendi que depois de fases assim "
+                                           f"as operações perdem US$ {abs(mr):.2f} em média (contra {mn:+.2f} no normal, em {n} casos) — "
+                                           "só o batedor continua operando até a fase ruim passar")
+            else:
+                self.evento(t, None, "🔥", "Fase ruim passou — todo mundo volta a operar")
+        self._esf_cache = (t, on)
+        return on
+
+    def batedor(self, t):
+        """Quem continua operando durante o esfriamento: o trader com melhor resultado recente (em R)."""
+        cache = getattr(self, "_bat_cache", None)
+        if cache and cache[0] == t:
+            return cache[1]
+        vivos = [tr for tr in self.traders if not getattr(tr, "pausado_ate", None)]
+        b = max(vivos, key=lambda tr: sum(o.get("r", 0) or 0 for o in tr.trades[-10:]), default=None)
+        self._bat_cache = (t, b)
+        return b
 
     def tendencia(self, par, filtro, t_fim):
         if not filtro:

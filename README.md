@@ -92,27 +92,21 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   com **US$ 83,33** no caixa o time **contrata** mais um trader (com esse dinheiro, numa moeda livre). O time cresce até
   **5** (uma moeda cada); **só com o time cheio** a contratação demite o pior. O melhor ganha **US$ 4**. Limite de perda
   do dia: 20% do caixa.
+- **🧊 Esfriamento (aprende a evitar as fases ruins):** a agência anota cada operação junto com "como ela vinha nas
+  últimas 3 horas" quando abriu. Se aprender (com pelo menos 30 casos) que, depois de perder mais de 1% do capital
+  em 3h, as próximas operações costumam perder **mais que o normal**, ela passa a **esfriar**: enquanto a fase ruim
+  dura, só o **batedor** (o trader com melhor resultado recente) continua operando de 5 em 5 min — ele segue testando
+  o mercado, e assim a agência continua aprendendo se ainda vale esfriar. Configurável em `modo.esfriamento`.
 - **🧬 Cada trader é independente:** tem o **próprio modelo de chance** (nasce de uma cópia do modelo da agência com
   pesos um pouco diferentes e depois aprende **só com as operações dele**), o **próprio jeito** (alvo, stop, ousadia,
   paciência, quanta chance exige) e a **própria confiança**. Dois robôs de BTC de times diferentes podem estar um LONG
   e outro SHORT ao mesmo tempo.
-- **💰 Margem:** toda operação usa **pelo menos US$ 200 de margem** (`modo.margem_minima_usd`), com alavancagem de
-  **5x a 10x** — então cada posição vale de US$ 1.000 a US$ 2.000.
 - **🧠 Saída inteligente (revista a cada 5 min, com o jeito de cada um):** stop e alvo; andou 1 ATR a favor → stop no
   zero a zero; andou 2 ATR → o stop acompanha o preço; depois da paciência mínima, se o próprio modelo passar a dar
   mais chance pro outro lado, ele sai; no fim das 2 horas, fecha.
 - **Rodada toda segunda-feira, 00:00** (a 1ª depois de uma semana inteira). Pontuação = retorno das
   **últimas 4 semanas** − metade da maior queda no período. O 1º vira **🏆 titular**; os outros, **reserva**.
   (Uma semana sozinha é ruído demais — por isso olhamos 4.)
-- **🏢 A empresa (minigame):** cada funcionário (trader) começa com **US$ 1.000** de mentira. A cada **US$ 50 de lucro
-  realizado** (sempre um novo recorde — perdeu, precisa recuperar antes), ele fica com **US$ 20 de bônus** e manda
-  **US$ 30 pro caixa do time**. Quando o caixa do time chega a **US$ 500**, o time **contrata 1 funcionário novo**
-  (com esses US$ 500), numa moeda nova (ADA, DOGE, LINK, AVAX, LTC, DOT, TRX, NEAR, ATOM, APT), usando a estratégia do
-  time. **Cada contratação é uma troca:** o time demite quem teve o **pior desempenho** (resultado em % do que recebeu,
-  contando o que já mandou pro caixa; quem entrou há menos de 7 dias está em experiência), o **melhor ganha US$ 50**,
-  e a **contagem zera**: o que passar dos US$ 500, e o dinheiro de quem saiu, vai pro **🏦 caixa da empresa**
-  (essas transferências não contam como prejuízo do time no ranking). **Toda rodada de segunda, metade do caixa da
-  empresa reforça o time campeão da semana** (dividido entre os funcionários dele). Configurável em `empresa` no `config.json`.
 - **🧮 Mesa de Grade (alta frequência, fora da disputa):** 10 robôs de grade (BTC, ETH, SOL, BNB, XRP, ADA, DOGE, LINK,
   AVAX, LTC), velas de 5 min, US$ 1.000 cada, 5x. Seguem a tendência de 4h (média 20 × 150): em alta montam degraus de
   **compra (LONG)** abaixo do preço; em baixa, degraus de **venda (SHORT)** acima. Cada lote fecha 0,8% a favor (ordem

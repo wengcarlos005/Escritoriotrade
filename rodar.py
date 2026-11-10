@@ -283,7 +283,8 @@ def cmd_simular(args):
     ag.escola_aplicada = getattr(ag, "escola_aplicada", None) or esc.get("gerado_em")
 
     fila = queue.Queue()
-    painel.iniciar(ARQ_SIM, fila=fila, abrir_navegador=not args.sem_navegador)
+    painel.iniciar(ARQ_SIM, fila=fila, abrir_navegador=not args.sem_navegador,
+                   celular=cfg.get("painel", {}).get("celular", True))
     resumo_liga(ag)
     print("Ctrl+C pra parar (tudo fica salvo). Deixe esta janela aberta.\n")
 
@@ -437,7 +438,7 @@ def cmd_resumo(args):
 
 
 def cmd_painel(args):
-    painel.iniciar(ARQ_SIM, bloquear=True)
+    painel.iniciar(ARQ_SIM, bloquear=True, celular=carregar_config().get("painel", {}).get("celular", True))
 
 
 def cmd_zerar(args):

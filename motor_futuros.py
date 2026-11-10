@@ -258,10 +258,15 @@ class Futuros:
         if self.trades and p.get("forcada") is not None:
             self.trades[-1]["forcada"] = p.get("forcada")
             self.trades[-1]["chance"] = p.get("chance")
+        if self.trades and p.get("x") and getattr(ag, "_guardar_x", False):
+            ag._todas.append(dict(self.trades[-1], _x=p["x"], _lado=p["lado"], trader=self.nome, time=self.time, par=self.par,
+                                  alav=p["alavancagem"], margem=p["margem"], lucro_usd=lucro))
         self._falar(t, f"Fechei: {usd_br(lucro)} ({'+' if pct >= 0 else '−'}{_br(abs(pct), 1)}%) {'✅' if lucro >= 0 else '❌'}",
                     ("Fechei " if lucro >= 0 else "Perdi ") + f"{'+' if lucro >= 0 else '-'}US$ {abs(lucro):.2f} "
                     f"({pct:+.1f}% na margem) no {nome_lado(p['lado'])} {p['alavancagem']:g}x — {motivo}.")
         ag.aprender(self, p, lucro, t)
+        if hasattr(ag, "registrar_esfriamento"):
+            ag.registrar_esfriamento(p, lucro, t)
         self._aprender_com_operacao(p, lucro, t, ag)
 
     def _checar_liquidacao(self, o, h, l, t, cfg, ag):
@@ -495,6 +500,12 @@ class Futuros:
             self.ordem = None
             self._falar(t, "Parei por hoje 🛑", "Bati meu limite de perda do dia. Parei por hoje pra não piorar — amanhã volto com a cabeça fresca.")
             return
+        if ag.esfriando(t_fim) and ag.batedor(t_fim) is not self:
+            self.ordem = None
+            b = ag.batedor(t_fim)
+            self._falar(t, "Esfriando 🧊", f"A agência está numa fase ruim (US$ {ag.resultado_recente(t_fim):+.2f} nas últimas horas) e aprendeu que "
+                        f"insistir nessas fases dá prejuízo. Fico de fora até passar; {b.nome if b else 'o batedor'} segue testando o mercado.")
+            return
         cf = dict(self._f(cfg), risco_por_operacao=md.get("risco_por_operacao", 0.0025), piramide=None)
         cfg2 = dict(cfg, futuros=cf)
         # 0) ordem limitada da vela anterior: o preço passou por ela? (taxa maker, sem derrapagem)
@@ -573,7 +584,7 @@ class Futuros:
             # o risco de verdade agora é o tamanho novo × a distância até o stop (pra medir R corretamente)
             j = dict(j, margem=margem, notional=notional, risco_usd=notional * abs(c - stop) / c)
         extra = {"forcada": forcada, "chance": round(chance, 3), "chance_outro": round(outra, 3), "tamanho_pct": round(fr * 100), "atr0": a,
-                 "x": [round(z, 4) for z in x]}
+                 "x": [round(z, 4) for z in x], "ag_recente": round(ag.resultado_recente(t_fim), 2)}
         if alvo:
             extra.update(alvo_fixo=alvo, alvo=alvo)
         if forcada:
