@@ -382,7 +382,7 @@ class Agencia:
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self.modo = cfg.get("modo", {}).get("tipo") if cfg.get("futuros", {}).get("ativo") else None
         self.modelo_pesos = None
-        self.versao = 8            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.versao = 9            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.caixa_empresa = 0.0
         self.funding_real = None
@@ -847,6 +847,9 @@ class Agencia:
                 if self.modo5m():
                     ks.add(f"{tr.par}@4h")
                     ks.add("BTCUSDT@5m")
+            if self.modo5m():   # todas as moedas do time: o trader pode trocar de moeda
+                for par in self.moedas_do_time():
+                    ks.update({f"{par}@5m", f"{par}@4h", f"{par}@{reg}"})
         return sorted(ks)
 
     def pares(self):
@@ -892,8 +895,9 @@ class Agencia:
         lmax = fut.get("alavancagem_max", 10) if self.futuros() else 1
         moedas = self.cfg["liga"]["moedas"]
         capital = self.cfg["liga"]["capital_por_trader_usd"]
+        por_time = self.cfg["liga"].get("traders_por_time") or len(moedas)
         if self.cfg["liga"].get("capital_total_usd"):   # o dinheiro total da agência dividido entre todos os traders
-            capital = self.cfg["liga"]["capital_total_usd"] / max(1, len(escolhidos) * len(moedas))
+            capital = self.cfg["liga"]["capital_total_usd"] / max(1, len(escolhidos) * por_time)
         self.modo = self.cfg.get("modo", {}).get("tipo") if self.futuros() else None
         if self.modo5m():   # todos operam em velas de 5 min
             def em5(r):
@@ -917,8 +921,8 @@ class Agencia:
                   "alavancagem": lmax, "confianca": confianca_da_escola(r.get("oos")) if self.futuros() else 1.0,
                   "preco_inicial": {}}
             self.times.append(tm)
-            for par in moedas:
-                tr = Trader(moeda(par), self.cfg["liga"].get("emoji_trader", "🤖"), par, 0.0, "trader", t,
+            for k_, par in enumerate((moedas * 3)[:por_time]):
+                tr = Trader(self.novo_nome(), self.cfg["liga"].get("emoji_trader", "🤖"), par, 0.0, "trader", t,
                             tm["id"], r["id"], r["params_atuais"])
                 tr.ultimo_preco = self.ultimo_preco.get(par)
                 tr.alavancagem = tm["alavancagem"]
@@ -1195,6 +1199,85 @@ class Agencia:
         self.abrir_sprint(t)
         return r
 
+    def novo_nome(self):
+        """Nome de gente (o trader troca de moeda, então o nome não pode ser a moeda)."""
+        nomes = self.cfg["liga"].get("nomes_traders") or ["Trader"]
+        usados = {tr.nome for tr in getattr(self, "traders", [])}
+        for n in nomes:
+            if n not in usados:
+                return n
+        k = 2
+        while f"{nomes[0]} {k}" in usados:
+            k += 1
+        return f"{nomes[0]} {k}"
+
+    def moedas_do_time(self, tid=None):
+        return self.cfg["liga"].get("moedas", [])
+
+    def ajustar_para_9(self, t):
+        """Converte a temporada atual para N traders por time e o capital total configurado, COMO SE SEMPRE TIVESSE
+        SIDO ASSIM: fica quem teve melhor desempenho; todos os valores em dólar (caixas, lucros, operações,
+        gráficos, sprints) são reescalados na mesma proporção (o % de cada um se mantém)."""
+        por_time = self.cfg["liga"].get("traders_por_time") or 3
+        total_novo = self.cfg["liga"].get("capital_total_usd") or 0
+        if not total_novo or not self.times:
+            return False
+        for tr in self.traders:           # fecha tudo antes (posições abertas não dá pra reescalar com justiça)
+            if tr.posicao or (getattr(tr, "grade_estado", None) or {}).get("lotes"):
+                tr.encerrar(tr.ultimo_preco or (tr.posicao or {}).get("preco") or 0, t, self.cfg, self)
+            tr.ordem = None
+        for tm in list(self.disputando()):
+            membros = sorted(self.do_time(tm["id"]), key=self.desempenho, reverse=True)
+            saem = membros[por_time:]
+            if saem:
+                self.traders = [x for x in self.traders if x not in saem]
+                fica = membros[:por_time]
+                # o time passa a ter só o dinheiro de quem ficou (e o caixa do time na mesma proporção)
+                prop = sum(m.patrimonio() for m in fica) / max(1e-9, sum(m.patrimonio() for m in membros))
+                tm["aportes"] = sum(getattr(m, "capital_recebido", 0) for m in fica) or tm["aportes"] * prop
+                tm["caixa_time"] = (tm.get("caixa_time") or 0) * prop
+                tm["curva"] = [[x[0], x[1] * prop, x[2] * prop] for x in tm.get("curva", [])]
+        atual = sum(tm["aportes"] for tm in self.disputando()) or 1
+        f = total_novo / atual
+        def esc(x):
+            return x * f if isinstance(x, (int, float)) else x
+        for tm in self.disputando():
+            tm["aportes"] *= f
+            tm["caixa_time"] = (tm.get("caixa_time") or 0) * f
+            tm["reforcos"] = (tm.get("reforcos") or 0) * f
+            tm["curva"] = [[x[0], x[1] * f, x[2] * f] for x in tm.get("curva", [])]
+        for tr in self.traders:
+            for k in ("caixa", "lucro_realizado", "taxas_pagas", "volume", "funding_pago", "capital_recebido",
+                      "enviado_caixa", "bonus_recebido", "lucro_marco", "eq_inicio_dia"):
+                if isinstance(getattr(tr, k, None), (int, float)):
+                    setattr(tr, k, getattr(tr, k) * f)
+            for o in tr.trades:
+                o["lucro"], o["valor"] = o["lucro"] * f, o["valor"] * f
+            if len(tr.nome) <= 5 and tr.nome.upper() == tr.nome:      # nome de moeda → nome de gente
+                tr.nome = self.novo_nome()
+        self.caixa_empresa = (getattr(self, "caixa_empresa", 0) or 0) * f
+        self.aportes_ceo = sum(tm["aportes"] for tm in self.times)
+        tot = {}
+        for tm in self.times:
+            for x in tm.get("curva", []):
+                tot.setdefault(x[0], [0.0, 0.0]); tot[x[0]][0] += x[1]; tot[x[0]][1] += x[2]
+        self.curva = [[k, v[0], v[1]] for k, v in sorted(tot.items())]
+        for sp in (self.sprints or []):
+            for linha in sp.get("times", []) + [sp.get("total", {})]:
+                for k in ("lucro", "taxas", "bruto", "volume", "funding", "lucro_medio_op"):
+                    if isinstance(linha.get(k), (int, float)):
+                        linha[k] *= f
+        if self.sprint:
+            for b in (self.sprint.get("base") or {}).values():
+                for k in ("lucro", "patr", "taxas", "volume", "funding"):
+                    if isinstance(b.get(k), (int, float)):
+                        b[k] *= f
+            self.sprint["pico"] = {k: v * f for k, v in (self.sprint.get("pico") or {}).items()}
+        self.versao = 9
+        self.evento(t, None, "🔧", f"Agência ajustada: {por_time} traders por time (ficaram os de melhor desempenho) e "
+                                  f"US$ {total_novo:.0f} no total — todos os valores foram reescalados como se sempre tivesse sido assim")
+        return True
+
     def remover_time(self, tid, t, motivo="saiu da agência"):
         """Fecha as posições do time, tira ele e os funcionários da agência (o dinheiro dele sai da conta)."""
         tm = next((x for x in self.times if x["id"] == tid), None)
@@ -1374,6 +1457,9 @@ class Agencia:
         for tr in list(self.traders):
             if tr.chave != chave or tr not in vivos or getattr(tr, "demitido", False):
                 continue
+            if getattr(tr, "vela_t", None) == vela["t"]:
+                continue        # já agiu nesta vela (trocou de moeda agora há pouco)
+            tr.vela_t = vela["t"]
             est = POR_ID[tr.estrategia]
             k = (tr.estrategia, json.dumps(tr.params, sort_keys=True))
             if k not in cache:

@@ -6,7 +6,9 @@
   "liga": {
     "times": 3,
     "estrategias_excluidas": ["macd", "momentum"],
-    "moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+    "moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"],
+    "traders_por_time": 3,
+    "nomes_traders": ["Ana", "Bruno", "Carla", "Diego", "Elisa", "Fábio", "Gabi", "Hugo", "Iris", "João", "Kátia", "Lucas", "Marina", "Nico", "Olívia", "Paulo", "Rita", "Sérgio", "Tati", "Vítor"],
     "capital_por_trader_usd": 1000,
     "capital_total_usd": 500,
     "semanas_para_pontuar": 4,

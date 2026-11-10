@@ -82,7 +82,10 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   200 dias. E **toda semana a escola reestuda** com os dados mais novos: os times atualizam os parâmetros (quem está
   posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
 - **3 times, 9 traders, US$ 500 no total:** 📈 Seykota, 🦸 Supertrend e 🎩 Tudor Jones, cada um com **3 traders**
-  (BTC, ETH, SOL) e ~US$ 55 cada (`liga.capital_total_usd`). As posições continuam do mesmo tamanho de antes
+  (Ana, Bruno, Carla…) e ~US$ 55 cada (`liga.capital_total_usd`, `liga.traders_por_time`). Cada time tem **5 moedas**
+  (BTC, ETH, SOL, BNB, XRP): quando está livre e sem sinal, o trader **troca pra moeda com a melhor chance** naquele
+  momento, sem repetir a de um colega posicionado. Uma temporada antiga é ajustada sozinha (ficam os 3 melhores de
+  cada time e os valores são reescalados pros US$ 500). As posições continuam do mesmo tamanho de antes
   (US$ 1.000–2.000, como se a margem fosse US$ 200 a 5x–10x): como o caixa é pequeno, a margem é ~80% do caixa e a
   **alavancagem compensa** (até 125x no BTC, 100x no ETH, 75x nas outras). ⚠️ Com alavancagem tão alta a liquidação fica
   a ~1–2% do preço: num teste de 3 dias, os times perderam entre 33% e 97%. Contratação com US$ 50 no caixa do time.
