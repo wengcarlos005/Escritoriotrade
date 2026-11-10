@@ -1,6 +1,7 @@
 """Servidorzinho local (só no seu PC) que mostra o escritório 3D e o painel no navegador."""
 import http.server
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -83,6 +84,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def _autorizado(self):
+        """Com senha configurada (servidor na nuvem), toda página pede usuário e senha. Sem senha: livre (PC de casa)."""
+        senha = _estado.get("senha")
+        if not senha:
+            return True
+        import base64
+        import hmac
+        cab = self.headers.get("Authorization") or ""
+        if cab.startswith("Basic "):
+            try:
+                _usuario, _, dada = base64.b64decode(cab[6:]).decode("utf-8").partition(":")
+                if hmac.compare_digest(dada.encode("utf-8"), senha.encode("utf-8")):
+                    return True
+            except Exception:
+                pass
+        corpo = "Precisa de usuário e senha (veja o arquivo SERVIDOR.md).".encode("utf-8")
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="Agencia de Trade", charset="UTF-8"')
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(corpo)))
+        self.end_headers()
+        self.wfile.write(corpo)
+        return False
+
     def _responder(self, codigo, corpo, tipo="application/json; charset=utf-8"):
         if isinstance(corpo, (dict, list)):
             corpo = json.dumps(corpo, ensure_ascii=False).encode("utf-8")
@@ -100,6 +125,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._responder(200, arq.read_bytes(), "text/html; charset=utf-8")
 
     def do_GET(self):
+        if not self._autorizado():
+            return
         caminho = self.path.split("?")[0]
         if caminho == "/api/estado":
             d = _ler_json(_estado["arquivo_sim"])
@@ -136,7 +163,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         caminho = self.path.split("?")[0]
-        if not _do_proprio_pc(self.client_address[0]):   # celular / outro aparelho: só olha, não mexe
+        if not self._autorizado():
+            return
+        if not _estado.get("senha") and not _do_proprio_pc(self.client_address[0]):   # celular / outro aparelho: só olha, não mexe
             return self._responder(403, {"ok": False, "erro": "Pelo celular é só pra acompanhar — comandos e chave só no PC."})
         try:
             tam = int(self.headers.get("Content-Length") or 0)
@@ -190,9 +219,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._responder(404, {"erro": "não encontrado"})
 
 
-def iniciar(arquivo_sim=ARQ_SIM, fila=None, porta=8000, abrir_navegador=True, bloquear=False, celular=True):
-    """celular=True: também aceita conexões de outros aparelhos da sua rede (celular no mesmo Wi-Fi), só pra olhar."""
+def iniciar(arquivo_sim=ARQ_SIM, fila=None, porta=8000, abrir_navegador=True, bloquear=False, celular=True, senha=None):
+    """celular=True: também aceita conexões de outros aparelhos da sua rede (celular no mesmo Wi-Fi), só pra olhar.
+    senha: exige usuário e senha em tudo (servidor na nuvem); com senha, quem entra pode usar os comandos."""
     _estado["fila"] = fila
+    _estado["senha"] = senha or os.environ.get("AGENCIA_SENHA") or None
     _estado["arquivo_sim"] = arquivo_sim
     servidor = None
     for p in range(porta, porta + 20):

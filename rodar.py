@@ -242,9 +242,14 @@ def cmd_simular(args):
     cfg = carregar_config()
     esc = escola_mod.carregar()
     if not esc:
-        print("🎓 A escola ainda não rodou — rodando agora pra montar os times (leva ~1 minuto)...")
+        print("🎓 A escola ainda não rodou — rodando agora pra montar os times (na 1ª vez baixa o histórico: pode levar uns minutos)...")
         esc = escola_mod.rodar_escola(cfg.get("escola"), futuros=cfg.get("futuros"))
         imprimir_boletim(esc, cfg)
+        try:
+            import escola_agencia
+            escola_agencia.rodar(cfg, esc)
+        except Exception as erro:
+            print(f"⚠️  A prova da agência falhou: {erro}")
     fut = cfg.get("futuros", {})
     esc_fut = (esc.get("config") or {}).get("futuros") or {}
     perfil_mudou = any(esc_fut.get(k) != fut.get(k) for k in ("risco_por_operacao", "piramide", "alavancagem_min", "alavancagem_max"))
@@ -306,7 +311,8 @@ def cmd_simular(args):
 
     fila = queue.Queue()
     painel.iniciar(ARQ_SIM, fila=fila, abrir_navegador=not args.sem_navegador,
-                   celular=cfg.get("painel", {}).get("celular", True))
+                   celular=cfg.get("painel", {}).get("celular", True), senha=cfg.get("painel", {}).get("senha"),
+                   porta=cfg.get("painel", {}).get("porta", 8000))
     resumo_liga(ag)
     print("Ctrl+C pra parar (tudo fica salvo). Deixe esta janela aberta.\n")
 
@@ -471,7 +477,8 @@ def cmd_resumo(args):
 
 
 def cmd_painel(args):
-    painel.iniciar(ARQ_SIM, bloquear=True, celular=carregar_config().get("painel", {}).get("celular", True))
+    pc = carregar_config().get("painel", {})
+    painel.iniciar(ARQ_SIM, bloquear=True, celular=pc.get("celular", True), senha=pc.get("senha"), porta=pc.get("porta", 8000))
 
 
 def cmd_zerar(args):
