@@ -41,10 +41,21 @@ O projeto mora em https://github.com/wengcarlos005/Escritoriotrade (privado).
 | `atualizar.bat` | Baixa a versão mais nova do GitHub (feche a agência antes) |
 | `6_ver_resultados.bat` | Mostra um resumo em texto e salva em `dados/resumo_para_o_claude.txt` (pra mandar pro Claude) |
 
-No navegador (http://127.0.0.1:8000): **🏢 Escritório 3D** (um andar de escritório dividido por times: cada área tem a cor do time, o ranking, o resultado e o caixa do time; telão de ranking, sala do CEO, sala do Claude, treinamento e copa — arraste pra girar, roda/pinça pra zoom, clique num trader ou numa área; a versão pixel-art antiga continua em `/pixel`),
+No navegador (http://127.0.0.1:8000): **🏢 Escritório** em pixel-art, com cada funcionário na sua mesa, plaquinha de nome
+e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3D** (um andar de escritório dividido por times: cada área tem a cor do time, o ranking, o resultado e o caixa do time; telão de ranking, sala do CEO, sala do Claude, treinamento e copa — arraste pra girar, roda/pinça pra zoom, clique num trader ou numa área; a versão pixel-art antiga continua em `/pixel`),
 **📊 Visão geral** (classificação, times, rodadas), **🎓 Escola** (boletim e botão de nova temporada) e **🧠 Gerente**.
 
 ## 2.1 Como funciona a liga
+- **⏱️ MODO 5 MIN (padrão desde nov/2026):** todos os funcionários operam em velas de 5 minutos e **abrem uma operação a
+  cada 5 minutos** sempre que estão fora: pelo sinal da estratégia do time ou, sem sinal, **obrigados** a abrir no lado
+  (LONG ou SHORT) com **maior chance de WIN** segundo o modelo (`modelo.py`). Cada operação dura **até 2 horas**
+  (fecha antes no alvo ou no stop de 3 ATR), com alavancagem de **5x a 10x** e risco de 0,25% do caixa.
+  O modelo é uma regressão logística com 9 sinais do preço (retornos de 5 min a 4h, médias, RSI, volatilidade e
+  tendência de 4h), treinada no histórico ao ligar e que **aprende a cada vela** (a cada 5 min ele descobre o que teria
+  acontecido 2 horas antes). A **Mesa da Chance** (fora da disputa) segue só o modelo, sem estratégia — é a régua.
+  Cada funcionário **fala** o que está fazendo: lado, alavancagem, lucro/prejuízo, por que entrou e quando fecha.
+  ⚠️ **Testado antes de ligar: com as taxas de futuros esse modo PERDE dinheiro** (−45% em 88 dias no teste; −3% a −5%
+  em 10 dias repetindo o mercado recente). Pra voltar ao modo de tendência: `{"modo": {"tipo": "tendencia"}}` no `config.json`.
 - **💹 Tudo em FUTUROS (simulado):** os robôs operam futuros perpétuos, **comprando (LONG) e vendendo (SHORT)**.
   O short usa o mesmo aluno "de cabeça pra baixo": o sinal de compra no preço invertido vira sinal de venda.
   Custos de futuros: taxa 0,05% (a mercado), 0,02% (ordens limitadas da grade) e **funding** a cada 8h

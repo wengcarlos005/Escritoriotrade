@@ -154,6 +154,32 @@ def escolher_times(cfg, esc):
     return lista[:n]
 
 
+def treinar_modelo(cfg, ag):
+    """Modo 5 min: treina o modelo de chance de WIN com o histórico de 5 min (e mede nos últimos 30 dias)."""
+    import historico
+    import modelo
+    md = cfg.get("modo", {})
+    pares = md.get("moedas_treino", ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"])
+    print("🎲 Treinando o modelo de chance de WIN com o histórico de 5 min (na 1ª vez baixa uns meses de velas)...")
+    for par in pares:
+        for itv in ("5m", "4h"):
+            try:
+                historico.atualizar(par, itv)
+            except Exception as e:
+                print(f"   (não consegui atualizar {par} {itv}: {e})")
+    fut = cfg.get("futuros", {})
+    custo = 2 * (fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002))
+    m, stats = modelo.treinar_do_historico(pares, md.get("alvo_atr", 3.0), md.get("stop_atr", 3.0), custo,
+                                           lambda p, i: historico.como_dicionario(historico.carregar(p, i)))
+    if m:
+        ag.modelo_pesos, ag.modelo_treino = m.para_dict(), stats
+        ag._modelo_obj = None
+        print(f"   Pronto. Nos últimos {stats['dias_teste']} dias (que ele não viu), o lado escolhido teria ganhado "
+              f"{stats['acerto_modelo_pct']}% das vezes (escolhendo ao acaso: {stats['acerto_ao_acaso_pct']}%).")
+        ag.evento(int(time.time() * 1000), None, "🎲", f"Modelo de chance treinado: acerto fora da amostra {stats['acerto_modelo_pct']}% "
+                                                        f"(ao acaso {stats['acerto_ao_acaso_pct']}%). Agora ele aprende a cada vela.")
+
+
 def preparar_velas(ag):
     """Aquece o histórico recente de cada par/intervalo e devolve as velas novas a processar."""
     novas = []
@@ -212,14 +238,17 @@ def cmd_simular(args):
         else:
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
-            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 3):
+            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 5):
                 backup = DADOS / f"simulacao_antiga_{time.strftime('%Y%m%d_%H%M')}.json"
                 shutil.copy2(ARQ_SIM, backup)
-                print(f"🔁 Reiniciando a agência com a nova versão (perfil {fut.get('perfil')}: risco de {fut.get('risco_por_operacao', 0) * 100:.0f}% "
-                      f"por operação{' + pirâmide' if fut.get('piramide') else ''}). A temporada anterior foi guardada em dados/{backup.name}.")
+                novo = ("MODO 5 MIN: todo mundo abre uma operação a cada 5 min, até 2h cada, 5x a 10x" if cfg.get("modo", {}).get("tipo") == "5m"
+                        else f"perfil {fut.get('perfil')}: risco de {fut.get('risco_por_operacao', 0) * 100:.0f}% por operação")
+                print(f"🔁 Recomeçando a agência ({novo}). A temporada anterior foi guardada em dados/{backup.name}.")
                 ag = None
     ag = ag or Agencia(cfg, agora)
     ag.ao_evento = imprimir_evento
+    if ag.modo5m() and not getattr(ag, "modelo_pesos", None):
+        treinar_modelo(cfg, ag)
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
     ag.adicionar_mesa_rapida(agora)

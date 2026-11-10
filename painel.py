@@ -104,6 +104,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._responder(200, {"disponivel": ok, "motivo": motivo, "modelo": gerente.MODELO, "chave": gerente.mascara(), **g})
         if caminho in ("/", "/escritorio"):
             return self._pagina("escritorio.html")
+        if caminho in ("/3d", "/escritorio3d"):
+            return self._pagina("escritorio_3d.html")
         if caminho in ("/pixel", "/escritorio2d"):
             return self._pagina("escritorio_pixel.html")
         if caminho in ("/painel", "/index.html"):

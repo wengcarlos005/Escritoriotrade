@@ -167,13 +167,13 @@ class Futuros:
                   f"{self.rotulo(ag)} abriu {nome_lado(lado)} {L}x: US$ {notional:,.0f} com US$ {margem:.2f} de margem — "
                   f"{j['porque']}{extra}")
 
-    def _fechar_fut(self, preco, motivo, t, cfg, ag, liquidado=False):
+    def _fechar_fut(self, preco, motivo, t, cfg, ag, liquidado=False, maker=False):
         p, self.posicao = self.posicao, None
         if liquidado:
             bruto, taxa = -p["margem"], 0.0
         else:
             bruto = p["lado"] * p["qtd"] * (preco - p["preco"])
-            taxa = p["qtd"] * preco * self._f(cfg).get("taxa_taker", 0.0005)
+            taxa = p["qtd"] * preco * self._f(cfg).get("taxa_maker" if maker else "taxa_taker", 0.0005)
         self.caixa += bruto - taxa
         self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + taxa
         self.volume = getattr(self, "volume", 0.0) + p["qtd"] * preco
@@ -187,6 +187,11 @@ class Futuros:
                         sufixo=f" no {nome_lado(p['lado'])} {p['alavancagem']:g}x ({pct:+.1f}% da margem)")
         if self.trades and p.get("risco_usd"):
             self.trades[-1]["r"] = round(lucro / p["risco_usd"], 2)
+        if self.trades and p.get("forcada") is not None:
+            self.trades[-1]["forcada"] = p.get("forcada")
+            self.trades[-1]["chance"] = p.get("chance")
+        self._falar(t, ("Fechei " if lucro >= 0 else "Perdi ") + f"{'+' if lucro >= 0 else '-'}US$ {abs(lucro):.2f} "
+                       f"({pct:+.1f}% na margem) no {nome_lado(p['lado'])} {p['alavancagem']:g}x — {motivo}.")
         ag.aprender(self, p, lucro, t)
 
     def _checar_liquidacao(self, o, h, l, t, cfg, ag):
@@ -278,6 +283,94 @@ class Futuros:
         p["unidades"], p["ultimo"] = p.get("unidades", 1) + 1, c
         ag.evento(t, self, "➕", f"{self.rotulo(ag)} aumentou o {nome_lado(lado)} (pirâmide {p['unidades']}/{pir.get('max_unidades')}): "
                                f"+US$ {dn:,.0f}, a operação já estava ganhando")
+
+    # ------------------------------------------------------------------ MODO 5 MIN: opera sempre
+    def _falar(self, t, texto):
+        self.fala, self.fala_t = texto, t
+
+    def _processar_5m(self, est, v, d, ve, de, i, cfg, ag):
+        """A cada vela de 5 min: se está fora, ABRE (pelo sinal da estratégia ou, sem sinal, no lado com maior
+        chance de WIN segundo o modelo). Toda operação fecha no alvo, no stop ou no limite de 2 horas."""
+        o, h, l, c, t = v["o"][i], v["h"][i], v["l"][i], v["c"][i], v["t"][i]
+        md = cfg.get("modo", {})
+        p = self.params
+        t_fim = t + passo_ms(self.intervalo)
+        limite = md.get("limite_horas", 2) * 3_600_000
+        pos = self.posicao
+        if pos and not self._checar_liquidacao(o, h, l, t, cfg, ag):
+            lado = pos["lado"]
+            r = None
+            if pos.get("m"):
+                dd, vv = (d, v) if lado > 0 else (de, ve)
+                r = checar_saida(est, dd, vv, i, p, pos["m"])
+                if r:
+                    r = (r[0] if lado > 0 else 1 / r[0], r[1])
+            else:
+                st, al = pos.get("stop_fixo"), pos.get("alvo_fixo")
+                if st and ((lado > 0 and l <= st) or (lado < 0 and h >= st)):
+                    r = (min(st, o) if lado > 0 else max(st, o), "stop")
+                elif al and ((lado > 0 and h >= al) or (lado < 0 and l <= al)):
+                    r = (al, "alvo")
+            if not r and t_fim - pos["t"] >= limite:
+                r = (c, "limite de 2h")
+            if r:
+                self._fechar_fut(r[0], r[1], t, cfg, ag, maker=(r[1] == "alvo"))
+            else:
+                self._niveis_reais()
+                if not pos.get("m"):
+                    pos["stop"], pos["alvo"] = pos.get("stop_fixo"), pos.get("alvo_fixo")
+        self._checar_pausa(t, ag)
+        if self.posicao or self.pausado_ate:
+            if self.posicao:
+                self._fala_posicao(t_fim, md)
+            return
+        # 1) sinal da própria estratégia
+        compra = pode_entrar(est, d, v, i, p) if est.id != "chance" else False
+        venda = (ve is not None and pode_entrar(est, de, ve, i, p)) if est.id != "chance" else False
+        cf = dict(self._f(cfg), risco_por_operacao=md.get("risco_por_operacao", 0.0025), piramide=None)
+        cfg2 = dict(cfg, futuros=cf)
+        if compra != venda:
+            lado = 1 if compra else -1
+            dd, vv = (d, v) if compra else (de, ve)
+            cc = vv["c"][i]
+            stop, alvo = niveis_de_entrada(dd, i, p, cc)
+            m = {"preco": cc, "stop": stop, "alvo": alvo, "barras": 0, "maxc": cc}
+            stop_real = stop if lado > 0 else 1 / stop
+            j = self._julgar(lado, c, stop_real, cfg2, ag, t_fim, fracao_entrada(dd, i, p))
+            self._abrir_fut(lado, j, c, t, m, cfg2, ag)
+            if self.posicao:
+                self.posicao.update(forcada=False, chance=None, limite_t=self.posicao["t"] + limite)
+                self._falar(t, f"Minha estratégia ({est.nome}) deu sinal: abri {nome_lado(lado)} {j['alavancagem']}x.")
+            return
+        # 2) sem sinal: OBRIGADO a abrir no lado com maior chance de WIN
+        x = ag.sinais_modelo(self.par, v, i, t_fim)
+        a = d.get("atr", [None])[i] if d.get("atr") else None
+        if x is None or not a:
+            self._falar(t, "Esperando histórico suficiente pra calcular a chance de WIN.")
+            return
+        lado, chance, outra = ag.modelo().melhor_lado(x)
+        stop = c - lado * md.get("stop_atr", 3.0) * a
+        alvo = c + lado * md.get("alvo_atr", 3.0) * a
+        j = self._julgar(lado, c, stop, cfg2, ag, t_fim, 1.0)
+        self._abrir_fut(lado, j, c, t, None, cfg2, ag, stop=stop)
+        if self.posicao:
+            self.posicao.update(forcada=True, chance=round(chance, 3), chance_outro=round(outra, 3), alvo_fixo=alvo,
+                                alvo=alvo, limite_t=self.posicao["t"] + limite)
+            from modelo import NOME_SINAL
+            motivos = [NOME_SINAL.get(n, n) for n in ag.modelo().explicar(x, lado)]
+            self._falar(t, f"Sem sinal da estratégia: abri {nome_lado(lado)} {j['alavancagem']}x forçado — chance de WIN "
+                           f"{chance * 100:.0f}% (contra {outra * 100:.0f}% do outro lado)"
+                           + (f"; sinais a favor: {' e '.join(motivos)}" if motivos else "") + ".")
+
+    def _fala_posicao(self, t_fim, md):
+        p = self.posicao
+        px = self.ultimo_preco or p["preco"]
+        lucro = p["lado"] * p["qtd"] * (px - p["preco"])
+        roe = lucro / p["margem"] * 100 if p.get("margem") else 0
+        resta = max(0, (p.get("limite_t") or t_fim) - t_fim) // 60_000
+        origem = f"forçado, chance {p['chance'] * 100:.0f}%" if p.get("forcada") else "sinal da estratégia"
+        self._falar(t_fim, f"{nome_lado(p['lado'])} {p['alavancagem']:g}x ({origem}): {'+' if lucro >= 0 else '-'}US$ {abs(lucro):.2f} "
+                           f"({roe:+.1f}% na margem). Fecho em até {resta} min.")
 
     # ------------------------------------------------------------------ alunos de peso (carteira contínua)
     def _stop_peso(self, d, i, c, lado):

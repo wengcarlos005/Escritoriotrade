@@ -30,6 +30,16 @@
     }
   },
 
+  "modo": {
+    "tipo": "5m",
+    "limite_horas": 2,
+    "alvo_atr": 3.0,
+    "stop_atr": 3.0,
+    "risco_por_operacao": 0.0025,
+    "aprender_ao_vivo": true,
+    "moedas_treino": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
+  },
+
   "futuros": {
     "ativo": true,
     "alavancagem_min": 5,

@@ -2,6 +2,11 @@
   "atualizado_em": "2026-11-08",
   "experimentos": [
     {
+      "titulo": "Modo 5 min: abrir a cada 5 min (sinal ou maior chance de WIN), até 2h, 5–10x",
+      "status": "em teste ao vivo",
+      "resultado": "Antes de ligar, testei em 88 dias que o modelo não viu (BTC, ETH, SOL, BNB, XRP): com as taxas de futuros, TODAS as moedas quebraram (−99%) arriscando 1% por operação; com 0,25% e alvo/stop de 3 ATR, −45% em 88 dias. Sem taxas o modelo teria +8% a +55% — ou seja, existe uma pontinha de vantagem, mas as taxas de ~800 operações/dia comem tudo. Nos últimos 30 dias o lado escolhido pelo modelo ganhou 41,5% das vezes (ao acaso: 43,1%). Repetindo os últimos 10 dias com o motor de verdade: ~875 operações/dia e todos os times entre −3% e −5%."
+    },
+    {
       "titulo": "Mesa de Grade em 10 moedas (alta frequência)",
       "status": "em teste ao vivo",
       "resultado": "Repetindo os últimos 60 dias com o motor de verdade: degrau 0,5% = ~200 operações/dia (+7%, US$ 82 de taxa); degrau 0,8% = ~78/dia (+6,3%). Escolhido 0,8% pra ficar em 50–100 operações/dia. Em 5 anos (aproximado) grades perderam — a sprint diária vai dizer."

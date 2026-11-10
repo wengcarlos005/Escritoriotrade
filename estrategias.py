@@ -543,6 +543,20 @@ POR_ID = {e.id: e for e in TODAS}
 POR_ID["grade"] = Grade()
 
 
+class SoChance(Estrategia):
+    """Robô da Chance: não tem estratégia própria — toda operação vem do modelo de chance de WIN (modo 5 min)."""
+    id, nome, emoji = "chance", "Só a chance de WIN", "🎲"
+    inspiracao = "modelo estatístico"
+    descricao = "A cada 5 minutos abre no lado (LONG ou SHORT) com maior chance de ganhar, segundo o modelo que aprende com o histórico."
+    params = {"intervalo": "5m"}
+
+    def entrada(self, d, v, i, p):
+        return False
+
+
+POR_ID["chance"] = SoChance()
+
+
 # ---------------------------------------------------------------------------
 # Execução: igual no backtest e ao vivo
 def niveis_de_entrada(d, i, p, preco):

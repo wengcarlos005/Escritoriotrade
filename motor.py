@@ -140,6 +140,10 @@ class Trader(Futuros):
         if not self.posicao and getattr(self, "params_novos", None):
             self.aplicar_params_novos()   # a próxima vela já vem no intervalo novo
             return
+        if ag.modo5m() and est.tipo != "grade":
+            self._funding(t + passo_ms(self.intervalo), c, cfg, ag)
+            self._processar_5m(est, v, d, ve, de, i, cfg, ag)
+            return
         if ag.futuros():
             if est.tipo == "grade":
                 self._grade_fut(v, i, cfg, ag)
@@ -372,7 +376,9 @@ class Agencia:
         self.sprint = None
         self.sprints = []
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
-        self.versao = 4            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.modo = cfg.get("modo", {}).get("tipo") if cfg.get("futuros", {}).get("ativo") else None
+        self.modelo_pesos = None
+        self.versao = 5            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.caixa_empresa = 0.0
         self.funding_real = None
@@ -382,10 +388,53 @@ class Agencia:
     def _iniciar_temporarios(self):
         self._buf = {}
         self._tend = {}
+        self._mcache = {}
+        self._modelo_obj = None
         self.ao_evento = None
 
     def futuros(self):
         return getattr(self, "mercado", "spot") == "futuros"
+
+    # --- MODO 5 MIN: todo mundo opera sempre; o modelo de chance escolhe o lado quando não há sinal ----------
+    def modo5m(self):
+        return getattr(self, "modo", None) == "5m"
+
+    def modelo(self):
+        if getattr(self, "_modelo_obj", None) is None:
+            from modelo import ModeloChance
+            self._modelo_obj = ModeloChance(getattr(self, "modelo_pesos", None))
+        return self._modelo_obj
+
+    def _ind_modelo(self, chave, v):
+        from modelo import preparar
+        k = (chave, v["t"][-1], len(v["t"]))
+        if self._mcache.get(chave, (None,))[0] != k:
+            self._mcache[chave] = (k, preparar(v))
+        return self._mcache[chave][1]
+
+    def sinais_modelo(self, par, v, i, t_fim):
+        from modelo import sinais
+        tend = self.tendencia(par, {"intervalo": "4h", "rapida": 20, "lenta": 150}, t_fim)
+        return sinais(v, self._ind_modelo(f"{par}@5m", v), i, tend)
+
+    def _aprender_modelo(self, chave, v):
+        """Toda vela nova revela o resultado de 2 horas atrás: o modelo aprende com ele."""
+        from modelo import H, resultado, sinais
+        md = self.cfg.get("modo", {})
+        if not md.get("aprender_ao_vivo", True):
+            return
+        n = len(v["c"])
+        i = n - 1 - H
+        if i < 60:
+            return
+        par = chave.split("@")[0]
+        ind = self._ind_modelo(chave, v)
+        x = sinais(v, ind, i, self.tendencia(par, {"intervalo": "4h", "rapida": 20, "lenta": 150}, v["t"][i] + 300_000))
+        if x is None:
+            return
+        custo = 2 * (self.cfg.get("futuros", {}).get("taxa_taker", 0.0005) + self.cfg.get("futuros", {}).get("derrapagem", 0.0002))
+        ka, ks = md.get("alvo_atr", 3.0), md.get("stop_atr", 3.0)
+        self.modelo().aprender(x, resultado(v, ind, i, 1, ka, ks, custo), resultado(v, ind, i, -1, ka, ks, custo))
 
     # --- aprendizado: cada operação fechada ensina alguma coisa ---------------------------------
     def _mem(self, chave):
@@ -499,6 +548,8 @@ class Agencia:
 
     # --- salvar / carregar ------------------------------------------------
     def para_dict(self):
+        if getattr(self, "_modelo_obj", None) is not None:
+            self.modelo_pesos = self._modelo_obj.para_dict()
         d = {k: v for k, v in self.__dict__.items() if not k.startswith("_") and k not in ("traders", "ao_evento", "times")}
         d["traders"] = [dict(tr.para_dict(), desempenho=round(self.desempenho(tr), 2)) for tr in self.traders]
         d["times"] = [self.resumo_time(tm) for tm in self.times]
@@ -674,6 +725,8 @@ class Agencia:
                     ks.add(f"{tr.par}@{filtro['intervalo']}")
                 if tr.estrategia != "grade":
                     ks.add(f"{tr.par}@{reg}")
+                if self.modo5m():
+                    ks.add(f"{tr.par}@4h")
         return sorted(ks)
 
     def pares(self):
@@ -719,6 +772,16 @@ class Agencia:
         lmax = fut.get("alavancagem_max", 10) if self.futuros() else 1
         moedas = self.cfg["liga"]["moedas"]
         capital = self.cfg["liga"]["capital_por_trader_usd"]
+        self.modo = self.cfg.get("modo", {}).get("tipo") if self.futuros() else None
+        if self.modo5m():   # todos operam em velas de 5 min
+            def em5(r):
+                r = dict(r)
+                if r.get("params_atuais"):
+                    r["params_atuais"] = dict(r["params_atuais"], intervalo="5m")
+                if r.get("comite"):
+                    r["comite"] = [em5(m) for m in r["comite"]]
+                return r
+            escolhidos = [em5(r) for r in escolhidos]
         for k, r in enumerate(escolhidos):
             if r.get("comite"):
                 self._criar_comite(r, t, lmax, moedas, capital)
@@ -776,11 +839,29 @@ class Agencia:
         """Mesa Rápida: estagiários com velas curtas, FORA da disputa (nunca viram titular, sem bebês)."""
         mr = self.cfg["liga"].get("mesa_rapida", {})
         modo = mr.get("modo", "grade") if mr.get("ativo") else None
+        if modo and self.modo5m():
+            modo = "chance"
         atual = next((tm for tm in self.times if tm.get("especial")), None)
         if atual and atual.get("modo", "estagiarios") != modo:
             self.remover_mesa(t)
             atual = None
         if not modo or atual:
+            return
+        if modo == "chance":
+            gr = mr.get("grade", {})
+            tm = {"id": "rapida", "nome": "Mesa da Chance", "emoji": "🎲", "inspiracao": "o modelo de chance de WIN", "modo": "chance",
+                  "alavancagem": self.cfg.get("futuros", {}).get("alavancagem_max", 10), "estrategia": "chance",
+                  "estrategia_nome": "só a chance de WIN (sem estratégia)", "params": {"intervalo": "5m"}, "intervalo": "5m",
+                  "titular": False, "aportes": 0.0, "lucro_usado_bebes": 0.0, "bonus_bebe1_pago": True, "curva": [], "nota_escola": None,
+                  "criado_em": t, "pontuacao": 0.0, "lugar": None, "especial": True, "confianca": 1.0, "preco_inicial": {}}
+            self.times.append(tm)
+            for par in gr.get("moedas", ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]):
+                tr = Trader(moeda(par), "🤖", par, 0.0, "trader", t, "rapida", "chance", {"intervalo": "5m"})
+                tr.ultimo_preco = self.ultimo_preco.get(par)
+                tr.alavancagem = tm["alavancagem"]
+                self.traders.append(tr)
+                self.aporte(tr, gr.get("capital_por_trader_usd", 1000))
+            self.evento(t, None, "🎲", "Chegou a Mesa da Chance: robôs sem estratégia própria, que seguem só o modelo de chance de WIN (fora da disputa)")
             return
         if modo == "grade":
             gr = dict(mr.get("grade", {}))
@@ -1093,8 +1174,8 @@ class Agencia:
     def sincronizar(self, chave, t):
         """Trader recém-criado entra no estado que a estratégia dele teria HOJE (como um trader
         profissional faz ao ligar um sistema), em vez de esperar dias pelo próximo cruzamento."""
-        if not self.cfg["liga"].get("sincronizar_ao_comecar", True):
-            return
+        if not self.cfg["liga"].get("sincronizar_ao_comecar", True) or self.modo5m():
+            return   # no modo 5 min todo mundo já abre na próxima vela
         v = self._buf.get(chave)
         if not v or len(v["c"]) < 60:
             return
@@ -1140,6 +1221,8 @@ class Agencia:
         v = self._buf[chave]
         self.ultimo_preco[chave.split("@")[0]] = vela["c"]
         cache = {}
+        if self.modo5m() and chave.endswith("@5m") and any(tr.chave == chave for tr in self.traders):
+            self._aprender_modelo(chave, v)
         shorts = self.futuros() and self.cfg.get("futuros", {}).get("vender_a_descoberto", True)
         ve = None
         for tr in list(self.traders):
