@@ -527,15 +527,6 @@ class Futuros:
         pl, ps = max(0.0, min(1.0, pl + 0.1 * m_l)), max(0.0, min(1.0, ps + 0.1 * m_s))
         compra = pode_entrar(est, d, v, i, p) if est.id != "chance" else False
         venda = (ve is not None and pode_entrar(est, de, ve, i, p)) if est.id != "chance" else False
-        # 1b) sem sinal da estratégia aqui? Olha as 5 moedas do time e vai pra que tiver a melhor chance agora
-        if compra == venda and md.get("trocar_moeda", True):
-            nova = self._escolher_moeda(ag, t, t_fim, max(pl, ps))
-            if nova and nova != self.par:
-                antiga, self.par = self.par, nova
-                self.ultimo_preco = ag.ultimo_preco.get(nova, self.ultimo_preco)
-                self._falar(t, f"Troquei de {antiga[:-4]} pra {nova[:-4]} 🔄",
-                            f"Sem sinal em {antiga[:-4]}; em {nova[:-4]} meu modelo vê mais chance agora. Entro na próxima vela de 5 min.")
-                return
         if compra != venda:
             lado = 1 if compra else -1
             dd, vv = (d, v) if compra else (de, ve)
@@ -607,31 +598,6 @@ class Futuros:
         if self.posicao:
             self.posicao.update(extra, limite_t=self.posicao["t"] + limite)
             self._falar(t, f"Entrei {lado_simples(lado)} {j['alavancagem']}x", f"Abri {nome_lado(lado)} {j['alavancagem']}x — {tamanho}. {porque}")
-
-    def _escolher_moeda(self, ag, t, t_fim, chance_atual):
-        """Entre as moedas do time, a de maior chance (pelo MEU modelo) que nenhum colega esteja operando agora."""
-        ocupadas = {x.par for x in ag.do_time(self.time) if x is not self and (x.posicao or getattr(x, "ordem", None))}
-        melhor, nota = None, chance_atual + 0.02          # só troca se for claramente melhor
-        meu = self.meu_modelo(ag)
-        for par in ag.moedas_do_time(self.time):
-            if par == self.par or par in ocupadas:
-                continue
-            vv = ag._buf.get(f"{par}@5m")
-            if not vv or not vv["t"] or vv["t"][-1] < t - 10 * 60_000:
-                continue
-            x = ag.sinais_modelo(par, vv, len(vv["t"]) - 1, t_fim)
-            if x is None:
-                continue
-            pl, ps = meu.chances(x)
-            _, m_l, _ = self.ajuste_situacao(x, 1)
-            _, m_s, _ = self.ajuste_situacao(x, -1)
-            sc = max(pl + 0.1 * m_l, ps + 0.1 * m_s)
-            if sc > nota:
-                melhor, nota = par, sc
-        if self.par in ocupadas and melhor is None:      # um colega já está nessa moeda: procura qualquer livre
-            livres = [p_ for p_ in ag.moedas_do_time(self.time) if p_ not in ocupadas]
-            melhor = livres[0] if livres else None
-        return melhor
 
     def _gerir_posicao(self, est, v, d, i, cfg, ag, t_fim, limite):
         """Saída INTELIGENTE (cada um com o seu jeito), revista a cada 5 min:

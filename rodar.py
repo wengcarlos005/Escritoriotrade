@@ -248,12 +248,7 @@ def cmd_simular(args):
         else:
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
-            if ag.futuros() and ag.modo5m() and getattr(ag, "versao", 1) in (7, 8):
-                backup = DADOS / f"simulacao_antes_dos_9_{time.strftime('%Y%m%d_%H%M')}.json"
-                shutil.copy2(ARQ_SIM, backup)
-                ag.ajustar_para_9(int(time.time() * 1000))
-                print(f"🔧 Temporada ajustada pra 9 traders e US$ {cfg['liga'].get('capital_total_usd')} (cópia de antes em dados/{backup.name}).")
-            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 7):
+            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 8):
                 backup = DADOS / f"simulacao_antiga_{time.strftime('%Y%m%d_%H%M')}.json"
                 shutil.copy2(ARQ_SIM, backup)
                 novo = ("MODO 5 MIN: todo mundo abre uma operação a cada 5 min, até 2h cada, 5x a 10x" if cfg.get("modo", {}).get("tipo") == "5m"
