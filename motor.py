@@ -1346,7 +1346,9 @@ class Agencia:
         self.temporada = {"numero": numero, "inicio": t, "proxima_rodada": proxima_segunda(t + 6 * 86_400_000),
                           "titular": self.times[0]["id"], "rodadas": []}
         self.abrir_sprint(t)
-        mercado = f" em FUTUROS (LONG e SHORT, alavancagem por julgamento até {lmax}x)" if self.futuros() else ""
+        mercado = ((" em FUTUROS (LONG e SHORT, velas de 4h, alavancagem pela volatilidade com teto de "
+                    f"{self._cfg_vol().get('teto', 4):g}x na agência)") if self.vol_ativo()
+                   else f" em FUTUROS (LONG e SHORT, alavancagem por julgamento até {lmax}x)" if self.futuros() else "")
         self.evento(t, None, "🏁", f"Começou a temporada {numero}{mercado}! Titular da 1ª semana: {self.times[0]['emoji']} {self.times[0]['nome']}")
 
     def _criar_comite(self, r, t, lmax, moedas, capital):

@@ -45,6 +45,11 @@ No navegador (http://127.0.0.1:8000): **🏢 Escritório** em pixel-art, com cad
 e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3D** (um andar de escritório dividido por times: cada área tem a cor do time, o ranking, o resultado e o caixa do time; telão de ranking, sala do CEO, sala do Claude, treinamento e copa — arraste pra girar, roda/pinça pra zoom, clique num trader ou numa área; a versão pixel-art antiga continua em `/pixel`),
 **📊 Visão geral** (classificação, times, rodadas), **🎓 Escola** (boletim e botão de nova temporada) e **🧠 Gerente**.
 
+## 2.0 Rodar num servidor na nuvem (24h, pelo celular)
+
+Quer acompanhar sem deixar o PC ligado? Veja o passo a passo em **[SERVIDOR.md](SERVIDOR.md)**: aluga um servidor
+(~R$ 25–35/mês), cola um comando e a agência fica no ar com HTTPS e senha, atualizando sozinha todo dia.
+
 ## 2.1 Como funciona a liga
 - **⏱️ MODO 5 MIN (padrão desde nov/2026):** todos os funcionários operam em velas de 5 minutos e **abrem uma operação a
   cada 5 minutos** sempre que estão fora: pelo sinal da estratégia do time ou, sem sinal, **obrigados** a abrir no lado
@@ -156,6 +161,15 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
 | 💥 Aperto e Explosão | Bollinger / John Carter | Bandas apertadas → explosão pra cima |
 | 🪃 Bandas de Bollinger | John Bollinger | Compra abaixo da banda inferior, vende na média |
 | 🤖 Cruzamento de Médias | (estratégia original) | A primeira versão da agência — fica como “turma de controle” |
+
+### Alunos novos e a prova da agência
+
+- **Aluno novo = um arquivo na pasta `alunos/`** (copie `alunos/_modelo.py`). A escola descobre sozinha e testa na
+  próxima prova. Já vieram três do mercado: 🔄 Virada do Momentum (AQR), ☁️ Nuvem Ichimoku e 🧮 Movimento Direcional (ADX).
+- **Prova da agência** (`escola_agencia.py`, roda junto com a escola toda semana): cada aluno opera BTC, ETH e SOL do
+  jeito do escritório (velas de 4h, mesmo risco por trader, alavancagem pela volatilidade, taxas e funding), em 8
+  semestres que nunca viu, e é comparado com o **campeão** (a formação atual), sozinho e junto com ele. Vereditos:
+  👑 pode virar campeão · 🤝 reforça o time · 📖 continua estudando · ❌ não serve hoje. A troca nunca é automática.
 
 ### Como é a prova (pra não se enganar)
 - **Walk-forward:** 8 provas de 6 meses (fim de 2022 → hoje). Antes de cada prova o aluno estuda

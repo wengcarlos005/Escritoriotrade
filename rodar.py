@@ -232,7 +232,7 @@ def resumo_liga(ag):
     for tm in sorted(ag.times, key=lambda x: x["lugar"] or 99):
         r = ag.resumo_time(tm)
         papel = "🏆 TITULAR" if tm["titular"] else ("⚡ fora   " if tm.get("especial") else "   reserva")
-        alav = (f"{tm.get('alavancagem') or 1}x" if tm.get("especial") else f"≤{tm.get('alavancagem') or 1}x") if ag.futuros() else ""
+        alav = ("vol" if ag.vol_ativo() else f"{tm.get('alavancagem') or 1}x" if tm.get("especial") else f"≤{tm.get('alavancagem') or 1}x") if ag.futuros() else ""
         print(f"  {tm['lugar'] or '–'}º {papel}  {tm['emoji']} {tm['nome']:<18} {tm['intervalo']:>3} {alav} patrimônio US$ {r['patrimonio']:8.2f}"
               f"  ({r['resultado_pct']:+.2f}%)  traders {len(ag.do_time(tm['id']))}")
     print()
