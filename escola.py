@@ -551,14 +551,26 @@ def rodar_escola(cfg_usuario=None, avisar=print, paralelo=True, futuros=None):
         "referencias": refs, "resultados": resultados, "mercado": cfg["mercado"], "comite": com,
     }
     ARQ_ESCOLA.parent.mkdir(exist_ok=True)
-    ARQ_ESCOLA.write_text(json.dumps(saida, ensure_ascii=False), encoding="utf-8")
+    tmp = ARQ_ESCOLA.with_suffix(".tmp")
+    tmp.write_text(json.dumps(saida, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, ARQ_ESCOLA)   # troca de uma vez: quem estiver lendo nunca pega o arquivo pela metade
     return saida
 
 
+_CACHE = {"mtime": None, "dados": None}
+
+
 def carregar():
-    if ARQ_ESCOLA.exists():
-        return json.loads(ARQ_ESCOLA.read_text(encoding="utf-8"))
-    return None
+    """Lê o boletim (com cache pela data do arquivo; se estiver sendo trocado, devolve o último bom)."""
+    if not ARQ_ESCOLA.exists():
+        return None
+    try:
+        mt = ARQ_ESCOLA.stat().st_mtime
+        if mt != _CACHE["mtime"]:
+            _CACHE["dados"], _CACHE["mtime"] = json.loads(ARQ_ESCOLA.read_text(encoding="utf-8")), mt
+    except Exception:
+        pass
+    return _CACHE["dados"]
 
 
 def campea(escola):

@@ -176,7 +176,9 @@ class Futuros:
             bruto, taxa = -p["margem"], 0.0
         else:
             bruto = p["lado"] * p["qtd"] * (preco - p["preco"])
-            taxa = p["qtd"] * preco * self._f(cfg).get("taxa_maker" if maker else "taxa_taker", 0.0005)
+            f_ = self._f(cfg)
+            taxa = p["qtd"] * preco * (f_.get("taxa_maker", 0.0002) if maker else f_.get("taxa_taker", 0.0005) + f_.get("derrapagem", 0.0)
+                                       if self.intervalo == "5m" else f_.get("taxa_taker", 0.0005))
         self.caixa += bruto - taxa
         self.taxas_pagas = getattr(self, "taxas_pagas", 0.0) + taxa
         self.volume = getattr(self, "volume", 0.0) + p["qtd"] * preco
@@ -376,6 +378,7 @@ class Futuros:
         hist = getattr(self, "hist_r", [])
         hist = (hist + [r])[-200:]
         self.hist_r = hist
+        self.ops_aprendidas = getattr(self, "ops_aprendidas", 0) + 1
         exp = getattr(self, "experimento", None)
         if exp:
             exp["n"] += 1
@@ -391,7 +394,7 @@ class Futuros:
                                         f"deu {novo:+.2f}R por operação (antes {base:+.2f}R) — " + ("FICA com a mudança" if ficou else "volta como era"))
                 self.experimento = None
             return
-        if len(hist) >= 30 and len(hist) % 30 == 0:
+        if len(hist) >= 30 and self.ops_aprendidas % 30 == 0:
             rnd = random.Random(f"exp|{self.nome}|{self.time}|{len(hist)}|{t}")
             param = rnd.choice(list(self.PARAMS_EXPERIMENTO))
             valores = self.PARAMS_EXPERIMENTO[param]
@@ -430,6 +433,7 @@ class Futuros:
             self.ordem = None
             lado, px = ordem["lado"], ordem["preco"]
             if (lado > 0 and l <= px) or (lado < 0 and h >= px):
+                px = min(px, o) if lado > 0 else max(px, o)   # se abriu do lado bom, executa no preço melhor
                 self._abrir_fut(lado, ordem["j"], px, t, ordem["m"], cfg2, ag, stop=ordem.get("stop_fixo"), maker=True)
                 if self.posicao:
                     self.posicao.update(ordem["extra"], limite_t=self.posicao["t"] + limite)
@@ -550,9 +554,14 @@ class Futuros:
             x = ag.sinais_modelo(self.par, v, i, t_fim)
             if x is not None:
                 pl, ps = self.meu_modelo(ag).chances(x)
+                _, m_l, _ = self.ajuste_situacao(x, 1)          # mesma conta da entrada (com o que ele aprendeu)
+                _, m_s, _ = self.ajuste_situacao(x, -1)
+                pl, ps = max(0.0, min(1.0, pl + 0.1 * m_l)), max(0.0, min(1.0, ps + 0.1 * m_s))
                 meu, outro = (pl, ps) if lado > 0 else (ps, pl)
                 pos["chance_agora"] = round(meu, 3)
-                if outro - meu >= e.get("virada", 0.08):
+                # entrada pelo SINAL da estratégia: só sai por "modelo virou" se a virada for o dobro (evita girar à toa)
+                exige = e.get("virada", 0.08) * (1 if pos.get("forcada", True) else 2)
+                if outro - meu >= exige:
                     return self._fechar_fut(c, f"meu modelo virou ({nome_lado(-lado)} {outro * 100:.0f}% × {meu * 100:.0f}%)", t, cfg, ag)
         # 4) limite de tempo
         if t_fim - pos["t"] >= limite:

@@ -466,7 +466,7 @@ class Agencia:
         if risco <= 0:
             return
         r = max(-3.0, min(6.0, lucro / risco))
-        m = self._mem(f"{tr.time}|{tr.nome}")
+        m = self._mem(self.chave_aprendizado(tr))
         m["r"] = (m["r"] + [round(r, 3)])[-60:]
         if not pos.get("a_favor", True):
             m["r_contra"] = (m["r_contra"] + [round(r, 3)])[-40:]
@@ -479,9 +479,16 @@ class Agencia:
                                       f"(últimas {len(ult)}: {sum(ult) / len(ult):+.2f}R em média) — "
                                       + ("vai arriscar um pouco mais" if c > ant else "vai arriscar menos"))
 
+    @staticmethod
+    def chave_aprendizado(tr):
+        """Cada funcionário tem um id único (quem entra no lugar de outro com o mesmo nome NÃO herda a memória dele)."""
+        if not getattr(tr, "uid", None):
+            tr.uid = f"{tr.time}|{tr.nome}|{tr.criado_em}"
+        return tr.uid
+
     def confianca_trader(self, tr):
         """Confiança de UM funcionário: parte da nota da escola e vai pro que ELE fez ao vivo."""
-        return self._confianca(self.time(tr.time).get("confianca") or 1.0, f"{tr.time}|{tr.nome}")
+        return self._confianca(self.time(tr.time).get("confianca") or 1.0, self.chave_aprendizado(tr))
 
     def _confianca(self, prior, chave):
         m = (getattr(self, "aprendizado", None) or {}).get(chave)
@@ -495,7 +502,7 @@ class Agencia:
 
     def fator_contra_trader(self, tr):
         base = self.cfg.get("futuros", {}).get("fator_contra_tendencia", 0.5)
-        m = (getattr(self, "aprendizado", None) or {}).get(f"{tr.time}|{tr.nome}")
+        m = (getattr(self, "aprendizado", None) or {}).get(self.chave_aprendizado(tr))
         if not m or not m["r_contra"]:
             return base
         rs = m["r_contra"][-30:]
@@ -571,7 +578,7 @@ class Agencia:
         saida = []
         for tm in self.times:
             for tr in self.do_time(tm["id"]):
-                m = (getattr(self, "aprendizado", None) or {}).get(f"{tm['id']}|{tr.nome}") or {"r": [], "r_contra": []}
+                m = (getattr(self, "aprendizado", None) or {}).get(self.chave_aprendizado(tr)) or {"r": [], "r_contra": []}
                 rs = m["r"]
                 mp = getattr(tr, "modelo_pesos", None) or {}
                 saida.append({"time": tm["id"], "estrategia": tr.estrategia, "nome": tr.nome, "trader": tr.nome,
@@ -760,6 +767,8 @@ class Agencia:
         if pior.posicao or (getattr(pior, "grade_estado", None) or {}).get("lotes"):
             pior.encerrar(pior.ultimo_preco or (pior.posicao or {}).get("preco") or 0, t, self.cfg, self)
         sobra = max(0.0, pior.patrimonio())
+        pior.caixa, pior.posicao, pior.ordem, pior.demitido = 0.0, None, None, True
+        (getattr(self, "aprendizado", None) or {}).pop(self.chave_aprendizado(pior), None)
         self.traders = [x for x in self.traders if x is not pior]
         self._para_empresa(tm, sobra)
         tm["demitidos"] = (tm.get("demitidos") or 0) + 1
@@ -808,6 +817,7 @@ class Agencia:
             if (getattr(self, "caixa_empresa", 0.0) or 0) >= premio:
                 self.caixa_empresa -= premio
                 melhor.caixa += premio
+                melhor.capital_recebido = getattr(melhor, "capital_recebido", 0.0) + premio
                 tm["aportes"] += premio
             else:
                 self.aporte(melhor, premio)
@@ -1252,7 +1262,7 @@ class Agencia:
                     segurar_pct=self._segurar(tid, tm.get("preco_inicial") or {}),
                     alavancagem_media=round(sum(p["alavancagem"] for p in abertos) / len(abertos), 1) if abertos else None,
                     confianca_agora=self.confianca_viva(tid) if not tm.get("especial") else None,
-                    caixa_time=round(tm.get("caixa_time") or 0.0, 2), contratados=tm.get("contratados") or 0,
+                    caixa_time=tm.get("caixa_time") or 0.0, contratados=tm.get("contratados") or 0,
                     demitidos=tm.get("demitidos") or 0,
                     pior=({"nome": p_.nome, "desempenho": round(self.desempenho(p_), 2)} if (p_ := min(membros, key=self.desempenho, default=None)) else None),
                     funcionarios=len(membros), max_funcionarios=e.get("max_funcionarios_por_time", 15),
@@ -1329,8 +1339,9 @@ class Agencia:
             self._aprender_modelo(chave, v)
         shorts = self.futuros() and self.cfg.get("futuros", {}).get("vender_a_descoberto", True)
         ve = None
+        vivos = self.traders
         for tr in list(self.traders):
-            if tr.chave != chave:
+            if tr.chave != chave or tr not in vivos or getattr(tr, "demitido", False):
                 continue
             est = POR_ID[tr.estrategia]
             k = (tr.estrategia, json.dumps(tr.params, sort_keys=True))
@@ -1342,8 +1353,11 @@ class Agencia:
                         ve = espelho(v)
                     cache[k] = (est.calcular(v, tr.params), est.calcular(ve, tr.params) if shorts else None)
             d, de = cache[k]
-            tr.processar(v, d, self.cfg, self, ve if shorts else None, de)
-            self.pagar_metas(tr, vela["t"])
+            try:
+                tr.processar(v, d, self.cfg, self, ve if shorts else None, de)
+                self.pagar_metas(tr, vela["t"])
+            except Exception as erro:   # um robô com problema não pode travar os outros nessa vela
+                self.evento(vela["t"], tr, "⚠️", f"{tr.rotulo(self)} teve um erro e pulou esta vela: {erro}")
         for tm in self.disputando():
             self._checar_bebes(tm, vela["t"])
 
