@@ -228,6 +228,9 @@ details.mais-d summary{cursor:pointer;color:var(--acento);font-weight:600;font-s
 }
 
 .tela canvas{image-rendering:pixelated;touch-action:none}
+body.modo-video{overflow:hidden;background:#cfd6dc}
+body.modo-video .tela{position:fixed;inset:0;width:100vw;border-radius:0;z-index:50}
+body.modo-video .tela > :not(canvas){display:none !important}
 .relogio,.legenda b{font-family:'Silkscreen',monospace}
 .relogio{font-size:11px;letter-spacing:.3px}
 .banner{font-family:'VT323',monospace;font-size:clamp(20px,3vw,28px);border-radius:4px;border:3px solid #1d1d1f;box-shadow:4px 4px 0 rgba(0,0,0,.18)}
@@ -781,13 +784,16 @@ const tela = $('tela'), canvas = $('cv'), ctx = canvas.getContext('2d');
 let W = 0, H = 0, DPR = 1;
 const CAM = {x: WW / 2, y: WH / 2, z: 1};
 let zMin = 0.5;
+const MODO_VIDEO = new URLSearchParams(location.search).has('video');
+if (MODO_VIDEO) document.body.classList.add('modo-video');
 function ajustarTela() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
   W = tela.clientWidth;
-  const pais = window.innerWidth > 700;
+  const pais = MODO_VIDEO ? false : window.innerWidth > 700;
   if (pais !== PAISAGEM) { definirLayout(pais); AG.clear(); SAINDO.clear(); PRIMEIRA = true; if (D) sincronizar(); }
   // a altura acompanha o formato do escritório: sem faixas vazias e com tudo no maior tamanho possível
-  if (WW && WH) tela.style.height = Math.round(pais ? Math.max(380, Math.min(780, W * WH / WW)) : Math.max(420, Math.min(1400, W * WH / WW))) + 'px';
+  if (MODO_VIDEO) tela.style.height = window.innerHeight + 'px';
+  else if (WW && WH) tela.style.height = Math.round(pais ? Math.max(380, Math.min(780, W * WH / WW)) : Math.max(420, Math.min(1400, W * WH / WW))) + 'px';
   H = tela.clientHeight;
   canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   zMin = Math.min(W / WW, H / WH) * 0.98;
@@ -795,12 +801,20 @@ function ajustarTela() {
 function verTudo() { CAM.x = WW / 2; CAM.y = WH / 2; CAM.z = zMin; }
 function limitarCam() {
   CAM.z = Math.max(zMin, Math.min(6, CAM.z));
+  if (MODO_VIDEO) return;   // no vídeo a câmera pode enquadrar livre (o roteiro decide)
   const mx = Math.max(0, (WW - W / CAM.z) / 2), my = Math.max(0, (WH - H / CAM.z) / 2);
   CAM.x = Math.max(WW / 2 - mx, Math.min(WW / 2 + mx, CAM.x)); CAM.y = Math.max(WH / 2 - my, Math.min(WH / 2 + my, CAM.y));
 }
 let VOO = null;
 function voar(x, y, z) { VOO = {x, y, z}; }
 function focarArea(id) { const a = areaDoTime(id); if (a) voar(a.x + AW / 2, a.y + AH / 2, Math.max(zMin, Math.min(W / (AW + 24), H / (AH + 24)))); }
+window.addEventListener('message', ev => {
+  const m = ev.data || {};
+  if (!MODO_VIDEO || typeof m !== 'object') return;
+  if (m.tudo) { const z = Math.max(zMin, (+m.tudo || 1) * zMin); voar(WW / 2 + (m.dx || 0) / z, WH / 2 + (m.dy || 0) / z, z); }
+  if (m.focar) { const a = areaDoTime(m.focar); if (a) voar(a.x + AW / 2 + (m.dx || 0), a.y + AH / 2 + (m.dy || 0), Math.min(6, (W / (AW + 16)) * (m.zoom || 1))); }
+  if (m.ponto) voar(m.ponto[0], m.ponto[1], m.ponto[2]);
+});
 const sx = x => (x - CAM.x) * CAM.z + W / 2, sy = y => (y - CAM.y) * CAM.z + H / 2;
 function R(x, y, w, h, cor) {   // retângulo em pixels de arte, alinhado aos pixels da tela
   const x0 = Math.round(sx(x)), y0 = Math.round(sy(y)), x1 = Math.round(sx(x + w)), y1 = Math.round(sy(y + h));
