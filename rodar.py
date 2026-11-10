@@ -246,7 +246,7 @@ def cmd_simular(args):
             shutil.move(ARQ_SIM, backup)
             print(f"📦 A simulação da versão antiga foi guardada em dados/{backup.name}.")
         else:
-            if d.get("versao", 1) >= 8:
+            if d.get("versao", 1) in (8, 9, 10):
                 # a mudança pra 9 traders / US$ 500 foi desfeita: volta pra temporada de 15 traders guardada antes dela
                 copias = sorted(DADOS.glob("simulacao_antes_dos_9_*.json"))
                 if not copias:
@@ -258,7 +258,7 @@ def cmd_simular(args):
                     print(f"↩️  Voltei pra temporada de 15 traders guardada em dados/{copias[-1].name} (a de 9 ficou em dados/simulacao_desfeita_*.json).")
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
-            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 7):
+            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 11):
                 backup = DADOS / f"simulacao_antiga_{time.strftime('%Y%m%d_%H%M')}.json"
                 shutil.copy2(ARQ_SIM, backup)
                 novo = ("MODO 5 MIN: todo mundo abre uma operação a cada 5 min, até 2h cada, 5x a 10x" if cfg.get("modo", {}).get("tipo") == "5m"

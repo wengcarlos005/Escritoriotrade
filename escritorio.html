@@ -651,6 +651,16 @@ function decidir(a, agora) {
   if (a.tipo === 'cao') return decidirCao(a, agora);
   if (SAINDO.has(a.id) || !a.casa) return;
   const tr = a.tr, posicionado = tr && tr.posicao;
+  // pediu pra trocar de moeda: vai até a sala do Claude pedir a troca
+  if (tr && tr.troca && a.troca_t !== tr.troca.t && a.estado !== 'andando') {
+    a.troca_t = tr.troca.t;
+    const p = PONTOS.ger();
+    a.ir(p.x + 16, p.y + 6, 'no_gerente', 6000, {aoChegar: x => {
+      x.falar(`— Claude, posso trocar pra ${String(tr.troca.para).replace('USDT', '')}?`, 4200, 5);
+      const g = AG.get('gerente'); if (g) setTimeout(() => g.falar('— Pode! Bom trade 👍', 3800, 5), 1800);
+    }});
+    return;
+  }
   if (a.estado !== 'mesa' && a.estado !== 'andando') { a.ir(a.casa.x, a.casa.y, 'mesa', rnd(20000, 50000)); return; }
   const r = Math.random();
   if (posicionado ? r < 0.85 : r < 0.5) { a.ate = agora + rnd(15000, 40000); return; }
@@ -1177,7 +1187,7 @@ canvas.addEventListener('pointerleave', () => { $('dica').style.opacity = 0; });
 function estadoInfo(a) {
   const tr = a.tr;
   const M2 = {
-    andando: ['🚶', 'andando pelo escritório'], conversando: ['💬', 'conversando com um colega'], cafe: ['☕', 'no café'],
+    andando: ['🚶', 'andando pelo escritório'], conversando: ['💬', 'conversando com um colega'], no_gerente: ['🔄', 'pedindo pro gerente pra trocar de moeda'], cafe: ['☕', 'no café'],
     visitando: ['👀', 'visitando um time'], na_sala: ['🗂️', 'na sala dele'], saindo: ['👋', 'indo embora'], parado: ['🐾', 'farejando por aí'],
   };
   if (a.estado === 'mesa' && tr) {

@@ -81,9 +81,17 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   ao vivo), pra não confundir sorte com habilidade. O robô também aprende se vale operar contra a tendência de
   200 dias. E **toda semana a escola reestuda** com os dados mais novos: os times atualizam os parâmetros (quem está
   posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
-- **3 times:** 📈 Seykota, 🦸 Supertrend e 🎩 Tudor Jones (os melhores da escola, tirando os que o CEO encerrou:
-  `liga.estrategias_excluidas` = MACD e Momentum). Cada time tem **5 traders** (BTC, ETH, SOL, BNB, XRP), com
-  **US$ 1.000 de mentira** cada. Sem Time Comitê e sem Mesa da Chance (`liga.mesa_rapida.ativo: false`).
+- **3 times, 6 traders, US$ 500:** 📈 Seykota, 🦸 Supertrend e 🎩 Tudor Jones, cada um começando com **2 traders**
+  (Ana, Bruno…) de **US$ 83,33** (`liga.capital_total_usd`, `liga.traders_por_time`). Cada time tem **5 moedas**
+  (BTC, ETH, SOL, BNB, XRP), **uma por trader** (dois do mesmo time nunca ficam na mesma). Sem sinal na moeda dele e
+  vendo chance bem melhor em outra livre, o trader **vai até o gerente pedir a troca** (vale na vela seguinte; depois
+  espera 30 min pra trocar de novo).
+- **💰 Margem = o caixa inicial dele** (US$ 83,33) em toda operação, com **8x a 12x** (Estagiário 8x → Trader 10x →
+  Sênior 12x): posições de ~US$ 670 a US$ 1.000. Conforme ele lucra, a margem continua a mesma e o risco em % cai.
+- **🏢 Economia:** a cada **US$ 4** de lucro novo o trader fica com **US$ 1,60** e manda **US$ 2,40** pro caixa do time;
+  com **US$ 83,33** no caixa o time **contrata** mais um trader (com esse dinheiro, numa moeda livre). O time cresce até
+  **5** (uma moeda cada); **só com o time cheio** a contratação demite o pior. O melhor ganha **US$ 4**. Limite de perda
+  do dia: 20% do caixa.
 - **🧬 Cada trader é independente:** tem o **próprio modelo de chance** (nasce de uma cópia do modelo da agência com
   pesos um pouco diferentes e depois aprende **só com as operações dele**), o **próprio jeito** (alvo, stop, ousadia,
   paciência, quanta chance exige) e a **própria confiança**. Dois robôs de BTC de times diferentes podem estar um LONG

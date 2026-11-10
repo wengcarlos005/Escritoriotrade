@@ -382,7 +382,7 @@ class Agencia:
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self.modo = cfg.get("modo", {}).get("tipo") if cfg.get("futuros", {}).get("ativo") else None
         self.modelo_pesos = None
-        self.versao = 7            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.versao = 11            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.caixa_empresa = 0.0
         self.funding_real = None
@@ -765,23 +765,26 @@ class Agencia:
         membros = self.do_time(tm["id"])
         if not membros:
             return
-        # 1) demite quem desempenhou pior (quem entrou há menos de N dias está em experiência e não sai)
-        carencia = e.get("experiencia_dias", 7) * 86_400_000
-        elegiveis = [m for m in membros if t - m.criado_em >= carencia] or membros
-        pior = min(elegiveis, key=self.desempenho)
-        d_pior = self.desempenho(pior)
-        if pior.posicao or (getattr(pior, "grade_estado", None) or {}).get("lotes"):
-            pior.encerrar(pior.ultimo_preco or (pior.posicao or {}).get("preco") or 0, t, self.cfg, self)
-        sobra = max(0.0, pior.patrimonio())
-        pior.caixa, pior.posicao, pior.ordem, pior.demitido = 0.0, None, None, True
-        (getattr(self, "aprendizado", None) or {}).pop(self.chave_aprendizado(pior), None)
-        self.traders = [x for x in self.traders if x is not pior]
-        self._para_empresa(tm, sobra)
-        tm["demitidos"] = (tm.get("demitidos") or 0) + 1
-        membros = [m for m in membros if m is not pior]
+        # 1) só demite se o time estiver cheio (um por moeda): sai quem desempenhou pior (quem está em experiência fica)
+        cheio = len(membros) >= e.get("max_funcionarios_por_time", 5)
+        pior, d_pior, sobra = None, 0.0, 0.0
+        if cheio:
+            carencia = e.get("experiencia_dias", 7) * 86_400_000
+            elegiveis = [m for m in membros if t - m.criado_em >= carencia] or membros
+            pior = min(elegiveis, key=self.desempenho)
+            d_pior = self.desempenho(pior)
+            if pior.posicao or (getattr(pior, "grade_estado", None) or {}).get("lotes"):
+                pior.encerrar(pior.ultimo_preco or (pior.posicao or {}).get("preco") or 0, t, self.cfg, self)
+            sobra = max(0.0, pior.patrimonio())
+            pior.caixa, pior.posicao, pior.ordem, pior.demitido = 0.0, None, None, True
+            (getattr(self, "aprendizado", None) or {}).pop(self.chave_aprendizado(pior), None)
+            self.traders = [x for x in self.traders if x is not pior]
+            self._para_empresa(tm, sobra)
+            tm["demitidos"] = (tm.get("demitidos") or 0) + 1
+            membros = [m for m in membros if m is not pior]
         # 2) contrata 1 (com os US$ 500 do caixa do time)
-        moedas = list(dict.fromkeys(self.cfg["liga"]["moedas"] + e.get("moedas_novas", [])))
-        uso = {p: sum(1 for m in membros if m.par == p) for p in moedas}
+        moedas = list(dict.fromkeys(self.cfg["liga"]["moedas"] + ([] if self.modo5m() else e.get("moedas_novas", []))))
+        uso = {p: sum(1 for m in membros if m.par == p or (getattr(m, "troca", None) or {}).get("para") == p) for p in moedas}
         par = min(moedas, key=lambda p: (uso[p], moedas.index(p)))
         base = next((m for m in membros if m.tipo != "contratado"), membros[0] if membros else pior)
         if tm.get("membros"):   # Comitê: reveza as estratégias
@@ -790,9 +793,10 @@ class Agencia:
         else:
             est_id, params = base.estrategia, base.params
         n = uso[par] + 1
-        nome = moeda(par) + (f" {POR_ID[est_id].emoji}" if tm.get("membros") else "") + (f" {n}" if n > 1 else "")
+        nome = self.novo_nome() if self.cfg["liga"].get("nomes_traders") else \
+            moeda(par) + (f" {POR_ID[est_id].emoji}" if tm.get("membros") else "") + (f" {n}" if n > 1 else "")
         novo = Trader(nome, "🧑‍💼", par, 0.0, "contratado", t, tm["id"], est_id, params)
-        novo.caixa = novo.capital_recebido = custo
+        novo.caixa = novo.capital_recebido = novo.capital_inicial = custo
         mentor = max(membros, key=self.desempenho) if membros else None
         if mentor is not None and self.modo5m():   # nasce TREINADO pelo melhor do time (com um pouco de jeito próprio)
             import random as _r
@@ -828,11 +832,12 @@ class Agencia:
             else:
                 self.aporte(melhor, premio)
             melhor.premios = getattr(melhor, "premios", 0) + 1
-        self.evento(t, novo, "🤝", f"{tm['emoji']} {tm['nome']} juntou US$ {custo:.0f} e contratou {nome}"
+        self.evento(t, novo, "🤝", f"{tm['emoji']} {tm['nome']} juntou US$ {custo:.2f} e contratou {nome} pra operar {moeda(par)}"
                                   + (f" (treinado pelo {novo.mentor}, o melhor do time)" if getattr(novo, "mentor", None) else "") + ". "
-                                  f"👋 Demitido: {pior.nome} (pior desempenho, {d_pior:+.1f}%) — os US$ {sobra:.0f} dele foram pro caixa da empresa."
-                                  + (f" ⭐ {melhor.nome} foi o melhor ({self.desempenho(melhor):+.1f}%) e ganhou US$ {premio:.0f}." if melhor and premio else "")
-                                  + (f" Sobra de US$ {resto:.0f} foi pro caixa da empresa." if resto > 0.005 else ""))
+                                  + (f"👋 Time cheio: saiu {pior.nome} (pior desempenho, {d_pior:+.1f}%) — os US$ {sobra:.2f} dele foram pro caixa da empresa."
+                                     if pior else f"Agora o time tem {len(membros) + 1} traders.")
+                                  + (f" ⭐ {melhor.nome} foi o melhor ({self.desempenho(melhor):+.1f}%) e ganhou US$ {premio:.2f}." if melhor and premio else "")
+                                  + (f" Sobra de US$ {resto:.2f} foi pro caixa da empresa." if resto > 0.005 else ""))
 
     def chaves(self):
         ks = {tr.chave for tr in self.traders}
@@ -847,6 +852,9 @@ class Agencia:
                 if self.modo5m():
                     ks.add(f"{tr.par}@4h")
                     ks.add("BTCUSDT@5m")
+            if self.modo5m() and self.cfg.get("modo", {}).get("trocar_moeda"):   # todas as moedas do time (pode trocar)
+                for par in self.moedas_do_time():
+                    ks.update({f"{par}@5m", f"{par}@4h", f"{par}@{reg}"})
         return sorted(ks)
 
     def pares(self):
@@ -892,6 +900,9 @@ class Agencia:
         lmax = fut.get("alavancagem_max", 10) if self.futuros() else 1
         moedas = self.cfg["liga"]["moedas"]
         capital = self.cfg["liga"]["capital_por_trader_usd"]
+        por_time = self.cfg["liga"].get("traders_por_time") or len(moedas)
+        if self.cfg["liga"].get("capital_total_usd"):   # o dinheiro total da agência dividido entre todos os traders
+            capital = self.cfg["liga"]["capital_total_usd"] / max(1, len(escolhidos) * por_time)
         self.modo = self.cfg.get("modo", {}).get("tipo") if self.futuros() else None
         if self.modo5m():   # todos operam em velas de 5 min
             def em5(r):
@@ -915,9 +926,11 @@ class Agencia:
                   "alavancagem": lmax, "confianca": confianca_da_escola(r.get("oos")) if self.futuros() else 1.0,
                   "preco_inicial": {}}
             self.times.append(tm)
-            for par in moedas:
-                tr = Trader(moeda(par), self.cfg["liga"].get("emoji_trader", "🤖"), par, 0.0, "trader", t,
+            for par in moedas[:por_time]:
+                tr = Trader(self.novo_nome() if self.cfg["liga"].get("nomes_traders") else moeda(par),
+                            self.cfg["liga"].get("emoji_trader", "🤖"), par, 0.0, "trader", t,
                             tm["id"], r["id"], r["params_atuais"])
+                tr.capital_inicial = capital
                 tr.ultimo_preco = self.ultimo_preco.get(par)
                 tr.alavancagem = tm["alavancagem"]
                 self.traders.append(tr)
@@ -1193,6 +1206,21 @@ class Agencia:
         self.abrir_sprint(t)
         return r
 
+    def novo_nome(self):
+        """Nome de gente (o trader troca de moeda, então o nome não pode ser a moeda)."""
+        nomes = self.cfg["liga"].get("nomes_traders") or ["Trader"]
+        usados = {tr.nome for tr in getattr(self, "traders", [])}
+        for n in nomes:
+            if n not in usados:
+                return n
+        k = 2
+        while f"{nomes[0]} {k}" in usados:
+            k += 1
+        return f"{nomes[0]} {k}"
+
+    def moedas_do_time(self, tid=None):
+        return self.cfg["liga"].get("moedas", [])
+
     def remover_time(self, tid, t, motivo="saiu da agência"):
         """Fecha as posições do time, tira ele e os funcionários da agência (o dinheiro dele sai da conta)."""
         tm = next((x for x in self.times if x["id"] == tid), None)
@@ -1372,6 +1400,9 @@ class Agencia:
         for tr in list(self.traders):
             if tr.chave != chave or tr not in vivos or getattr(tr, "demitido", False):
                 continue
+            if getattr(tr, "vela_t", None) == vela["t"]:
+                continue        # já agiu nesta vela (acabou de trocar de moeda)
+            tr.vela_t = vela["t"]
             est = POR_ID[tr.estrategia]
             k = (tr.estrategia, json.dumps(tr.params, sort_keys=True))
             if k not in cache:

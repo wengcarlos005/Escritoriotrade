@@ -8,6 +8,9 @@
     "estrategias_excluidas": ["macd", "momentum"],
     "moedas": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"],
     "capital_por_trader_usd": 1000,
+    "capital_total_usd": 500,
+    "traders_por_time": 2,
+    "nomes_traders": ["Ana", "Bruno", "Carla", "Diego", "Elisa", "Fábio", "Gabi", "Hugo", "Iris", "João", "Kátia", "Lucas", "Marina", "Nico", "Olívia", "Paulo", "Rita", "Sérgio", "Tati", "Vítor"],
     "semanas_para_pontuar": 4,
     "emoji_trader": "🤖",
     "so_alunos_aprovados": false,
@@ -37,11 +40,13 @@
     "alvo_atr": 6.0,
     "stop_atr": 4.0,
     "risco_por_operacao": 0.0025,
-    "multiplicador_margem": 5,
-    "margem_minima_usd": 200,
+    "margem_caixa_inicial": true,
+    "trocar_moeda": true,
+    "troca_espera_min": 30,
+    "carreira_alavancagem": [8, 10, 12],
     "entrada_limitada": true,
     "saida_limitada": true,
-    "limite_perda_dia": 0.05,
+    "limite_perda_dia": 0.2,
     "tamanho_pela_chance": {"corte": 0.5, "cheio": 0.6, "minimo": 0.05},
     "aprender_ao_vivo": true,
     "moedas_treino": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
@@ -49,8 +54,8 @@
 
   "futuros": {
     "ativo": true,
-    "alavancagem_min": 5,
-    "alavancagem_max": 10,
+    "alavancagem_min": 8,
+    "alavancagem_max": 12,
     "perfil": "agressivo",
     "perfis": {
       "moderado":        {"risco_por_operacao": 0.02, "piramide": null, "margem_por_operacao": 0.25},
@@ -81,14 +86,14 @@
 
   "empresa": {
     "ativo": true,
-    "meta_lucro_usd": 50,
-    "bonus_funcionario_usd": 20,
-    "para_caixa_do_time_usd": 30,
-    "custo_contratacao_usd": 500,
-    "premio_melhor_usd": 50,
+    "meta_lucro_usd": 4,
+    "bonus_funcionario_usd": 1.6,
+    "para_caixa_do_time_usd": 2.4,
+    "custo_contratacao_usd": 83.33,
+    "premio_melhor_usd": 4,
     "experiencia_dias": 7,
     "reforco_campeao_pct": 0.5,
-    "max_funcionarios_por_time": 15,
+    "max_funcionarios_por_time": 5,
     "moedas_novas": ["ADAUSDT", "DOGEUSDT", "LINKUSDT", "AVAXUSDT", "LTCUSDT", "DOTUSDT", "TRXUSDT", "NEARUSDT", "ATOMUSDT", "APTUSDT"]
   },
 

@@ -200,7 +200,8 @@ class Futuros:
         regime = ag.regime(self.par, t_fim)
         cf = dict(self._f(cfg), fator_contra_tendencia=ag.fator_contra_trader(self))
         if ag.modo5m():   # carreira: a alavancagem máxima é CONQUISTADA
-            cf["alavancagem_max"] = max(cf.get("alavancagem_min", 5), CARREIRA[self.cargo()]["max_alav"])
+            esc = (cfg.get("modo", {}).get("carreira_alavancagem") or [CARREIRA[k]["max_alav"] for k in ORDEM_CARREIRA])
+            cf["alavancagem_max"] = max(cf.get("alavancagem_min", 5), esc[ORDEM_CARREIRA.index(self.cargo())])
         conf = max(0.3, min(1.5, ag.confianca_trader(self) * ajuste))
         return dimensionar(self.patrimonio(), self.caixa, preco, abs(preco - stop) / preco, cf,
                            confianca=conf, a_favor=(regime == 0 or regime == lado),
@@ -527,6 +528,10 @@ class Futuros:
         pl, ps = max(0.0, min(1.0, pl + 0.1 * m_l)), max(0.0, min(1.0, ps + 0.1 * m_s))
         compra = pode_entrar(est, d, v, i, p) if est.id != "chance" else False
         venda = (ve is not None and pode_entrar(est, de, ve, i, p)) if est.id != "chance" else False
+        # 1b) sem sinal aqui: alguma outra moeda do time (que nenhum colega usa) está bem melhor? Vai pedir pro gerente
+        if compra == venda and md.get("trocar_moeda") and ag.modo5m():
+            if self._talvez_trocar_moeda(ag, t, t_fim, max(pl, ps), md):
+                return
         if compra != venda:
             lado = 1 if compra else -1
             dd, vv = (d, v) if compra else (de, ve)
@@ -554,9 +559,15 @@ class Futuros:
             fr = max(tc.get("minimo", 0.05), min(1.0, (chance - corte) / max(1e-6, tc.get("cheio", 0.6) - tc.get("corte", 0.5))))
         ajuste, media_sit, n_sit = (aj_l, m_l, n_l) if lado > 0 else (aj_s, m_s, n_s)
         j = self._julgar(lado, c, stop, cfg2, ag, t_fim, fr_base * fr * est_p.get("ousadia", 1.0), ajuste)
-        # margem: 5× a calculada e NUNCA menos que US$ 200 (pedido do CEO), sem passar do caixa
+        # margem = o caixa INICIAL dele, sempre (posição mínima). Conforme ele lucra, o caixa cresce mas a margem
+        # continua a mesma: o risco em % do patrimônio vai diminuindo. Se ele estiver abaixo do inicial, usa o que tem.
+        if md.get("margem_caixa_inicial"):
+            base = getattr(self, "capital_inicial", None) or getattr(self, "capital_recebido", 0) or self.caixa
+            margem = min(base, self.caixa * 0.95)
+            notional = margem * j["alavancagem"]
+            j = dict(j, margem=margem, notional=notional, risco_usd=notional * abs(c - stop) / c)
         mult, minimo = md.get("multiplicador_margem", 1.0), md.get("margem_minima_usd", 0.0)
-        if mult != 1.0 or minimo:
+        if (mult != 1.0 or minimo) and not md.get("margem_caixa_inicial"):
             margem = min(max(j["margem"] * mult, minimo), self.caixa * 0.95)
             notional = margem * j["alavancagem"]
             # o risco de verdade agora é o tamanho novo × a distância até o stop (pra medir R corretamente)
@@ -591,6 +602,47 @@ class Futuros:
         if self.posicao:
             self.posicao.update(extra, limite_t=self.posicao["t"] + limite)
             self._falar(t, f"Entrei {lado_simples(lado)} {j['alavancagem']}x", f"Abri {nome_lado(lado)} {j['alavancagem']}x — {tamanho}. {porque}")
+
+    def _talvez_trocar_moeda(self, ag, t, t_fim, chance_atual, md):
+        """Troca de moeda passando pelo gerente: na 1ª vela ele vai até o Claude pedir; na seguinte a troca vale.
+        Cada moeda só pode ter UM trader por time; depois de trocar, espera um tempo antes de trocar de novo."""
+        pedido = getattr(self, "troca", None)
+        reservadas = {x.par for x in ag.do_time(self.time) if x is not self} | \
+                     {(getattr(x, "troca", None) or {}).get("para") for x in ag.do_time(self.time) if x is not self}
+        if pedido:
+            self.troca = None
+            if pedido["para"] in reservadas:
+                self._falar(t, "O gerente negou: um colega já está nessa moeda.")
+                return False
+            antiga, self.par = self.par, pedido["para"]
+            self.ultimo_preco = ag.ultimo_preco.get(self.par, self.ultimo_preco)
+            self.ultima_troca_t = t
+            self._falar(t, f"O gerente aprovou: agora opero {self.par[:-4]} ✅", f"Troquei de {antiga[:-4]} pra {self.par[:-4]} com o aval do gerente.")
+            ag.evento(t, self, "🔄", f"{self.rotulo(ag)} foi no gerente e trocou de {antiga[:-4]} pra {self.par[:-4]}")
+            return True
+        if t - (getattr(self, "ultima_troca_t", 0) or 0) < md.get("troca_espera_min", 30) * 60_000:
+            return False
+        melhor, nota = None, chance_atual + 0.03
+        meu = self.meu_modelo(ag)
+        for par in ag.moedas_do_time(self.time):
+            if par == self.par or par in reservadas:
+                continue
+            vv = ag._buf.get(f"{par}@5m")
+            if not vv or not vv["t"] or vv["t"][-1] < t - 10 * 60_000:
+                continue
+            x = ag.sinais_modelo(par, vv, len(vv["t"]) - 1, t_fim)
+            if x is None:
+                continue
+            pl, ps = meu.chances(x)
+            sc = max(pl, ps)
+            if sc > nota:
+                melhor, nota = par, sc
+        if not melhor:
+            return False
+        self.troca = {"para": melhor, "t": t, "chance": round(nota, 3)}
+        self._falar(t, f"Vou no gerente pedir pra trocar pra {melhor[:-4]} 🚶",
+                    f"Em {self.par[:-4]} não tem nada bom agora; em {melhor[:-4]} meu modelo vê {nota * 100:.0f}% de chance.")
+        return True
 
     def _gerir_posicao(self, est, v, d, i, cfg, ag, t_fim, limite):
         """Saída INTELIGENTE (cada um com o seu jeito), revista a cada 5 min:
