@@ -1459,7 +1459,7 @@ function renderTopo(vivo) {
   const chips = D.modo === '5m'
     ? ['Futuros', 'Opera a cada 5 min', `${fc.alavancagem_min || 5}–${fc.alavancagem_max || 10}x`, ...(md.margem_minima_usd ? [`Margem mín. US$${num(md.margem_minima_usd, 0)}`] : []), `Até ${md.limite_horas || 2}h por operação`]
     : ['Futuros', `Perfil ${String(fc.perfil || '').replace('_', ' ')}`, `Até ${alavs.length ? Math.max(...alavs) : 10}x`];
-  const tagFut = FUT() ? `<span class="chips">${chips.map((c, k) => `<span class="ch${k === 0 ? ' fut' : ''}">${esc(c)}</span>`).join('')}<span class="ch" title="${D.fonte_dados === 'futuros' ? 'preço do contrato perpétuo e funding real da Binance' : 'a API de futuros não respondeu: usando o preço à vista'}">${D.fonte_dados === 'futuros' ? '📡 preços de futuros' : '📡 preços à vista'}</span></span>` : '';
+  const tagFut = FUT() ? `<span class="chips">${chips.map((c, k) => `<span class="ch${k === 0 ? ' fut' : ''}">${esc(c)}</span>`).join('')}<span class="ch" title="${D.fonte_dados === 'futuros' ? 'preço do contrato perpétuo e funding real da Binance' : 'a API de futuros não respondeu: usando o preço à vista'}">${D.fonte_dados === 'futuros' ? '📡 preços de futuros' : '📡 preços à vista'}</span>${celularChip()}</span>` : '';
   $('sub').innerHTML = vivo ? `Temporada ${temp.numero} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · titular: <b>${esc(tit.emoji)} ${esc(tit.nome)}</b> ${tagFut}`
                             : `A agência está desligada — mostrando os últimos dados salvos ${tagFut}`;
   const sp = D.sprint_atual, liq = D.traders.reduce((s, t) => s + (t.liquidacoes || 0), 0);
@@ -1504,6 +1504,36 @@ requestAnimationFrame(quadro);
 (document.fonts && document.fonts.load ? Promise.all([document.fonts.load('16px VT323'), document.fonts.load('10px Silkscreen')]).catch(() => {}) : Promise.resolve()).then(() => CACHE_TXT.clear());
 atualizar();
 setInterval(atualizar, 5000);
+
+// ---- 📱 abrir no celular: no PC mostra um QR code com o endereço da rede (no celular o chip some) ----
+function celularChip() {
+  const noPC = ['127.0.0.1', 'localhost', '::1'].includes(location.hostname);
+  return noPC && D && D.celular_url ? `<span class="ch" style="cursor:pointer" onclick="mostrarCelular()" title="ver no celular">📱 ver no celular</span>` : '';
+}
+function mostrarCelular() {
+  const url = D.celular_url;
+  let m = document.getElementById('modalCel');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'modalCel';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
+    m.onclick = e => { if (e.target === m) m.remove(); };
+    document.body.appendChild(m);
+  }
+  m.innerHTML = `<div style="background:#fff;color:#1d2b24;border-radius:18px;padding:22px;max-width:340px;width:100%;text-align:center;font-family:inherit">
+    <div style="font-weight:800;font-size:18px;margin-bottom:6px">📱 Acompanhar no celular</div>
+    <div style="font-size:13px;opacity:.75;margin-bottom:12px">Conecte o celular no <b>mesmo Wi-Fi</b> deste PC e aponte a câmera pro código:</div>
+    <div id="qrCel" style="display:flex;justify-content:center;margin:8px 0 12px"></div>
+    <div style="font-family:monospace;font-size:15px;background:#eef3ef;border-radius:8px;padding:8px;user-select:all">${url}</div>
+    <div style="font-size:12px;opacity:.7;margin-top:10px">Não abriu? Rode <b>7_liberar_celular.bat</b> (libera o firewall do Windows só pra sua rede de casa).</div>
+    <button onclick="document.getElementById('modalCel').remove()" style="margin-top:14px;border:0;background:#1f7a4d;color:#fff;border-radius:10px;padding:9px 18px;font-weight:700;cursor:pointer">Fechar</button></div>`;
+  const desenhar = () => { try { new QRCode(document.getElementById('qrCel'), { text: url, width: 200, height: 200 }); } catch (e) {} };
+  if (window.QRCode) return desenhar();
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  s.onload = desenhar;
+  document.head.appendChild(s);
+}
 </script>
 </body>
 </html>

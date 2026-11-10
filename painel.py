@@ -106,6 +106,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             g = gerente.carregar()
             d["gerente"] = {"relatorio": g.get("relatorio")}
             d["simulacao_rodando"] = _estado["fila"] is not None
+            d["celular_url"] = _estado.get("celular_url")
             return self._responder(200, d)
         if caminho == "/api/escola":
             d = _ler_json(ARQ_ESCOLA) or {"vazio": True}
@@ -203,6 +204,7 @@ def iniciar(arquivo_sim=ARQ_SIM, fila=None, porta=8000, abrir_navegador=True, bl
     if celular:
         ip = ip_da_rede()
         if ip:
+            _estado["celular_url"] = f"http://{ip}:{servidor.server_address[1]}"
             print(f"📱 No celular (no mesmo Wi-Fi): http://{ip}:{servidor.server_address[1]}   — só pra acompanhar")
             print("   (se o Windows perguntar sobre o firewall, marque 'Redes privadas' e clique em Permitir)")
     if abrir_navegador:
