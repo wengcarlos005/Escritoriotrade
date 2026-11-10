@@ -128,7 +128,7 @@ def imprimir_boletim(esc, cfg):
         print(f" 🤝 Comitê ({' + '.join(com['nomes'])}): {o['retorno_pct']:+.1f}% · queda máx {o['max_dd_pct']:.1f}% · Sharpe {o['sharpe']}")
     if esc.get("mercado") == "futuros":
         print(" 💹 Prova em FUTUROS: LONG e SHORT, risco fixo por operação, alavancagem por julgamento, funding e liquidação.")
-    print(" ⚽ Times da próxima temporada: " + ", ".join(f"{r['emoji']} {r['nome']}" for r in escolher_times(cfg, esc)))
+    print(" ⚽ Times da próxima temporada: " + ", ".join(f"{r.get('emoji') or ''} {r.get('nome_time') or r.get('nome')}" for r in escolher_times(cfg, esc)))
     print(f" ({esc['alunos_testados']} alunos, {esc['combinacoes_testadas']} combinações, {esc['duracao_s']}s)")
     print(" ⚠️  Resultado passado não garante o futuro. Simulação — não é recomendação de investimento.")
     print("=" * 96)
@@ -138,6 +138,13 @@ def cmd_escola(args):
     cfg = carregar_config()
     esc = escola_mod.rodar_escola(cfg.get("escola"), futuros=cfg.get("futuros"))
     imprimir_boletim(esc, cfg)
+    if cfg.get("futuros", {}).get("ativo"):
+        try:
+            import escola_agencia
+            print()
+            escola_agencia.rodar(cfg, esc)
+        except Exception as erro:
+            print(f"⚠️  A prova da agência falhou: {erro}")
     print("\nVeja os detalhes no painel (aba 🎓 Escola). Pra montar os times com esse boletim: botão 'Nova temporada'.")
 
 
@@ -332,6 +339,17 @@ def cmd_simular(args):
                 top = [r["id"] for r in escolher_times(cfg, esc)]
                 if sorted(top) != sorted(tm["id"] for tm in ag.times):
                     ag.evento(agora, None, "📜", "Novo boletim da escola: o top 5 mudou (veja na aba Escola)")
+                try:   # a prova da agência diz se algum aluno novo merece entrar no escritório
+                    import escola_agencia
+                    pa = escola_agencia.carregar()
+                    if pa:
+                        cand = [a for a in pa["alunos"] if a["veredito"].startswith(("👑", "🤝"))]
+                        ag.evento(agora, None, "🎓", (f"Escola: {', '.join(a['emoji'] + ' ' + a['nome'] + ' (' + a['veredito'] + ')' for a in cand)} "
+                                                       "— veja a prova da agência na aba Escola") if cand else
+                                  f"Escola: {len(pa['alunos'])} alunos testados como se operassem no escritório — nenhum supera o campeão "
+                                  f"({pa['campeao']['nome']}, {pa['campeao']['ao_ano_pct']:+.0f}% ao ano)")
+                except Exception:
+                    pass
             # 2b) Reestudo: a escola refaz as provas com os dados novos a cada N dias (em segundo plano)
             dias_re = cfg.get("aprendizado", {}).get("reestudar_a_cada_dias", 7)
             if dias_re and esc and agora - esc.get("gerado_em", agora) > dias_re * 86_400_000 \

@@ -113,6 +113,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._responder(200, d)
         if caminho == "/api/escola":
             d = _ler_json(ARQ_ESCOLA) or {"vazio": True}
+            d["agencia"] = _ler_json(DADOS / "escola_agencia.json")
             d["rodando"] = escola_rodando()
             if ARQ_LOG_ESCOLA.exists():
                 d["log"] = ARQ_LOG_ESCOLA.read_text(encoding="utf-8", errors="replace").splitlines()[-12:]

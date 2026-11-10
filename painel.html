@@ -201,7 +201,7 @@ textarea,input[type=password],input[type=text]{width:100%;background:#0f1216;col
   <!-- ===================== ESCOLA ===================== -->
   <section id="aba-escola" class="oculto">
     <h1>Escola de <span>traders</span></h1>
-    <p class="sub">Cada aluno é uma estratégia inspirada num trader famoso. Eles fazem provas em períodos que nunca viram — e os 5 melhores viram os times da liga.</p>
+    <p class="sub">Cada aluno é uma metodologia de trade (de traders famosos, fundos e pesquisadores). Toda semana eles fazem provas em períodos que nunca viram — e a <b>prova da agência</b> diz se algum deles melhoraria o escritório. Aluno novo entra criando um arquivo na pasta <code>alunos/</code> (veja <code>alunos/_modelo.py</code>).</p>
     <details>
       <summary>Como a escola avalia (clique pra entender)</summary>
       <ul>
@@ -230,6 +230,9 @@ textarea,input[type=password],input[type=text]{width:100%;background:#0f1216;col
       <canvas id="grafico-escola"></canvas>
       <div class="legenda" id="legenda-escola"></div>
     </div>
+    <div class="painel tabela" id="prova-agencia" style="margin-bottom:12px"></div>
+    <h2 style="margin:18px 0 6px">Boletim geral da escola</h2>
+    <p class="sub" style="margin-top:0">Cada aluno sozinho, numa carteira de BTC, ETH, SOL e BNB, com o tamanho de posição da escola (não do escritório).</p>
     <div class="painel tabela" id="ranking"></div>
 
   </section>
@@ -550,7 +553,27 @@ function renderEscola() {
     }
   });
   $('ranking').innerHTML = html + '</table>';
+  renderProvaAgencia(E.agencia);
   desenharEscola();
+}
+
+function renderProvaAgencia(A) {
+  const el = $('prova-agencia');
+  if (!A) { el.innerHTML = '<div class="vazio">🏢 A prova da agência roda junto com a escola (botão "Rodar a escola agora").</div>'; return; }
+  const c = A.campeao, sem = s => s.map(x => `<span class="${cls(x)}">${x > 0 ? '+' : ''}${Math.round(x)}%</span>`).join(' ');
+  let html = `<h2 style="margin:0 0 4px">🏢 Prova da agência</h2>
+    <p class="sub" style="margin:0 0 10px">Cada aluno opera ${A.moedas.map(moeda).join(', ')} em velas de ${esc(A.intervalo)}, do jeito do escritório (mesmo risco por trader, alavancagem pela volatilidade com alvo de ${Math.round(A.alvo_vol * 100)}% e teto de ${A.teto}x, taxas e funding), em ${A.janelas.length} semestres que ele nunca viu. Boletim de ${hora(A.gerado_em)}.</p>
+    <div class="kpi" style="margin-bottom:10px"><div class="r">🏆 campeão atual: ${esc(c.nome)}</div><div class="v ${cls(c.ao_ano_pct)}">${pct(c.ao_ano_pct, 0)} ao ano</div><div class="s">pior queda ${pct(c.pior_queda_pct, 0)} · Sharpe ${num(c.sharpe)} · semestres: ${sem(c.semestres_pct)}</div></div>
+    <table><tr><th>aluno</th><th>veredito</th><th>sozinho</th><th>pior queda</th><th>Sharpe</th><th>semestres +</th><th>junto com o campeão</th></tr>`;
+  for (const a of A.alunos) {
+    const s = a.sozinho, j = a.com_campeao;
+    html += `<tr><td><b>${esc(a.emoji)} ${esc(a.nome)}</b><div class="sub" style="margin:0;font-size:12px">${esc(a.inspiracao)}</div></td>
+      <td><b>${esc(a.veredito)}</b><div class="sub" style="margin:0;font-size:12px">${esc(a.texto)}</div></td>
+      <td class="${cls(s.ao_ano_pct)}">${pct(s.ao_ano_pct, 0)}/ano</td><td class="neg">${pct(s.pior_queda_pct, 0)}</td><td>${num(s.sharpe)}</td>
+      <td>${s.semestres_positivos} de ${s.semestres_pct.length}</td>
+      <td>${pct(j.ao_ano_pct, 0)}/ano · Sharpe ${num(j.sharpe)}</td></tr>`;
+  }
+  el.innerHTML = html + '</table><p class="sub" style="margin:8px 0 0">👑 = sozinho seria melhor que o campeão · 🤝 = junto, deixaria a agência mais estável sem perder retorno. A troca não é automática: quem decide é você (em <code>liga.times_fixos</code> no config.json, ou pedindo pro Claude).</p>';
 }
 
 $('ranking').addEventListener('click', async ev => {

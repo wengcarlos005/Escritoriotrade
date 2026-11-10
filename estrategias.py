@@ -597,3 +597,34 @@ def fracao_entrada(d, i, p):
 
 def pode_entrar(est, d, v, i, p):
     return i >= 1 and d["atr"][i] is not None and est.entrada(d, v, i, p)
+
+
+# ---------------------------------------------------------------------------
+# NOVOS ALUNOS: cada arquivo .py na pasta alunos/ (que não comece com "_") pode trazer metodologias novas.
+# Basta criar uma classe que herda de Estrategia (veja alunos/_modelo.py). Na próxima prova, a escola testa
+# o aluno junto com os outros — e a "prova da agência" diz se ele merece entrar no escritório.
+def _carregar_alunos():
+    import importlib.util
+    import pathlib
+    pasta = pathlib.Path(__file__).resolve().parent / "alunos"
+    novos = []
+    for arq in (sorted(pasta.glob("*.py")) if pasta.exists() else []):
+        if arq.name.startswith("_"):
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location(f"alunos_{arq.stem}", arq)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            for obj in list(vars(mod).values()):
+                if (isinstance(obj, type) and issubclass(obj, Estrategia) and obj is not Estrategia
+                        and getattr(obj, "id", "") and obj.id not in POR_ID and obj.__module__ == mod.__name__):
+                    e = obj()
+                    TODAS.append(e)
+                    POR_ID[e.id] = e
+                    novos.append(e.id)
+        except Exception as erro:   # um aluno com defeito não pode derrubar a escola
+            print(f"⚠️  Não consegui carregar o aluno {arq.name}: {erro}")
+    return novos
+
+
+NOVOS_ALUNOS = _carregar_alunos()
