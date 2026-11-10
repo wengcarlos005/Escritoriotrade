@@ -40,6 +40,9 @@ def enxugar(d):
         tm["curva"] = _reduzir(tm.get("curva"))
     for tr in d.get("traders", []):
         tr["trades"] = tr.get("trades", [])[-30:]
+    d.pop("fila_lado", None)                       # fila interna do aprendizado (pesada, não vai pra tela)
+    if isinstance(d.get("conta_real"), dict):
+        d["conta_real"]["curva"] = _reduzir(d["conta_real"].get("curva"))
     return d
 
 

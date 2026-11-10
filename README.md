@@ -81,16 +81,26 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   ao vivo), pra não confundir sorte com habilidade. O robô também aprende se vale operar contra a tendência de
   200 dias. E **toda semana a escola reestuda** com os dados mais novos: os times atualizam os parâmetros (quem está
   posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
-- **3 times, 6 traders, US$ 500:** 📈 Seykota, 🦸 Supertrend e 🎩 Tudor Jones, cada um começando com **2 traders**
-  (Ana, Bruno…) de **US$ 83,33** (`liga.capital_total_usd`, `liga.traders_por_time`). Cada time tem **5 moedas**
-  (BTC, ETH, SOL, BNB, XRP), **uma por trader** (dois do mesmo time nunca ficam na mesma). Sem sinal na moeda dele e
-  vendo chance bem melhor em outra livre, o trader **vai até o gerente pedir a troca** (vale na vela seguinte; depois
-  espera 30 min pra trocar de novo).
-- **💰 Margem = o caixa inicial dele** (US$ 83,33) em toda operação, com **8x a 12x** (Estagiário 8x → Trader 10x →
-  Sênior 12x): posições de ~US$ 670 a US$ 1.000. Conforme ele lucra, a margem continua a mesma e o risco em % cai.
-- **🏢 Economia:** a cada **US$ 4** de lucro novo o trader fica com **US$ 1,60** e manda **US$ 2,40** pro caixa do time;
-  com **US$ 83,33** no caixa o time **contrata** mais um trader (com esse dinheiro, numa moeda livre). O time cresce até
-  **5** (uma moeda cada); **só com o time cheio** a contratação demite o pior. O melhor ganha **US$ 4**. Limite de perda
+- **3 times, 9 traders, US$ 1.500 simulados:** 📈 Seykota, 🦸 Supertrend e 🎩 Tudor Jones, cada um começando com
+  **3 traders** (Ana, Bruno…) de **US$ 166,67** — US$ 500 por time (`liga.capital_total_usd`, `liga.traders_por_time`).
+  Cada time tem **5 moedas** (BTC, ETH, SOL, BNB, XRP), **uma por trader** (dois do mesmo time nunca ficam na mesma).
+  Sem sinal na moeda dele e vendo chance bem melhor em outra livre, o trader **vai até o gerente pedir a troca** (vale
+  na vela seguinte; depois espera 30 min pra trocar de novo).
+- **💵 Conta real (por enquanto simulada):** além do patrimônio simulado dos 9, existe uma conta de **US$ 500** que só
+  o **TOP 1 do dia** opera: na virada do dia, o time com o melhor resultado assume a conta (as posições abertas do time
+  anterior terminam normalmente). Ela copia as operações dos traders desse time, cada um com 1/3 da conta. Hoje é só
+  um placar (`conta_real.modo = "simulado"`): **nenhuma ordem vai pra Binance**.
+- **💰 Margem de US$ 200** por operação (`modo.margem_fixa_usd`), limitada a 95% do caixa do trader — no começo
+  ~US$ 158 —, com **8x a 12x** (Estagiário 8x → Trader 10x → Sênior 12x).
+- **🎯 Mesa de lado (todos aprendem juntos, a cada trade):** continua obrigatório abrir a cada 5 min, mas o LADO agora
+  é calibrado. Cada decisão de qualquer trader entra numa fila; 2 horas depois o mercado revela o que LONG e SHORT
+  teriam dado a partir daquela vela (mesmo alvo/stop, com taxas — um resultado neutro, que não depende das saídas). Com
+  isso a **mesa compartilhada** aprende, o **modelo próprio** do trader aprende, e a **calibração** anota quem acertou
+  o lado. O trader mistura os dois (começa 70% mesa) e o peso se ajusta sozinho conforme quem acerta mais.
+  Configurável em `modo.lado_compartilhado`.
+- **🏢 Economia:** a cada **US$ 8** de lucro novo o trader fica com **US$ 3,20** e manda **US$ 4,80** pro caixa do time;
+  com **US$ 166,67** no caixa o time **contrata** mais um trader (com esse dinheiro, numa moeda livre). O time cresce até
+  **5** (uma moeda cada); **só com o time cheio** a contratação demite o pior. O melhor ganha **US$ 8**. Limite de perda
   do dia: 20% do caixa.
 - **🧊 Esfriamento (aprende a evitar as fases ruins):** a agência anota cada operação junto com "como ela vinha nas
   últimas 3 horas" quando abriu. Se aprender (com pelo menos 30 casos) que, depois de perder mais de 1% do capital

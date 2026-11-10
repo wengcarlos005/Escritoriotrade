@@ -223,6 +223,7 @@ details.mais-d summary{cursor:pointer;color:var(--acento);font-weight:600;font-s
   .tela{height:390px}
   .kpi{min-width:0;flex:1 1 30%}
   .kpi .v{font-size:15px}
+  .kpi.real{flex:1 1 100%}
   .relogio{font-size:11px}
 }
 
@@ -954,7 +955,8 @@ function desenharPlacasArea(a) {
   const fs = Math.max(9, Math.min(15, Math.round(5.2 * z)));
   ctx.textBaseline = 'middle';
   const rk = t.titular ? '★ 1º' : t.especial ? '⚡' : `${t.lugar}º`;
-  let f = fs, nome = `${rk} ${nomeCurto(t.id)}`, res = pct(t.resultado_pct, 1);
+  const real = D.conta_real && D.conta_real.time === t.id;
+  let f = fs, nome = `${rk} ${nomeCurto(t.id)}${real ? ' · $ REAL' : ''}`, res = pct(t.resultado_pct, 1);
   ctx.font = `${f}px ${FONTE_PLACA}`;
   while (f > 7 && ctx.measureText(nome + '  ' + res).width > Wp - 8) { f--; ctx.font = `${f}px ${FONTE_PLACA}`; }
   if (ctx.measureText(nome + '  ' + res).width > Wp - 8) res = '';
@@ -1463,13 +1465,16 @@ function renderTopo(vivo) {
   $('sub').innerHTML = vivo ? `Temporada ${temp.numero} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · titular: <b>${esc(tit.emoji)} ${esc(tit.nome)}</b> ${tagFut}`
                             : `A agência está desligada — mostrando os últimos dados salvos ${tagFut}`;
   const sp = D.sprint_atual, liq = D.traders.reduce((s, t) => s + (t.liquidacoes || 0), 0);
-  $('kpis').innerHTML = [['patrimônio', usd(total), ''], ['resultado', `${sinal(lucro)}${usd(Math.abs(lucro))}`, cls(lucro)],
+  const cr = D.conta_real, crTm = cr && D.times.find(x => x.id === cr.time), crL = cr ? cr.patrimonio - cr.inicial : 0;
+  $('kpis').innerHTML = [...(cr ? [[`💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}`,
+      `${usd(cr.patrimonio)} <small class="${cls(crL)}" style="font-size:12px">${sinal(crL)}${usd(Math.abs(crL))}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''}</div>`, '', 'real']] : []),
+    [cr ? 'patrimônio simulado' : 'patrimônio', usd(total), ''], ['resultado', `${sinal(lucro)}${usd(Math.abs(lucro))}`, cls(lucro)],
     FUT() ? ['posições', `${longs}▲ ${shorts}▼ <small style="font-size:12px;color:var(--suave)">de ${D.traders.length}</small>`, ''] : ['comprados agora', `${abertos.length} de ${D.traders.length}`, ''],
     ...(sp && sp.total ? [[sp.duracao === 'dia' ? 'sprint do dia' : 'sprint ' + sp.numero, `${sp.total.operacoes_agencia ?? sp.total.operacoes} ops · ${pct(sp.total.lucro_pct, 2)}`, cls(sp.total.lucro_pct)]] : []),
     ...(FUT() ? [['liquidações', liq ? `💀 ${liq}` : '0', liq ? 'neg' : '']] : []),
     ...(D.caixa_empresa != null ? [['🏦 caixa da empresa', usd(D.caixa_empresa || 0), '']] : []),
     ['próxima rodada', falta(temp.proxima_rodada), '']]
-    .map(([r, v, c]) => `<div class="kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div></div>`).join('');
+    .map(([r, v, c, k]) => `<div class="kpi${k ? ' ' + k : ''}"><div class="r">${r}</div><div class="v ${c}">${v}</div></div>`).join('');
 }
 
 

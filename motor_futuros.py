@@ -267,6 +267,8 @@ class Futuros:
         ag.aprender(self, p, lucro, t)
         if hasattr(ag, "registrar_esfriamento"):
             ag.registrar_esfriamento(p, lucro, t)
+        if hasattr(ag, "registrar_conta_real"):
+            ag.registrar_conta_real(self, p, lucro, t)
         self._aprender_com_operacao(p, lucro, t, ag)
 
     def _checar_liquidacao(self, o, h, l, t, cfg, ag):
@@ -412,6 +414,18 @@ class Futuros:
         media = sum(rs) / n * n / (n + 15)          # encolhe: poucos casos quase não mudam nada
         return max(0.4, min(1.4, 1 + media)), media, n
 
+    def peso_mesa(self, ag):
+        """Quanto ele confia na mesa compartilhada × no próprio modelo pra escolher o LADO, pelo que cada um
+        acertou nas decisões dele (só os casos em que um lado ganharia e o outro não)."""
+        cl = ag._cfg_lado()
+        w0 = cl.get("peso_inicial", 0.7)
+        c = getattr(self, "calib_lado", None) or {}
+        m, p = c.get("mesa", []), c.get("proprio", [])
+        if len(m) < cl.get("min_casos", 20):
+            return w0
+        dif = sum(m) / len(m) - sum(p) / len(p)
+        return round(max(0.2, min(0.95, w0 + 3 * dif)), 2)
+
     def _aprender_com_operacao(self, p, lucro, t=None, ag=None):
         x = p.get("x")
         if not x or getattr(self, "_mod", None) is None and not getattr(self, "modelo_pesos", None):
@@ -420,7 +434,10 @@ class Futuros:
         if getattr(self, "_mod", None) is None:
             self._mod = ModeloChance(self.modelo_pesos)
         y = 1 if lucro > 0 else 0
-        (self._mod.long if p["lado"] > 0 else self._mod.short).aprender(x, y, 0.03)
+        if not (ag is not None and ag._cfg_lado().get("ativo")):
+            # (com a mesa de lado ligada, o modelo aprende o LADO pelo resultado neutro de 2h — ver Agencia._resolver_lados;
+            #  aprender aqui com "eu ganhei?" ensinaria errado: depende das saídas dele, não só do lado)
+            (self._mod.long if p["lado"] > 0 else self._mod.short).aprender(x, y, 0.03)
         self._mod.vistos += 1
         self._mod.acertos += y
         # regra por situação
@@ -518,6 +535,7 @@ class Futuros:
                 self._abrir_fut(lado, ordem["j"], px, t, ordem["m"], cfg2, ag, stop=ordem.get("stop_fixo"), maker=True)
                 if self.posicao:
                     self.posicao.update(ordem["extra"], limite_t=self.posicao["t"] + limite)
+                    ag.marcar_conta_real(self, self.posicao, t)
                     if not ordem["m"]:
                         self.posicao.update(stop=ordem["stop_fixo"], alvo=ordem["extra"].get("alvo_fixo"))
                     self._falar(t, f"Entrei {lado_simples(lado)} {ordem['j']['alavancagem']}x a {_br(px, 2 if px >= 1 else 5)}",
@@ -533,6 +551,13 @@ class Futuros:
         est_p = self.meu_estilo()
         meu = self.meu_modelo(ag)
         pl, ps = meu.chances(x)
+        lado_proprio = 1 if pl >= ps else -1
+        lado_mesa, peso_mesa = lado_proprio, 0.0
+        if ag._cfg_lado().get("ativo"):
+            ml, ms_ = ag.mesa_lado().chances(x)
+            lado_mesa = 1 if ml >= ms_ else -1
+            peso_mesa = self.peso_mesa(ag)
+            pl, ps = peso_mesa * ml + (1 - peso_mesa) * pl, peso_mesa * ms_ + (1 - peso_mesa) * ps
         # o que ele aprendeu sobre situações parecidas mexe na chance de cada lado
         aj_l, m_l, n_l = self.ajuste_situacao(x, 1)
         aj_s, m_s, n_s = self.ajuste_situacao(x, -1)
@@ -562,6 +587,8 @@ class Futuros:
             alvo = c + lado * est_p.get("alvo_atr", md.get("alvo_atr", 6.0)) * a
             forcada, fr_base = True, 1.0
         chance, outra = (pl, ps) if lado > 0 else (ps, pl)
+        if ag._cfg_lado().get("ativo"):
+            ag.registrar_decisao_lado(self, self.par, v["t"][i], [round(z, 4) for z in x], lado, lado_mesa, lado_proprio)
         # 2) TAMANHO pela chance: obrigado a abrir sempre, mas pequeno quando a chance é fraca (menos taxa)
         tc = md.get("tamanho_pela_chance") or {}
         fr = 1.0
@@ -572,13 +599,14 @@ class Futuros:
         j = self._julgar(lado, c, stop, cfg2, ag, t_fim, fr_base * fr * est_p.get("ousadia", 1.0), ajuste)
         # margem = o caixa INICIAL dele, sempre (posição mínima). Conforme ele lucra, o caixa cresce mas a margem
         # continua a mesma: o risco em % do patrimônio vai diminuindo. Se ele estiver abaixo do inicial, usa o que tem.
-        if md.get("margem_caixa_inicial"):
-            base = getattr(self, "capital_inicial", None) or getattr(self, "capital_recebido", 0) or self.caixa
+        if md.get("margem_fixa_usd") or md.get("margem_caixa_inicial"):
+            # margem fixa (ex.: US$ 200) ou o caixa INICIAL dele — nunca mais que 95% do caixa que ele tem agora
+            base = md.get("margem_fixa_usd") or getattr(self, "capital_inicial", None) or getattr(self, "capital_recebido", 0) or self.caixa
             margem = min(base, self.caixa * 0.95)
             notional = margem * j["alavancagem"]
             j = dict(j, margem=margem, notional=notional, risco_usd=notional * abs(c - stop) / c)
         mult, minimo = md.get("multiplicador_margem", 1.0), md.get("margem_minima_usd", 0.0)
-        if (mult != 1.0 or minimo) and not md.get("margem_caixa_inicial"):
+        if (mult != 1.0 or minimo) and not (md.get("margem_caixa_inicial") or md.get("margem_fixa_usd")):
             margem = min(max(j["margem"] * mult, minimo), self.caixa * 0.95)
             notional = margem * j["alavancagem"]
             # o risco de verdade agora é o tamanho novo × a distância até o stop (pra medir R corretamente)
@@ -595,6 +623,11 @@ class Futuros:
         else:
             porque = f"Minha estratégia ({est.nome}) deu sinal; meu modelo dá {chance * 100:.0f}% de chance."
         porque += f" Meu jeito: {est_p['jeito']} (alvo {est_p['alvo_atr']:g} ATR, stop {est_p['stop_atr']:g} ATR)."
+        if peso_mesa:
+            cal = getattr(self, "calib_lado", None) or {}
+            pm = lambda l: f"{sum(l) / len(l) * 100:.0f}%" if l else "—"
+            porque += (f" Lado calibrado: {peso_mesa * 100:.0f}% mesa (aprende com todos os traders, acerta {pm(cal.get('mesa', []))})"
+                       f" + {100 - peso_mesa * 100:.0f}% meu modelo (acerta {pm(cal.get('proprio', []))}).")
         if n_sit >= 5:
             porque += (f" Já vivi {n_sit}× '{self.situacao(x, lado)}': {media_sit:+.2f}R em média"
                        + (", vou com mais confiança." if media_sit > 0.05 else ", vou com cuidado." if media_sit < -0.05 else "."))
@@ -612,6 +645,7 @@ class Futuros:
         self._abrir_fut(lado, j, c, t, m, cfg2, ag, stop=stop if not m else None)
         if self.posicao:
             self.posicao.update(extra, limite_t=self.posicao["t"] + limite)
+            ag.marcar_conta_real(self, self.posicao, t)
             self._falar(t, f"Entrei {lado_simples(lado)} {j['alavancagem']}x", f"Abri {nome_lado(lado)} {j['alavancagem']}x — {tamanho}. {porque}")
 
     def _talvez_trocar_moeda(self, ag, t, t_fim, chance_atual, md):

@@ -382,7 +382,7 @@ class Agencia:
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self.modo = cfg.get("modo", {}).get("tipo") if cfg.get("futuros", {}).get("ativo") else None
         self.modelo_pesos = None
-        self.versao = 11            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.versao = 12            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.caixa_empresa = 0.0
         self.funding_real = None
@@ -395,6 +395,7 @@ class Agencia:
         self._mcache = {}
         self._modelo_obj = None
         self._esf_cache = self._bat_cache = None
+        self._mesa_obj = None
         self.ao_evento = None
 
     def futuros(self):
@@ -609,6 +610,150 @@ class Agencia:
         filtro = self.cfg.get("futuros", {}).get("regime", {"intervalo": "1d", "rapida": 50, "lenta": 200})
         return tendencia(self._buf.get(f"{par}@{filtro['intervalo']}"), filtro, t_fim, self._tend)
 
+    # --- 🎯 MESA DE LADO: todos os traders aprendem JUNTOS qual lado abrir -------------------------------
+    # Cada decisão de qualquer trader (moeda, vela, sinais) entra numa fila. Duas horas depois o mercado revela o que
+    # LONG e SHORT teriam dado a partir daquela vela (mesmo alvo/stop, com taxas) — um resultado NEUTRO, que não depende
+    # das saídas que ele escolheu. Aí: (1) a mesa compartilhada aprende; (2) o modelo próprio do trader aprende;
+    # (3) a calibração anota quem acertou o lado — a mesa ou o modelo dele — e o peso de cada um se ajusta sozinho.
+    def _cfg_lado(self):
+        return self.cfg.get("modo", {}).get("lado_compartilhado") or {}
+
+    def mesa_lado(self):
+        if getattr(self, "_mesa_obj", None) is None:
+            from modelo import ModeloChance
+            if not getattr(self, "mesa_pesos", None):
+                self.mesa_pesos = self.modelo().para_dict()
+            self._mesa_obj = ModeloChance(self.mesa_pesos)
+        return self._mesa_obj
+
+    def registrar_decisao_lado(self, tr, par, t_vela, x, lado, lado_mesa, lado_proprio):
+        fila = getattr(self, "fila_lado", None) or []
+        uid = self.chave_aprendizado(tr)
+        if any(f["uid"] == uid and f["t"] == t_vela for f in fila[-40:]):
+            return
+        fila.append({"uid": uid, "par": par, "t": t_vela, "x": x,
+                     "lado": lado, "mesa": lado_mesa, "proprio": lado_proprio})
+        self.fila_lado = fila[-3000:]
+
+    def _resolver_lados(self, chave, v):
+        import bisect
+        from modelo import H, resultado
+        par = chave.split("@")[0]
+        fila = self.fila_lado
+        prontos = [f for f in fila if f["par"] == par and f["t"] + H * 300_000 <= v["t"][-1]]
+        if not prontos:
+            return
+        self.fila_lado = [f for f in fila if not (f["par"] == par and f["t"] + H * 300_000 <= v["t"][-1])]
+        ind = self._ind_modelo(chave, v)
+        md, fut = self.cfg.get("modo", {}), self.cfg.get("futuros", {})
+        entrada = fut.get("taxa_maker", 0.0002) if md.get("entrada_limitada", True) else fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
+        custo = entrada + fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
+        ka, ks = md.get("alvo_atr", 6.0), md.get("stop_atr", 4.0)
+        taxa = self._cfg_lado().get("taxa", 0.01)
+        mesa = self.mesa_lado()
+        por_uid = {self.chave_aprendizado(tr): tr for tr in self.traders}
+        cal = getattr(self, "calib_lado", None) or {"mesa": [], "proprio": [], "escolhido": [], "anunciado": 0}
+        vistos = set()
+        for f in prontos:
+            i = bisect.bisect_left(v["t"], f["t"])
+            if i >= len(v["t"]) or v["t"][i] != f["t"]:
+                continue
+            yl, ys = resultado(v, ind, i, 1, ka, ks, custo), resultado(v, ind, i, -1, ka, ks, custo)
+            if yl is None or ys is None:
+                continue
+            if f["t"] not in vistos:          # a mesma vela decidida por vários traders ensina a mesa uma vez só
+                vistos.add(f["t"])
+                mesa.long.aprender(f["x"], yl, taxa)
+                mesa.short.aprender(f["x"], ys, taxa)
+            tr = por_uid.get(f["uid"])
+            if tr is not None:
+                m = tr.meu_modelo(self)
+                m.long.aprender(f["x"], yl, taxa)
+                m.short.aprender(f["x"], ys, taxa)
+            if yl == ys:
+                continue                       # os dois lados ganhariam (ou perderiam): não diz nada sobre o lado
+            certo = lambda lado: int((yl == 1) == (lado > 0))
+            for k in ("mesa", "proprio", "escolhido"):
+                cal[k] = (cal[k] + [certo(f[k if k != "escolhido" else "lado"])])[-300:]
+            if tr is not None:
+                c = getattr(tr, "calib_lado", None) or {"mesa": [], "proprio": []}
+                c["mesa"] = (c["mesa"] + [certo(f["mesa"])])[-100:]
+                c["proprio"] = (c["proprio"] + [certo(f["proprio"])])[-100:]
+                tr.calib_lado = c
+            cal["anunciado"] = cal.get("anunciado", 0) + 1
+            if cal["anunciado"] % 100 == 0 and len(cal["mesa"]) >= 50:
+                pct = lambda l: sum(l[-100:]) / len(l[-100:]) * 100
+                self.evento(v["t"][-1], None, "🎯", f"Calibrando o lado (últimos 100 casos em que só um lado ganharia): "
+                                                     f"mesa compartilhada acertou {pct(cal['mesa']):.0f}%, modelos próprios {pct(cal['proprio']):.0f}%, "
+                                                     f"lado escolhido {pct(cal['escolhido']):.0f}%")
+        self.calib_lado = cal
+
+    # --- 💵 CONTA REAL (por enquanto simulada): só o TOP 1 do dia opera ela ----------------------------
+    def _conta_real(self):
+        c = self.cfg.get("conta_real") or {}
+        if not c.get("ativo"):
+            return None
+        cr = getattr(self, "conta_real", None)
+        if not isinstance(cr, dict):
+            ini = float(c.get("capital_usd", 500))
+            cr = self.conta_real = {"inicial": ini, "patrimonio": ini, "time": None, "desde": None, "operacoes": 0,
+                                    "vitorias": 0, "hoje": 0.0, "dias": [], "curva": [], "modo": c.get("modo", "simulado")}
+        return cr
+
+    def time_da_conta_real(self, t):
+        cr = self._conta_real()
+        if cr is None:
+            return None
+        ids = [tm["id"] for tm in self.disputando()]
+        if cr["time"] not in ids and ids:
+            tit = next((tm for tm in self.disputando() if tm.get("titular")), self.disputando()[0])
+            cr["time"], cr["desde"] = tit["id"], t
+        return cr["time"]
+
+    def marcar_conta_real(self, tr, pos, t):
+        """Na hora que a posição abre: ela também roda na conta real? (só se o time dele é o top 1 do dia)."""
+        cr = self._conta_real()
+        if cr is None or not pos or self.time_da_conta_real(t) != tr.time:
+            return
+        n = max(1, len(self.do_time(tr.time)))
+        vaga = cr["patrimonio"] / n
+        pos["real"] = True
+        pos["real_escala"] = round(min(1.0, vaga / pos["margem"]) if pos.get("margem") else 1.0, 4)
+
+    def registrar_conta_real(self, tr, pos, lucro, t):
+        cr = self._conta_real()
+        if cr is None or not pos.get("real"):
+            return
+        v = lucro * pos.get("real_escala", 1.0)
+        cr["patrimonio"] = round(cr["patrimonio"] + v, 4)
+        cr["hoje"] = round(cr.get("hoje", 0.0) + v, 4)
+        cr["operacoes"] += 1
+        cr["vitorias"] += int(v > 0)
+        cr["curva"] = (cr["curva"] + [[t, round(cr["patrimonio"], 2)]])[-3000:]
+
+    def _virar_conta_real(self, r, t):
+        cr = self._conta_real()
+        if cr is None:
+            return
+        linhas = [x for x in r.get("times", []) if not x.get("especial")]
+        if not linhas:
+            return
+        top = max(linhas, key=lambda x: x["lucro_pct"])
+        cr["dias"] = (cr["dias"] + [{"fim": t, "time": cr["time"], "lucro": round(cr.get("hoje", 0.0), 2),
+                                     "patrimonio": round(cr["patrimonio"], 2), "top_do_dia": top["id"]}])[-120:]
+        cr["hoje"] = 0.0
+        antigo = next((tm for tm in self.times if tm["id"] == cr["time"]), None)
+        novo = next((tm for tm in self.times if tm["id"] == top["id"]), None)
+        if novo and top["id"] != cr["time"]:
+            self.evento(t, None, "💵", f"{novo['emoji']} {novo['nome']} foi o TOP 1 do dia ({top['lucro_pct']:+.2f}%) e assume a CONTA REAL "
+                                       f"(US$ {cr['patrimonio']:.2f}) no lugar do {antigo['nome'] if antigo else 'time anterior'}"
+                                       " — as posições que já estavam abertas terminam normalmente")
+        elif novo:
+            self.evento(t, None, "💵", f"{novo['emoji']} {novo['nome']} foi de novo o TOP 1 do dia ({top['lucro_pct']:+.2f}%) e continua com a conta real "
+                                       f"(US$ {cr['patrimonio']:.2f})")
+        if novo:
+            cr["time"], cr["desde"] = top["id"], t
+
     # --- ESFRIAMENTO: a agência aprende a não insistir nas horas ruins -----------------------------------
     # Ela anota o resultado de cada operação junto com "como a agência vinha nas últimas horas" quando ela abriu.
     # Se aprender que, depois de algumas horas no vermelho, as próximas operações costumam perder MAIS que o normal,
@@ -693,6 +838,8 @@ class Agencia:
     def para_dict(self):
         if getattr(self, "_modelo_obj", None) is not None:
             self.modelo_pesos = self._modelo_obj.para_dict()
+        if getattr(self, "_mesa_obj", None) is not None:
+            self.mesa_pesos = self._mesa_obj.para_dict()
         d = {k: v for k, v in self.__dict__.items() if not k.startswith("_") and k not in ("traders", "ao_evento", "times")}
         d["traders"] = [dict(tr.para_dict(), desempenho=round(self.desempenho(tr), 2)) for tr in self.traders]
         d["times"] = [self.resumo_time(tm) for tm in self.times]
@@ -1276,6 +1423,7 @@ class Agencia:
         r["temporada"] = (self.temporada or {}).get("numero")
         self.sprints.append(r)
         self.sprints = self.sprints[-90:]
+        self._virar_conta_real(r, t)
         tot = r["total"]
         self.evento(t, None, "🏃", f"Sprint {r['numero']} fechada: {tot.get('operacoes_agencia', tot['operacoes'])} operações, resultado dos times {tot['lucro_pct']:+.2f}%, "
                                   f"taxas US$ {tot['taxas']:.2f}. Veja a retrospectiva na aba Sprints")
@@ -1470,6 +1618,8 @@ class Agencia:
         cache = {}
         if self.modo5m() and chave.endswith("@5m") and any(tr.chave == chave for tr in self.traders):
             self._aprender_modelo(chave, v)
+        if self.modo5m() and chave.endswith("@5m") and getattr(self, "fila_lado", None):
+            self._resolver_lados(chave, v)
         shorts = self.futuros() and self.cfg.get("futuros", {}).get("vender_a_descoberto", True)
         ve = None
         vivos = self.traders
