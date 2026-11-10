@@ -20,6 +20,11 @@
       "metas": {"lucro_medio_por_operacao_min": 0.0, "bater_segurar": true, "taxas_max_pct_do_bruto": 30, "queda_max_pct": 10, "liquidacoes_max": 0}
     },
     "comite": {"ativo": false, "membros": 3},
+    "times_fixos": [
+      {"id": "seykota_rapido", "estrategia": "seykota", "nome": "Seykota Rápido", "emoji": "🐇", "params": {"rapida": 20, "lenta": 100, "stop_atr": 3.0}},
+      {"id": "seykota_medio", "estrategia": "seykota", "nome": "Seykota Médio", "emoji": "🦊", "params": {"rapida": 15, "lenta": 150, "stop_atr": 3.0}},
+      {"id": "seykota_lento", "estrategia": "seykota", "nome": "Seykota Lento", "emoji": "🐢", "params": {"rapida": 50, "lenta": 200, "stop_atr": 3.0}}
+    ],
     "mesa_rapida": {
       "ativo": false,
       "modo": "grade",

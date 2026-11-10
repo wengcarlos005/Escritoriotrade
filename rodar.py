@@ -143,7 +143,20 @@ def cmd_escola(args):
 
 # ---------------------------------------------------------------------------
 def escolher_times(cfg, esc):
-    """Os N melhores alunos da escola viram os times (aprovados primeiro, depois por nota)."""
+    """Os N melhores alunos da escola viram os times (aprovados primeiro, depois por nota).
+    Com `liga.times_fixos`, os times são exatamente os da lista (ex.: 3 times Seykota com ritmos diferentes)."""
+    fixos = cfg["liga"].get("times_fixos")
+    if fixos:
+        por_id = {r["id"]: r for r in esc.get("resultados", [])}
+        itv = cfg.get("modo", {}).get("intervalo_forcado")
+        lista = []
+        for f in fixos:
+            base = por_id.get(f["estrategia"], {})
+            params = dict(f["params"], **({"intervalo": itv} if itv else {}))
+            lista.append({"id": f["id"], "estrategia": f["estrategia"], "nome_time": f.get("nome"), "emoji": f.get("emoji"),
+                          "inspiracao": base.get("inspiracao", ""), "params_atuais": params, "params_fixos": True,
+                          "nota": base.get("nota"), "oos": base.get("oos")})
+        return lista
     fora = set(cfg["liga"].get("estrategias_excluidas", []))
     lista = [r for r in esc["resultados"] if r["id"] not in fora]
     if cfg["liga"].get("so_alunos_aprovados"):
@@ -258,10 +271,12 @@ def cmd_simular(args):
                     print(f"↩️  Voltei pra temporada de 15 traders guardada em dados/{copias[-1].name} (a de 9 ficou em dados/simulacao_desfeita_*.json).")
             ag = Agencia.de_dict(d, cfg)
             print(f"📂 Continuando a temporada {ag.temporada['numero']} (começou em {hhmm(ag.temporada['inicio'])})")
-            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 13):
+            if cfg.get("futuros", {}).get("ativo") and (not ag.futuros() or getattr(ag, "versao", 1) < 14):
                 backup = DADOS / f"simulacao_antiga_{time.strftime('%Y%m%d_%H%M')}.json"
                 shutil.copy2(ARQ_SIM, backup)
-                novo = (("MODO 4H: 9 traders em BTC/ETH/SOL, alavancagem pela volatilidade e conta real dividida entre os 3 times" if cfg.get("modo", {}).get("tipo") == "4h_vol" else "nova configuração") if cfg.get("modo", {}).get("tipo") == "5m"
+                tipo = cfg.get("modo", {}).get("tipo")
+                novo = ("MODO 4H: 3 times Seykota (rápido, médio, lento) em BTC/ETH/SOL, alavancagem pela volatilidade e conta real dividida entre os 3"
+                        if tipo == "4h_vol" else "MODO 5 MIN" if tipo == "5m"
                         else f"perfil {fut.get('perfil')}: risco de {fut.get('risco_por_operacao', 0) * 100:.0f}% por operação")
                 print(f"🔁 Recomeçando a agência ({novo}). A temporada anterior foi guardada em dados/{backup.name}.")
                 ag = None

@@ -384,7 +384,7 @@ class Agencia:
         self.mercado = "futuros" if cfg.get("futuros", {}).get("ativo") else "spot"
         self.modo = cfg.get("modo", {}).get("tipo") if cfg.get("futuros", {}).get("ativo") else None
         self.modelo_pesos = None
-        self.versao = 13            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
+        self.versao = 14            # 3 = perfis de risco + pirâmide (2 = escola de futuros, risco fixo, julgamento, Comitê, aprendizado)
         self.aprendizado = {}
         self.caixa_empresa = 0.0
         self.funding_real = None
@@ -554,6 +554,8 @@ class Agencia:
         da sua estratégia e a confiança de partida. Quem está com posição aberta troca quando fechar."""
         por_id = {r["id"]: r for r in esc.get("resultados", [])}
         for tm in self.disputando():
+            if tm.get("params_fixos"):
+                continue   # time com ritmo fixo (ex.: Seykota rápido / médio / lento): não troca de parâmetros
             for est_id in (tm.get("membros") or [tm["estrategia"]]):
                 r = por_id.get(est_id)
                 if not r:
@@ -1314,9 +1316,11 @@ class Agencia:
             if r.get("comite"):
                 self._criar_comite(r, t, lmax, moedas, capital)
                 continue
-            est = POR_ID[r["id"]]
-            tm = {"id": r["id"], "nome": NOMES_TIME.get(r["id"], "Time " + est.nome),
-                  "emoji": est.emoji, "inspiracao": r["inspiracao"], "estrategia": r["id"], "estrategia_nome": est.nome,
+            est_id = r.get("estrategia", r["id"])     # times fixos: vários times podem usar a mesma estratégia
+            est = POR_ID[est_id]
+            tm = {"id": r["id"], "nome": r.get("nome_time") or NOMES_TIME.get(r["id"], "Time " + est.nome),
+                  "emoji": r.get("emoji") or est.emoji, "inspiracao": r["inspiracao"], "estrategia": est_id, "estrategia_nome": est.nome,
+                  "params_fixos": bool(r.get("params_fixos")),
                   "params": r["params_atuais"], "intervalo": r["params_atuais"]["intervalo"], "titular": False,
                   "aportes": 0.0, "lucro_usado_bebes": 0.0, "bonus_bebe1_pago": False, "curva": [],
                   "nota_escola": r.get("nota"), "criado_em": t, "pontuacao": 0.0, "lugar": None,
@@ -1326,7 +1330,7 @@ class Agencia:
             for par in moedas[:por_time]:
                 tr = Trader(self.novo_nome() if self.cfg["liga"].get("nomes_traders") else moeda(par),
                             self.cfg["liga"].get("emoji_trader", "🤖"), par, 0.0, "trader", t,
-                            tm["id"], r["id"], r["params_atuais"])
+                            tm["id"], est_id, r["params_atuais"])
                 tr.capital_inicial = capital
                 if itv_forcado:
                     tr.intervalo_fixo = itv_forcado

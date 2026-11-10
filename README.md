@@ -81,16 +81,18 @@ e balão de fala (a versão 3D está em `/3d`). Antes era o **🏢 Escritório 3
   ao vivo), pra não confundir sorte com habilidade. O robô também aprende se vale operar contra a tendência de
   200 dias. E **toda semana a escola reestuda** com os dados mais novos: os times atualizam os parâmetros (quem está
   posicionado troca quando fechar). Tudo isso aparece na aba **🧠 Aprendizado** da Mesa de operações.
-- **📐 Modo atual: velas de 4h com alavancagem pela volatilidade** (`modo.tipo = "4h_vol"`). 3 times — 📈 Seykota,
-  🦸 Supertrend e 🎩 Tudor Jones — com 3 traders cada (um em BTC, um em ETH, um em SOL), US$ 1.500 simulados no total.
-  Cada um entra e sai pelos sinais da própria estratégia (comprado ou vendido), em velas de 4h. O TAMANHO de cada
-  operação é decidido na entrada:
+- **📐 Modo atual: velas de 4h com alavancagem pela volatilidade** (`modo.tipo = "4h_vol"`). 3 times, **todos da
+  estratégia do Seykota** (médias exponenciais), cada um num ritmo: 🐇 **Rápido** (médias 20/100), 🦊 **Médio** (15/150)
+  e 🐢 **Lento** (50/200) — `liga.times_fixos`. Cada time tem 3 traders (BTC, ETH e SOL), US$ 1.500 simulados no total.
+  Por que só Seykota: nos testes de 2022 a 2026 ele rendeu ~100% ao ano e só teve 1 semestre levemente negativo,
+  enquanto Supertrend e Tudor Jones mais atrapalhavam que ajudavam; os 3 ritmos diferentes mantêm a diversificação.
+  Cada um entra e sai pelos sinais (comprado ou vendido), em velas de 4h. O TAMANHO de cada operação é decidido na entrada:
   - **mesmo risco pra cada trader:** quem oscila mais recebe menos dinheiro (volatilidade dos últimos 90 dias);
   - **alavancagem da agência = alvo de volatilidade ÷ volatilidade da carteira** nos últimos 60 dias (alvo de 60% ao
     ano, teto de 4x): mercado calmo → mais alavancagem, mercado agitado → menos. A alavancagem de cada posição fica
     entre 1x e 10x conforme o caixa do trader.
-  Por que assim: nos testes com dados reais (4 anos, sempre com parâmetros escolhidos ANTES de cada período), isso
-  rendeu ~65–72% ao ano com quedas de até ~40–46%, contra ~37% e queda de ~69% com alavancagem fixa de 3x. Velas de
+  Por que assim: nos testes com dados reais (2023–2026), os 3 Seykotas com esse controle renderam ~100% ao ano, com
+  quedas de até ~51%, contra ~37% e queda de ~69% com alavancagem fixa de 3x. Velas de
   5 e 15 min perderam quase tudo por causa das taxas. Passado não garante futuro. Configurável em
   `modo.alavancagem_por_vol` (`risco_alvo`, `teto`, `teto_trader`, `janela_peso`, `janela_vol`).
 - **💵 Conta real (por enquanto simulada):** US$ 500 que copiam a agência INTEIRA na proporção (1/3 de cada operação),
