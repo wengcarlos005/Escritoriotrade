@@ -610,6 +610,63 @@ class Agencia:
         filtro = self.cfg.get("futuros", {}).get("regime", {"intervalo": "1d", "rapida": 50, "lenta": 200})
         return tendencia(self._buf.get(f"{par}@{filtro['intervalo']}"), filtro, t_fim, self._tend)
 
+    # --- 🎯 VANTAGEM POR SITUAÇÃO: abrir a cada 5 min é um DIREITO, não obrigação -------------------------
+    # A cada vela de cada moeda, a agência anota em que SITUAÇÃO o mercado estava (lado, tendência de 4h, RSI,
+    # distância da média, volatilidade) e, 2 horas depois, quanto LONG e SHORT teriam dado ali (em R, já com taxas,
+    # com o mesmo alvo/stop que os traders usam). Isso vale pra todos — ninguém precisa operar pra aprender.
+    # O trader só abre quando a situação de agora tem vantagem comprovada (média encolhida acima do mínimo).
+    def _cfg_entrada(self):
+        return self.cfg.get("modo", {}).get("entrada") or {}
+
+    def _saidas(self):
+        md = self.cfg.get("modo", {})
+        sd = md.get("saidas") or {}
+        return sd.get("alvo_atr", md.get("alvo_atr", 6.0)), sd.get("stop_atr", md.get("stop_atr", 4.0))
+
+    @staticmethod
+    def chave_situacao(x, lado):
+        z = lambda val, lim: "-" if val < -lim else "+" if val > lim else "0"
+        return f"{'L' if lado > 0 else 'S'}|t{int(x[8]):+d}|rsi{z(x[6], 0.4)}|m20{z(x[4], 1.0)}|v{int(x[7] > 0.2)}"
+
+    def _aprender_vantagem(self, chave, v):
+        from modelo import H, resultado_r, sinais
+        par = chave.split("@")[0]
+        tab = getattr(self, "vantagem", None)
+        if not isinstance(tab, dict):
+            tab = self.vantagem = {"sit": {}, "aquecidas": []}
+        ind = self._ind_modelo(chave, v)
+        fut, md = self.cfg.get("futuros", {}), self.cfg.get("modo", {})
+        entrada = fut.get("taxa_maker", 0.0002) if md.get("entrada_limitada", True) else fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
+        custo = entrada + fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
+        ka, ks = self._saidas()
+        janela = self._cfg_entrada().get("janela", 400)
+        n = len(v["c"])
+        if par not in tab["aquecidas"]:      # 1ª vez: aprende com todo o histórico que já está na memória
+            tab["aquecidas"].append(par)
+            idx = range(60, n - H)
+        else:
+            idx = [n - 1 - H]
+        for i in idx:
+            if i < 60:
+                continue
+            x = sinais(v, ind, i, self.tendencia(par, {"intervalo": "4h", "rapida": 20, "lenta": 150}, v["t"][i] + 300_000), self._btc(v["t"][i]))
+            if x is None:
+                continue
+            for lado in (1, -1):
+                r = resultado_r(v, ind, i, lado, ka, ks, custo)
+                if r is None:
+                    continue
+                k = self.chave_situacao(x, lado)
+                tab["sit"][k] = (tab["sit"].get(k, []) + [round(r, 3)])[-janela:]
+
+    def vantagem_de(self, x, lado):
+        """(vantagem em R por operação — média encolhida —, nº de casos) da situação de agora."""
+        rs = ((getattr(self, "vantagem", None) or {}).get("sit") or {}).get(self.chave_situacao(x, lado)) or []
+        if not rs:
+            return 0.0, 0
+        n = len(rs)
+        return sum(rs) / n * n / (n + 20), n
+
     # --- 🎯 MESA DE LADO: todos os traders aprendem JUNTOS qual lado abrir -------------------------------
     # Cada decisão de qualquer trader (moeda, vela, sinais) entra numa fila. Duas horas depois o mercado revela o que
     # LONG e SHORT teriam dado a partir daquela vela (mesmo alvo/stop, com taxas) — um resultado NEUTRO, que não depende
@@ -1620,6 +1677,8 @@ class Agencia:
             self._aprender_modelo(chave, v)
         if self.modo5m() and chave.endswith("@5m") and getattr(self, "fila_lado", None):
             self._resolver_lados(chave, v)
+        if self.modo5m() and chave.endswith("@5m") and not self._cfg_entrada().get("obrigatoria", True):
+            self._aprender_vantagem(chave, v)
         shorts = self.futuros() and self.cfg.get("futuros", {}).get("vender_a_descoberto", True)
         ve = None
         vivos = self.traders

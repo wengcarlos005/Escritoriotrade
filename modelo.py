@@ -80,6 +80,28 @@ def resultado(v, ind, i, lado, k_alvo, k_stop, custo, h=H):
     return 1 if final > 0 else 0
 
 
+def resultado_r(v, ind, i, lado, k_alvo, k_stop, custo, h=H):
+    """Quanto a operação aberta no fechamento da vela i teria dado, em R (1R = a distância até o stop), já com taxas.
+    Alvo e stop fixos; se nenhum bater em `h` velas, sai no preço do fim. None se ainda não dá pra saber."""
+    c, hi, lo = v["c"], v["h"], v["l"]
+    if i + h >= len(c) or ind["atr"][i] is None or ind["atr"][i] <= 0:
+        return None
+    p0, a = c[i], ind["atr"][i]
+    risco = k_stop * a / p0
+    alvo, stop = p0 + lado * k_alvo * a, p0 - lado * k_stop * a
+    ret = None
+    for j in range(i + 1, i + 1 + h):
+        if lo[j] <= stop if lado > 0 else hi[j] >= stop:     # os dois na mesma vela: conta o stop (conservador)
+            ret = -risco
+            break
+        if hi[j] >= alvo if lado > 0 else lo[j] <= alvo:
+            ret = k_alvo * a / p0
+            break
+    if ret is None:
+        ret = lado * (c[i + h] / p0 - 1)
+    return (ret - custo) / risco
+
+
 class Logistica:
     def __init__(self, n=len(NOMES), pesos=None):
         self.w = list(pesos) if pesos else [0.0] * (n + 1)   # último = viés

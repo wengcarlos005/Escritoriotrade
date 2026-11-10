@@ -549,6 +549,9 @@ class Futuros:
             self._falar(t, "Carregando dados…", "Esperando histórico suficiente pra calcular a chance de WIN.")
             return
         est_p = self.meu_estilo()
+        sd = md.get("saidas") or {}
+        if sd.get("alvo_atr") and not sd.get("usar_estilo", False):
+            est_p = dict(est_p, alvo_atr=sd["alvo_atr"], stop_atr=sd.get("stop_atr", est_p["stop_atr"]))
         meu = self.meu_modelo(ag)
         pl, ps = meu.chances(x)
         lado_proprio = 1 if pl >= ps else -1
@@ -586,6 +589,25 @@ class Futuros:
             stop = c - lado * est_p.get("stop_atr", md.get("stop_atr", 4.0)) * a
             alvo = c + lado * est_p.get("alvo_atr", md.get("alvo_atr", 6.0)) * a
             forcada, fr_base = True, 1.0
+        ent = ag._cfg_entrada()
+        vant = None
+        if not ent.get("obrigatoria", True):
+            v_l, n_l2 = ag.vantagem_de(x, 1)
+            v_s, n_s2 = ag.vantagem_de(x, -1)
+            melhor, v_m, n_m = (1, v_l, n_l2) if v_l >= v_s else (-1, v_s, n_s2)
+            if not forcada and lado != melhor:
+                v_m, n_m = (v_l, n_l2) if lado > 0 else (v_s, n_s2)   # sinal da estratégia: vale a vantagem DO LADO dele
+            if v_m < ent.get("min_vantagem_r", 0.05) or n_m < ent.get("min_casos", 40):
+                self.ordem = None
+                self._falar(t, "Esperando oportunidade 👀",
+                            f"Olhei a situação agora ({ag.chave_situacao(x, melhor)}): a agência já viu {n_m} casos assim e eles deram "
+                            f"{v_m:+.2f}R em média depois das taxas. Não compensa — espero a próxima vela.")
+                return
+            if forcada and lado != melhor:
+                lado = melhor
+                stop = c - lado * est_p.get("stop_atr", md.get("stop_atr", 4.0)) * a
+                alvo = c + lado * est_p.get("alvo_atr", md.get("alvo_atr", 6.0)) * a
+            vant = (v_m, n_m)
         chance, outra = (pl, ps) if lado > 0 else (ps, pl)
         if ag._cfg_lado().get("ativo"):
             ag.registrar_decisao_lado(self, self.par, v["t"][i], [round(z, 4) for z in x], lado, lado_mesa, lado_proprio)
@@ -623,6 +645,8 @@ class Futuros:
         else:
             porque = f"Minha estratégia ({est.nome}) deu sinal; meu modelo dá {chance * 100:.0f}% de chance."
         porque += f" Meu jeito: {est_p['jeito']} (alvo {est_p['alvo_atr']:g} ATR, stop {est_p['stop_atr']:g} ATR)."
+        if vant:
+            porque += f" Vantagem comprovada: {vant[1]} casos parecidos deram {vant[0]:+.2f}R em média já com taxas."
         if peso_mesa:
             cal = getattr(self, "calib_lado", None) or {}
             pm = lambda l: f"{sum(l) / len(l) * 100:.0f}%" if l else "—"
@@ -714,20 +738,22 @@ class Futuros:
         a0 = pos.get("atr0") or (d.get("atr") or [None])[i] or c * 0.003
         ganho_atr = lado * (c - pos["preco"]) / a0
         # 2) protege o lucro
-        if ganho_atr >= 1.0 and lado * ((st or 0) - pos["preco"]) < 0:
+        sd = cfg.get("modo", {}).get("saidas") or {}
+        za = sd.get("zero_a_zero_atr", 1.0)
+        if za and ganho_atr >= za and lado * ((st or 0) - pos["preco"]) < 0:
             novo = pos["preco"] * (1 + lado * 0.001)          # zero a zero + as taxas
             pos["stop_fixo"] = pos["stop"] = novo
             pos["stop_movido"] = True
             self._falar(t, "Lucro protegido 🔒", f"Andou {ganho_atr:.1f} ATR a meu favor: movi o stop pro zero a zero. Agora não perco mais nessa.")
             return
-        if ganho_atr >= 2.0:
-            novo = c - lado * e.get("trail_atr", 2.0) * a0
+        if ganho_atr >= sd.get("trail_inicio_atr", 2.0):
+            novo = c - lado * (sd.get("trail_atr") or e.get("trail_atr", 2.0)) * a0
             if lado * (novo - (pos.get("stop_fixo") or novo)) > 0:
                 pos["stop_fixo"] = pos["stop"] = novo
                 pos["stop_movido"] = True
         # 3) reavalia com o próprio modelo (depois da paciência mínima)
         minutos = (t_fim - pos["t"]) / 60_000
-        if minutos >= e.get("paciencia_min", 20):
+        if sd.get("modelo_virou", True) and minutos >= e.get("paciencia_min", 20):
             x = ag.sinais_modelo(self.par, v, i, t_fim)
             if x is not None:
                 pl, ps = self.meu_modelo(ag).chances(x)
