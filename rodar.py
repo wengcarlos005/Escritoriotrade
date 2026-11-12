@@ -522,6 +522,59 @@ def cmd_binance(args):
         print("Operação real desligada neste PC.")
 
 
+def cmd_reconstruir(args):
+    """Refaz uma temporada desde uma data (ex.: a do PC do trabalho): mesmas velas → mesmas decisões dos traders."""
+    import calendar
+    cfg = carregar_config()
+    esc = escola_mod.carregar()
+    if not esc:
+        print("A escola ainda não rodou neste PC. Ligue a agência uma vez antes (2_ligar_agencia.bat)."); return
+    try:   # data/hora de Brasília → UTC
+        t0 = (calendar.timegm(time.strptime(args.inicio, "%Y-%m-%d %H:%M")) + 3 * 3600) * 1000
+    except ValueError:
+        print('Data inválida. Use assim: "2026-11-10 12:00"'); return
+    agora = int(time.time() * 1000)
+    print(f"🔁 Refazendo a temporada desde {args.inicio} (Brasília): os traders vão tomar as mesmas decisões, vela por vela...")
+    if cfg.get("futuros", {}).get("ativo"):
+        mercado.usar_futuros(cfg["futuros"].get("dados_reais", True))
+    ag = Agencia(cfg, t0)
+    if ag.modo5m():
+        treinar_modelo(cfg, ag)
+    ag.nova_temporada(escolher_times(cfg, esc), t0)
+    ag.ao_evento = imprimir_evento
+    novas = []
+    for chave in ag.chaves():
+        par, itv = chave.split("@")
+        passo = mercado.INTERVALOS_MS[itv]
+        for v in mercado.velas_desde(par, itv, t0 - 1400 * passo):
+            if v["t"] + passo <= t0:
+                ag.aquecer(chave, v)
+            elif v["t"] + passo <= agora:
+                novas.append((v["t"] + passo, chave, v))
+    for chave in ag.chaves():
+        ag.sincronizar(chave, t0)
+    for tf, chave, v in sorted(novas, key=lambda x: (x[0], x[1])):
+        if tf >= ag.temporada["proxima_rodada"]:
+            ag.rodada(tf)
+        if ag.sprint and tf >= ag.sprint["fim"]:
+            ag.fechar_sprint(tf)
+        ag.processar_vela(chave, v)
+        ag.marcar_curva(tf)
+    ag.atualizar_precos(mercado.precos(ag.pares()))
+    ag.marcar_curva(agora)
+    ag.escola_aplicada = esc.get("gerado_em")
+    if ARQ_SIM.exists():
+        copia = DADOS / f"simulacao_antes_de_refazer_{time.strftime('%Y%m%d_%H%M')}.json"
+        shutil.copy2(ARQ_SIM, copia)
+        print(f"   (a simulação que estava aqui ficou guardada em dados/{copia.name})")
+    salvar(ag)
+    resumo_liga(ag)
+    if sincronia.ativo(cfg):
+        sincronia._preparar_pasta(sincronia._cfg(cfg)["repo"], print)
+        sincronia.enviar(cfg, final=True, forcar=True)
+    print("✅ Pronto! Agora ligue a agência (2_ligar_agencia.bat): ela continua desta temporada.")
+
+
 def cmd_resumo(args):
     """Resumo em texto (pra conferir ou mandar pro Claude). Não mostra chave nem nada pessoal."""
     if not ARQ_SIM.exists():
@@ -611,12 +664,14 @@ def main():
     sc = sub.add_parser("sincronia", help="liga a sincronia entre PCs (mesma simulação em casa e no trabalho)")
     sc.add_argument("--usar-este", action="store_true", help="a simulação deste PC passa a valer em todos")
     sub.add_parser("binance", help="conecta a conta de futuros da Binance (papel, testnet ou real)")
+    rc = sub.add_parser("reconstruir", help="refaz a temporada desde uma data (ex.: a do outro PC)")
+    rc.add_argument("--inicio", required=True, help='data e hora de Brasília, ex.: "2026-11-10 12:00"')
     args = ap.parse_args()
     preparar_dados()
     cmd = args.cmd or menu()
     if cmd == "simular" and not hasattr(args, "segundos"):
         args.segundos, args.sem_navegador = 20, False
-    acoes = {"escola": cmd_escola, "backtest": cmd_escola, "simular": cmd_simular, "painel": cmd_painel, "zerar": cmd_zerar, "resumo": cmd_resumo, "sincronia": cmd_sincronia, "binance": cmd_binance}
+    acoes = {"escola": cmd_escola, "backtest": cmd_escola, "simular": cmd_simular, "painel": cmd_painel, "zerar": cmd_zerar, "resumo": cmd_resumo, "sincronia": cmd_sincronia, "binance": cmd_binance, "reconstruir": cmd_reconstruir}
     if cmd not in acoes:
         print("Opção inválida.")
         return
