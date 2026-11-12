@@ -26,6 +26,19 @@ DADOS = AQUI / "dados"
 PASTA = DADOS / "sincronia"
 ARQUIVOS = ["simulacao.json", "escola.json", "escola_agencia.json"]
 PC = socket.gethostname() or "PC"
+
+
+def _pc_id():
+    """Código único deste PC (dois PCs podem ter o mesmo nome). Fica em dados/pc_id — não vai pra nuvem."""
+    arq = DADOS / "pc_id"
+    try:
+        return arq.read_text(encoding="utf-8").strip()
+    except Exception:
+        import uuid
+        DADOS.mkdir(exist_ok=True)
+        novo = uuid.uuid4().hex[:12]
+        arq.write_text(novo, encoding="utf-8")
+        return novo
 _trava = threading.Lock()
 _ultimo_envio = [0.0]
 _conhecido = {"remoto": None, "avisou": False}   # a última versão da nuvem que este PC conhece (pra nunca apagar a de outro PC)
@@ -95,7 +108,8 @@ def _preparar_pasta(repo, avisar):
 
 
 def baixar(cfg, avisar=print):
-    """Ao ligar: traz da nuvem o que for mais novo que o deste PC."""
+    """Ao ligar: se foi OUTRO PC que mandou por último pra nuvem, continua da versão dele (a deste PC vira cópia de
+    segurança). Se foi este mesmo PC, segue com a daqui (que é a continuação dela)."""
     if not ativo(cfg):
         return
     with _trava:
@@ -105,18 +119,21 @@ def baixar(cfg, avisar=print):
             return
         _conhecido["remoto"] = _carimbo(PASTA / "simulacao.json")
         uso = PASTA / "em_uso.json"
+        outro_pc = False
         if uso.exists():
             try:
                 u = json.loads(uso.read_text(encoding="utf-8"))
+                outro_pc = (u.get("id") or u.get("pc")) != (_pc_id() if u.get("id") else PC)
                 minutos = (time.time() * 1000 - u.get("ultimo", 0)) / 60000
-                if u.get("pc") != PC and u.get("aberta") and minutos < 20:
+                if outro_pc and u.get("aberta") and minutos < 20:
                     avisar(f"⚠️  A agência parece estar ABERTA no PC '{u.get('pc')}' (último sinal há {minutos:.0f} min). "
                            "Feche lá: se os dois ficarem abertos, vale o que salvar por último.")
             except Exception:
                 pass
         for nome in ARQUIVOS:
             remoto, local = PASTA / nome, DADOS / nome
-            if remoto.exists() and _carimbo(remoto) > _carimbo(local):
+            pegar = _carimbo(remoto) > _carimbo(local) or (nome == "simulacao.json" and outro_pc and _carimbo(remoto) != _carimbo(local))
+            if remoto.exists() and pegar:
                 DADOS.mkdir(exist_ok=True)
                 if local.exists() and nome == "simulacao.json":   # cópia de segurança antes de trocar pela da nuvem
                     shutil.copy2(local, DADOS / f"simulacao_antes_da_nuvem_{time.strftime('%Y%m%d_%H%M')}.json")
@@ -148,7 +165,7 @@ def enviar(cfg, avisar=print, final=False, forcar=False):
                 shutil.copy2(local, remoto)
                 mudou = True
         agora = int(time.time() * 1000)
-        (PASTA / "em_uso.json").write_text(json.dumps({"pc": PC, "ultimo": agora, "aberta": not final}), encoding="utf-8")
+        (PASTA / "em_uso.json").write_text(json.dumps({"pc": PC, "id": _pc_id(), "ultimo": agora, "aberta": not final}), encoding="utf-8")
         (PASTA / "LEIA.md").write_text("Dados da Agência de Trade (sincronia entre PCs). Não edite à mão.\n", encoding="utf-8")
         # guarda só a ÚLTIMA versão (um commit só, substituído a cada envio): o repositório não cresce com o tempo
         g = lambda *a, **k: _git("-C", str(PASTA), *a, **k)
