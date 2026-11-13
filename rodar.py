@@ -499,14 +499,24 @@ def cmd_sincronia(args):
 
 
 def cmd_binance(args):
-    """Conecta a conta de futuros da Binance (chave digitada AQUI, nunca no chat) e escolhe o modo."""
+    """Conecta a conta de futuros (Binance ou Bybit) — chave digitada AQUI, nunca no chat — e escolhe o modo."""
     import getpass
     import binance_real
     pessoal = AQUI / "config.json"
     meu = json.loads(pessoal.read_text(encoding="utf-8")) if pessoal.exists() else {}
-    print("\n💵 CONTA DA BINANCE — a conta de futuros vai copiar a agência (na proporção).\n")
+    print("\n💵 CONTA DE FUTUROS — a conta da corretora vai copiar a agência (na proporção).\n")
+    print("  Qual corretora?")
+    print("  1) Binance")
+    print("  2) Bybit")
+    corretora = {"1": "binance", "2": "bybit"}.get(input("\nEscolha (1-2): ").strip())
+    if not corretora:
+        print("Opção inválida."); return
+    nome = binance_real.NOMES[corretora]
+    treino = "Demo Trading da Bybit (no site da Bybit, ligue o modo Demo e crie a chave lá)" if corretora == "bybit" \
+        else "Binance de TREINO (crie a chave em testnet.binancefuture.com)"
+    print(f"\n  Modo na {nome}:")
     print("  1) papel    — só anota as ordens que mandaria (sem chave, sem risco)")
-    print("  2) testnet  — Binance de TREINO, dinheiro de mentira (crie a chave em testnet.binancefuture.com)")
+    print(f"  2) treino   — {treino}, dinheiro de mentira")
     print("  3) real     — DINHEIRO DE VERDADE")
     print("  4) desligar")
     op = input("\nEscolha (1-4): ").strip()
@@ -515,32 +525,39 @@ def cmd_binance(args):
         print("Opção inválida."); return
     if modo in ("testnet", "real"):
         if modo == "real":
-            print("\n⚠️  ANTES DE SEGUIR, confira na Binance (Gerenciamento de API):")
-            print("   • a chave tem SÓ 'Ativar Futuros' (e leitura) — NUNCA 'Ativar Saques';")
-            print("   • 'Restringir acesso a IPs confiáveis' com o IP deste PC (mais seguro);")
-            print("   • na conta de Futuros USDT-M tem só o valor que você aceita perder.")
-            print("   Recomendado: rodar antes uns dias no modo testnet.")
+            print(f"\n⚠️  ANTES DE SEGUIR, confira na {nome} (Gerenciamento de API):")
+            if corretora == "bybit":
+                print("   • a chave tem SÓ 'Contrato → Ordens' e 'Contrato → Posições' — NUNCA saque nem transferência;")
+            else:
+                print("   • a chave tem SÓ 'Ativar Futuros' (e leitura) — NUNCA 'Ativar Saques';")
+            print("   • restrita ao IP deste PC (mais seguro);")
+            print("   • na conta de derivativos/futuros tem só o valor que você aceita perder.")
+            print("   Recomendado: rodar antes uns dias no modo treino.")
             if input("\nDigite EU ENTENDO O RISCO pra continuar: ").strip().upper() != "EU ENTENDO O RISCO":
                 print("Cancelado."); return
         chave = input("API Key: ").strip()
         segredo = getpass.getpass("Secret Key (não aparece enquanto digita): ").strip()
-        cli = binance_real.Cliente(modo, chave, segredo)
+        cli = binance_real.criar_cliente(corretora, modo, chave, segredo)
         try:
             cli.sincronizar_relogio()
             c = cli.conta()
         except Exception as e:
-            print(f"\n❌ Não consegui entrar na conta: {e}\n   Confira a chave, as permissões de Futuros e a restrição de IP."); return
-        binance_real.salvar_chave(modo, chave, segredo)
-        print(f"\n✅ Conectado ({modo}). Patrimônio em futuros: US$ {c['patrimonio']:,.2f} · posições abertas: {c['posicoes'] or 'nenhuma'}")
+            print(f"\n❌ Não consegui entrar na conta: {e}\n   Confira a chave, as permissões de derivativos/futuros e a restrição de IP.")
+            return
+        binance_real.salvar_chave(modo, chave, segredo, corretora)
+        print(f"\n✅ Conectado na {nome} ({'treino' if modo == 'testnet' else modo}). Patrimônio: US$ {c['patrimonio']:,.2f} · "
+              f"posições abertas: {c['posicoes'] or 'nenhuma'}")
+        if c["patrimonio"] < 50:
+            print(f"   ⚠️  A conta está quase vazia. Coloque USDT na conta de derivativos/unificada da {nome} antes de ligar a agência.")
         if c["posicoes"]:
             print("   ⚠️  Já existem posições abertas nessa conta. A agência vai AJUSTAR essas moedas pro que ela quer ter.")
-    meu.setdefault("conta_binance", {}).update({"modo": modo, "operar_neste_pc": modo != "desligado"})
+    meu.setdefault("conta_binance", {}).update({"modo": modo, "corretora": corretora, "operar_neste_pc": modo != "desligado"})
     pessoal.write_text(json.dumps(meu, ensure_ascii=False, indent=2), encoding="utf-8")
     if modo != "desligado":
-        print(f"\nPronto: ESTE PC vai operar a conta em modo {modo.upper()} quando a agência estiver ligada.")
+        print(f"\nPronto: ESTE PC vai operar a conta da {nome} em modo {modo.upper()} quando a agência estiver ligada.")
         print("Travas: perde mais de 15% num dia ou cai abaixo de 50% do que começou → fecha tudo e PARA.")
-        print("Stop de emergência na própria Binance a 20% (protege com o PC desligado).")
-        print("Pra parar na hora: botão PARAR TUDO no painel, ou crie o arquivo dados/PARAR_REAL.")
+        print(f"Stop de emergência na própria {nome} a 20% (protege com o PC desligado).")
+        print("Pra parar na hora: botão PARAR TUDO no escritório, ou crie o arquivo dados/PARAR_REAL.")
     else:
         print("Operação real desligada neste PC.")
 

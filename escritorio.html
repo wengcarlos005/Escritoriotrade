@@ -1522,7 +1522,8 @@ function renderTopo(vivo) {
   const cr = cr0 && {...cr0, patrimonio: cr0.patrimonio + crAberto}, crL = cr ? cr.patrimonio - cr.inicial : 0;
   const rb = REAL && REAL.modo && REAL.modo !== 'desligado' ? REAL : null;
   const rbL = rb && rb.patrimonio != null && rb.inicial != null ? rb.patrimonio - rb.inicial : 0;
-  const rbTxt = rb ? (rb.modo === 'real' ? '💰 Binance (REAL)' : rb.modo === 'testnet' ? '🧪 Binance (testnet)' : '📝 Binance (papel)') : '';
+  const rbNome = rb && rb.corretora || 'Binance';
+  const rbTxt = rb ? (rb.modo === 'real' ? `💰 ${rbNome} (REAL)` : rb.modo === 'testnet' ? `🧪 ${rbNome} (treino)` : `📝 ${rbNome} (papel)`) : '';
   const rbStatus = !rb ? '' : rb.parado ? `<span class="neg">⛔ PARADA: ${esc(rb.motivo || '')}</span> <button class="bt-real" onclick="pedirReal('retomar')">Retomar</button>`
     : (rb.status || '').startsWith('erro') ? `<span class="neg">⚠️ ${esc(rb.status)}</span>` : `${Object.keys(rb.posicoes || {}).length} moedas abertas <button class="bt-real parar" onclick="pedirReal('parar')">⛔ PARAR TUDO</button>`;
   $('kpis').innerHTML = [...(rb ? [[rbTxt, `${rb.patrimonio != null ? usd(rb.patrimonio) : '—'} <small class="${cls(rbL)}" style="font-size:12px">${rb.patrimonio != null ? sinal(rbL) + usd(Math.abs(rbL)) : ''}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${rbStatus}</div>`, '', 'real']] : []),
@@ -1548,7 +1549,7 @@ function relogio() {
 }
 let REAL = null;
 async function pedirReal(acao) {
-  if (acao === 'parar' && !confirm('PARAR TUDO na Binance?\n\nFecha TODAS as posições da conta agora, a mercado, e a agência deixa de operar a conta até você clicar em Retomar.')) return;
+  if (acao === 'parar' && !confirm('PARAR TUDO na corretora?\n\nFecha TODAS as posições da conta agora, a mercado, e a agência deixa de operar a conta até você clicar em Retomar.')) return;
   try { const r = await fetch('/api/real/' + acao, {method: 'POST', body: '{}'}).then(x => x.json()); alert(r.msg || r.erro || 'ok'); } catch (e) { alert('Não consegui falar com o programa.'); }
 }
 async function atualizar() {

@@ -38,16 +38,29 @@ def carregar_chave():
         return None
 
 
-def salvar_chave(modo, chave, segredo):
+def salvar_chave(modo, chave, segredo, corretora="binance"):
     ARQ_CHAVE.parent.mkdir(exist_ok=True)
-    ARQ_CHAVE.write_text(json.dumps({"modo": modo, "chave": chave.strip(), "segredo": segredo.strip()}), encoding="utf-8")
+    ARQ_CHAVE.write_text(json.dumps({"modo": modo, "corretora": corretora, "chave": chave.strip(), "segredo": segredo.strip()}), encoding="utf-8")
     try:
         ARQ_CHAVE.chmod(0o600)
     except Exception:
         pass
 
 
+def criar_cliente(corretora, modo, chave=None, segredo=None):
+    """Binance ou Bybit — as duas têm a mesma interface pra operacao_real."""
+    if (corretora or "binance").lower() == "bybit":
+        import bybit_real
+        return bybit_real.Cliente(modo, chave, segredo)
+    return Cliente(modo, chave, segredo)
+
+
+NOMES = {"binance": "Binance", "bybit": "Bybit"}
+
+
 class Cliente:
+    nome = "Binance"
+
     def __init__(self, modo, chave=None, segredo=None, timeout=20):
         if modo not in BASES:
             raise ValueError("modo tem que ser 'testnet' ou 'real'")

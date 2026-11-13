@@ -25,7 +25,7 @@ import binance_real as B
 AQUI = Path(__file__).resolve().parent
 ARQ = AQUI / "dados" / "operacao_real.json"
 ARQ_PARAR = AQUI / "dados" / "PARAR_REAL"
-PADRAO = {"modo": "desligado", "operar_neste_pc": False, "capital_papel_usd": 500, "alavancagem_binance": 10,
+PADRAO = {"modo": "desligado", "corretora": "binance", "operar_neste_pc": False, "capital_papel_usd": 500, "alavancagem_binance": 10,
           "max_exposicao_x": 4.0, "perda_max_dia_pct": 15, "piso_pct": 50, "tolerancia_usd": 15, "tolerancia_pct": 5,
           "a_cada_segundos": 60, "stop_emergencia_pct": 20}
 
@@ -53,17 +53,20 @@ class Operacao:
         self.cli = cliente
         self.proxima = 0
         self.ativo = self.c["modo"] in ("papel", "testnet", "real") and self.c["operar_neste_pc"]
+        ch = B.carregar_chave() or {}
+        corretora = (self.c.get("corretora") or ch.get("corretora") or "binance").lower()
+        self.nome = B.NOMES.get(corretora, corretora.title())
+        self.estado["corretora"] = self.nome
         if self.c["modo"] in ("testnet", "real") and self.ativo and self.cli is None:
-            ch = B.carregar_chave()
-            if not ch or ch.get("modo") != self.c["modo"]:
-                self.avisar(f"⚠️  Conta Binance: falta a chave de {self.c['modo']} (rode o 9_conectar_binance.bat). Operação real DESLIGADA.")
+            if not ch or ch.get("modo") != self.c["modo"] or (ch.get("corretora") or "binance") != corretora:
+                self.avisar(f"⚠️  Conta {self.nome}: falta a chave de {self.c['modo']} (rode o 9_conectar_binance.bat). Operação real DESLIGADA.")
                 self.ativo = False
             else:
-                self.cli = B.Cliente(self.c["modo"], ch["chave"], ch["segredo"])
+                self.cli = B.criar_cliente(corretora, self.c["modo"], ch["chave"], ch["segredo"])
         if self.ativo and self.c["modo"] == "papel" and self.cli is None:
-            self.cli = B.Cliente("testnet")   # só pra regras e preços públicos
+            self.cli = B.criar_cliente(corretora, "real") if corretora == "bybit" else B.Cliente("testnet")   # só regras e preços públicos
         if self.ativo:
-            self.avisar(f"💵 Conta Binance ligada em modo {self.c['modo'].upper()}"
+            self.avisar(f"💵 Conta {self.nome} ligada em modo {self.c['modo'].upper()}"
                         + (" (só anota as ordens, não manda nada)" if self.c["modo"] == "papel" else "")
                         + (" — DINHEIRO DE VERDADE" if self.c["modo"] == "real" else ""))
 
@@ -180,7 +183,7 @@ class Operacao:
                 self.estado["sos"] = {}
         except Exception as e:
             self._anotar("erros", {"t": int(time.time() * 1000), "erro": f"ao parar: {e}"})
-            self.avisar(f"⚠️  Não consegui fechar tudo na Binance ({e}). FECHE MANUALMENTE no app da Binance!")
+            self.avisar(f"⚠️  Não consegui fechar tudo na {self.nome} ({e}). FECHE MANUALMENTE no app da {self.nome}!")
         self._salvar()
         self.avisar(f"⛔ OPERAÇÃO REAL PARADA: {motivo}. Pra voltar: botão 'Retomar' no painel (e apague dados/PARAR_REAL, se tiver criado).")
 
@@ -257,7 +260,7 @@ class Operacao:
         except B.ErroBinance as e:
             self._anotar("erros", {"t": int(time.time() * 1000), "erro": str(e)})
             self.estado["status"] = f"erro: {e}"
-            self.avisar(f"⚠️  Conta Binance: {e}")
+            self.avisar(f"⚠️  Conta {self.nome}: {e}")
             self._salvar()
         except Exception as e:
             self._anotar("erros", {"t": int(time.time() * 1000), "erro": repr(e)})

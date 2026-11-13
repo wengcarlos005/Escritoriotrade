@@ -1,4 +1,4 @@
-# Operação real na Binance — passo a passo
+# Operação real (Binance ou Bybit) — passo a passo
 
 A conta de **futuros USDT-M** da Binance passa a copiar a agência, na proporção: se a agência tem US$ 1.500 e a sua
 conta tem US$ 500, cada posição da conta é 1/3 da posição da agência (somando os 4 times em cada moeda — quando dois
@@ -54,3 +54,13 @@ Os números ficam em `conta_binance` no `config.json` (`perda_max_dia_pct`, `pis
 - Com todos os PCs desligados, a conta **fica parada com as posições abertas**, protegida só pelo stop de emergência
   (20%). Ao ligar de novo, a agência recupera as velas perdidas e ajusta a conta. Pra dinheiro de verdade, o ideal é
   um PC que fique ligado — ou o servidor (veja `SERVIDOR.md`).
+
+## Bybit (pra quem está no Brasil e a Binance bloqueou futuros)
+
+1. Na Bybit, deixe na **Conta Unificada** só o valor que vai operar (em USDT).
+2. **API → Criar nova chave → Transação API**, "Leitura e gravação". Permissões: **só** *Trading Unificado → Contrato →
+   Ordens* e *Posições*. **Nada** de Ativos, Transferência ou Saque. Restrinja ao IP do PC que vai operar.
+3. Rode o `9_conectar_binance.bat` → corretora **2 (Bybit)** → modo **3 (real)** → `EU ENTENDO O RISCO` → cole as chaves.
+4. Pra treinar antes: no site da Bybit ligue o **Demo Trading**, crie a chave lá e use o modo **2 (treino)**.
+
+Na Bybit o stop de emergência é o **stop loss da própria posição** (aparece na posição, no app), a 20% do preço.
