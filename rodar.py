@@ -180,6 +180,32 @@ def escolher_times(cfg, esc):
     return lista[:n]
 
 
+def aplicar_times_fixos(ag, cfg, avisar=print):
+    """Times fixos do config valem já, sem recomeçar a temporada: nome/emoji novos e o RITMO de cada time.
+    (Temporadas criadas por versões antigas não tinham a trava de ritmo fixo e o reestudo da escola deixava os 3 Seykota
+    iguais — aqui o ritmo de cada um volta. Quem está com posição aberta troca quando fechar.)"""
+    itv = cfg.get("modo", {}).get("intervalo_forcado")
+    for f in cfg["liga"].get("times_fixos") or []:
+        for tm in ag.times:
+            if tm["id"] != f["id"]:
+                continue
+            tm["nome"], tm["emoji"] = f.get("nome") or tm["nome"], f.get("emoji") or tm["emoji"]
+            fixo = dict(f["params"], intervalo=itv or tm.get("intervalo") or f["params"].get("intervalo", "4h"))
+            corrigiu = not tm.get("params_fixos") or tm.get("params") != fixo
+            tm["params_fixos"], tm["params"], tm["intervalo"] = True, dict(fixo), fixo["intervalo"]
+            for tr in ag.do_time(tm["id"]):
+                if tr.estrategia != f["estrategia"]:
+                    continue
+                if tr.params == fixo:
+                    tr.params_novos = None            # cancela troca pendente vinda de um reestudo antigo
+                else:
+                    tr.params_novos = dict(fixo)
+                    if not tr.posicao:
+                        tr.aplicar_params_novos()
+            if corrigiu:
+                avisar(f"🔧 {tm['emoji']} {tm['nome']}: ritmo fixo garantido ({', '.join(f'{k} {v}' for k, v in f['params'].items())}).")
+
+
 def custo_ida_e_volta(cfg):
     fut, md = cfg.get("futuros", {}), cfg.get("modo", {})
     entrada = fut.get("taxa_maker", 0.0002) if md.get("entrada_limitada", True) else fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
@@ -303,10 +329,7 @@ def cmd_simular(args):
         treinar_modelo(cfg, ag)   # sem modelo, ou modelo de uma versão com menos sinais (ex.: antes do BTC)
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
-    for f in cfg["liga"].get("times_fixos") or []:   # nome/emoji novos no config valem já, sem recomeçar a temporada
-        for tm in ag.times:
-            if tm["id"] == f["id"]:
-                tm["nome"], tm["emoji"] = f.get("nome") or tm["nome"], f.get("emoji") or tm["emoji"]
+    aplicar_times_fixos(ag, cfg)
     fora = set(cfg["liga"].get("estrategias_excluidas", []))
     for tm in list(ag.disputando()):
         if tm.get("estrategia") in fora:

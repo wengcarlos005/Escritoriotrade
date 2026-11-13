@@ -1032,7 +1032,7 @@ class Agencia:
         o.traders = [Trader.de_dict(x) for x in d["traders"]]
         campos = ("id", "nome", "emoji", "inspiracao", "estrategia", "estrategia_nome", "params", "intervalo", "titular",
                   "aportes", "lucro_usado_bebes", "bonus_bebe1_pago", "curva", "nota_escola", "criado_em", "pontuacao", "lugar", "especial", "modo", "alavancagem", "confianca",
-                  "membros", "preco_inicial", "caixa_time", "contratados", "demitidos", "reforcos")
+                  "membros", "params_fixos", "preco_inicial", "caixa_time", "contratados", "demitidos", "reforcos")
         o.times = [{k: tm.get(k) for k in campos} for tm in d.get("times", [])]
         o.sprint = d.get("sprint")
         o.sprints = d.get("sprints", [])
