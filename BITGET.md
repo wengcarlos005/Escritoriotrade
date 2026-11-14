@@ -143,7 +143,7 @@ falta de saldo**. No escritório aparece "🟡 sem saldo — ordens recusadas pe
 |---|---|
 | `Não consegui entrar na conta` ao conectar | Confira se copiou as 3 partes inteiras, sem espaço. Recrie a chave se preciso |
 | Erro de **assinatura / passphrase** | A passphrase é a que **você criou** na chave (não é a senha da conta) |
-| Erro de **permissão** | Edite a chave: Futuros → Ordens e Posições com **leitura e escrita** |
+| Erro de **permissão** (`Incorrect permissions, need future order write permissions`) | A chave está sem permissão de mandar ordem em Futuros. Na Bitget: Gerenciamento de API → **Editar** a chave → **Futuros → Ordens** e **Posições** com **leitura e escrita** → salvar. Não precisa reconectar a agência |
 | Erro de **IP** | O IP do PC mudou. Atualize o IP na chave (ou crie uma sem vínculo de IP) |
 | Ordem recusada por **saldo** | Normal com a conta zerada. Depois de depositar, confira se o USDT está em **Futuros USDT-M** (não no Spot) |
 | Quero parar tudo agora | Botão **⛔ PARAR TUDO** no escritório, ou crie o arquivo `dados/PARAR_REAL` |

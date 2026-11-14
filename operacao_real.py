@@ -243,8 +243,10 @@ class Operacao:
                 self.cli.ordem_mercado(par, q, ident=f"agencia-teste-{int(time.time())}-{moeda[:4]}")
             except B.ErroBinance as e:
                 m = str(e.msg)
-                falta = any(x in m.lower() for x in ("balance", "margin", "insufficient", "saldo", "available")) or str(e.codigo) in ("40762", "43012", "45110")
-                reg["recusada"] = ("falta de margem (conta sem saldo)" if falta else "recusada") + f" — resposta da {self.nome}: {m[:120]}"
+                falta = any(x in m.lower() for x in ("balance", "insufficient", "saldo", "available")) or str(e.codigo) in ("40762", "43012", "45110")
+                permissao = "permission" in m.lower() or "permiss" in m.lower()
+                reg["recusada"] = (("chave SEM permissão de ordens em Futuros — edite a chave na corretora (Futuros → Ordens: leitura e escrita)" if permissao
+                                    else "falta de margem (conta sem saldo)" if falta else "recusada") + f" — resposta da {self.nome}: {m[:120]}")
                 tent[par] = recusadas[par] = reg
                 self.avisar(f"  🟡 [{self.c['modo']}] {'COMPRA' if lado > 0 else 'VENDA'} {abs(q):g} {moeda} (~US$ {reg['usd']:,.0f}) "
                             f"NÃO aberta na {self.nome}: {reg['recusada']}")
