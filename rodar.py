@@ -180,6 +180,9 @@ def escolher_times(cfg, esc):
     return lista[:n]
 
 
+SO_SAIDA = {"max_barras"}   # parâmetros que só mudam a saída (não mexem nas médias/sinais de entrada)
+
+
 def aplicar_times_fixos(ag, cfg, avisar=print):
     """Times fixos do config valem já, sem recomeçar a temporada: nome/emoji novos e o RITMO de cada time.
     (Temporadas criadas por versões antigas não tinham a trava de ritmo fixo e o reestudo da escola deixava os 3 Seykota
@@ -196,7 +199,10 @@ def aplicar_times_fixos(ag, cfg, avisar=print):
             for tr in ag.do_time(tm["id"]):
                 if tr.estrategia != f["estrategia"]:
                     continue
-                if tr.params == fixo:
+                difere = {k for k in set(tr.params) | set(fixo) if tr.params.get(k) != fixo.get(k)}
+                if difere and difere <= SO_SAIDA:     # só muda a regra de SAÍDA: vale já, até pra quem está posicionado
+                    tr.params, tr.params_novos = dict(fixo), None
+                elif tr.params == fixo:
                     tr.params_novos = None            # cancela troca pendente vinda de um reestudo antigo
                 else:
                     tr.params_novos = dict(fixo)
