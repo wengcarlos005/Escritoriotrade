@@ -221,10 +221,26 @@ class Operacao:
                     self._precos[par] = self.cli.preco(par)
             conta = self._conta()
             pat = conta["patrimonio"]
+            minimo = self.c.get("saldo_minimo_usd", 10)
+            if pat < minimo and not conta["posicoes"]:
+                # conectada, mas sem dinheiro ainda: não manda nada e não marca o ponto de partida (as travas usam ele)
+                self.estado.update(patrimonio=round(pat, 2), em_aberto=0.0, posicoes={}, ultimo_ciclo=int(time.time() * 1000),
+                                   status=f"sem saldo: conectada, esperando depósito (mínimo US$ {minimo})")
+                for k in ("inicial", "inicio_dia", "dia"):
+                    self.estado.pop(k, None)
+                if not self.estado.get("avisou_sem_saldo"):
+                    self.estado["avisou_sem_saldo"] = True
+                    self.avisar(f"💵 Conta {self.nome} conectada e funcionando, mas sem saldo (US$ {pat:.2f}). "
+                                "Quando você depositar, ela começa a copiar a agência sozinha.")
+                self._salvar()
+                return
+            self.estado.pop("avisou_sem_saldo", None)
             hoje = time.strftime("%Y-%m-%d")
             if self.estado.get("dia") != hoje:
                 self.estado.update(dia=hoje, inicio_dia=pat)
-            self.estado.setdefault("inicial", pat)
+            if not self.estado.get("inicial") or self.estado["inicial"] < minimo:
+                self.estado["inicial"] = pat
+                self.avisar(f"💵 Conta {self.nome}: começando com US$ {pat:,.2f} — copiando a agência a partir de agora.")
             self.estado.update(patrimonio=round(pat, 2), em_aberto=round(conta["em_aberto"], 2), posicoes=conta["posicoes"],
                                ultimo_ciclo=int(time.time() * 1000), status="ok")
             # TRAVAS

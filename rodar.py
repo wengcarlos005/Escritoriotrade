@@ -609,7 +609,8 @@ def cmd_binance(args):
         print(f"\n✅ Conectado na {nome} ({'treino' if modo == 'testnet' else modo}). Patrimônio: US$ {c['patrimonio']:,.2f} · "
               f"posições abertas: {c['posicoes'] or 'nenhuma'}")
         if c["patrimonio"] < 50:
-            print(f"   ⚠️  A conta está quase vazia. Coloque USDT na conta de derivativos/unificada da {nome} antes de ligar a agência.")
+            print(f"   🟡 A conta está sem saldo — tudo bem pra testar: a agência fica conectada sem mandar ordens. Quando você "
+                  f"depositar USDT nos Futuros USDT-M da {nome}, ela começa a copiar sozinha.")
         if c["posicoes"]:
             print("   ⚠️  Já existem posições abertas nessa conta. A agência vai AJUSTAR essas moedas pro que ela quer ter.")
     meu.setdefault("conta_binance", {}).update({"modo": modo, "corretora": corretora, "operar_neste_pc": modo != "desligado"})

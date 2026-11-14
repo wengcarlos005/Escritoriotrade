@@ -1531,7 +1531,7 @@ function renderTopo(vivo) {
   const rbNome = rb && rb.corretora || 'Binance';
   const rbTxt = rb ? (rb.modo === 'real' ? `💰 ${rbNome} (REAL)` : rb.modo === 'testnet' ? `🧪 ${rbNome} (treino)` : `📝 ${rbNome} (papel)`) : '';
   const rbStatus = !rb ? '' : rb.parado ? `<span class="neg">⛔ PARADA: ${esc(rb.motivo || '')}</span> <button class="bt-real" onclick="pedirReal('retomar')">Retomar</button>`
-    : (rb.status || '').startsWith('erro') ? `<span class="neg">⚠️ ${esc(rb.status)}</span>` : `${Object.keys(rb.posicoes || {}).length} moedas abertas <button class="bt-real parar" onclick="pedirReal('parar')">⛔ PARAR TUDO</button>`;
+    : (rb.status || '').startsWith('erro') ? `<span class="neg">⚠️ ${esc(rb.status)}</span>` : (rb.status || '').startsWith('sem saldo') ? `🟡 ${esc(rb.status)}` : `${Object.keys(rb.posicoes || {}).length} moedas abertas <button class="bt-real parar" onclick="pedirReal('parar')">⛔ PARAR TUDO</button>`;
   $('kpis').innerHTML = [...(rb ? [[rbTxt, `${rb.patrimonio != null ? usd(rb.patrimonio) : '—'} <small class="${cls(rbL)}" style="font-size:12px">${rb.patrimonio != null ? sinal(rbL) + usd(Math.abs(rbL)) : ''}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${rbStatus}</div>`, '', 'real']] : []),
     ...(cr ? [[`💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}`,
       `${usd(cr.patrimonio)} <small class="${cls(crL)}" style="font-size:12px">${sinal(crL)}${usd(Math.abs(crL))}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${cr.time === 'agencia' ? `dividida entre os ${D.times.filter(t => !t.especial).length} times` : crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''}</div>`, '', 'real']] : []),
