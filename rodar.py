@@ -28,7 +28,7 @@ import mercado
 import painel
 import sincronia
 import operacao_real
-from motor import Agencia, hhmm, moeda
+from motor import Agencia, Trader, hhmm, moeda
 
 AQUI = Path(__file__).resolve().parent
 DADOS = AQUI / "dados"
@@ -212,6 +212,53 @@ def aplicar_times_fixos(ag, cfg, avisar=print):
                 avisar(f"🔧 {tm['emoji']} {tm['nome']}: ritmo fixo garantido ({', '.join(f'{k} {v}' for k, v in f['params'].items())}).")
 
 
+def adicionar_moedas_novas(ag, cfg, avisar=print):
+    """Moedas que entraram no config com a temporada já rodando (liga.moedas + liga.moedas_novas): cada time ganha
+    um trader pra cada moeda nova, com o dinheiro novo dividido igualmente, COMO SE existissem desde `desde`
+    (horário de Brasília): entram no estado que a estratégia teria naquela hora e recuperam as velas desde então."""
+    import calendar
+    nv = cfg["liga"].get("moedas_novas") or {}
+    por_time = cfg["liga"].get("traders_por_time") or len(cfg["liga"]["moedas"])
+    moedas = cfg["liga"]["moedas"][:por_time]
+    faltam = [(tm, par) for tm in ag.disputando() for par in moedas
+              if not tm.get("membros") and not any(tr.time == tm["id"] and tr.par == par for tr in ag.traders)]
+    if not faltam or not nv.get("capital_usd"):
+        return
+    t0 = int(time.time() * 1000)
+    if nv.get("desde"):
+        t0 = min(t0, (calendar.timegm(time.strptime(nv["desde"], "%Y-%m-%d %H:%M")) + 3 * 3600) * 1000)   # Brasília → UTC
+    t0 = max(t0, ag.temporada.get("inicio", t0))
+    cap = nv["capital_usd"] / len(faltam)
+    itv = cfg.get("modo", {}).get("intervalo_forcado")
+    novos = {}
+    for tm, par in faltam:
+        tr = Trader(ag.novo_nome() if cfg["liga"].get("nomes_traders") else moeda(par), cfg["liga"].get("emoji_trader", "🤖"),
+                    par, 0.0, "trader", t0, tm["id"], tm["estrategia"], dict(tm["params"]))
+        tr.capital_inicial = cap
+        if itv:
+            tr.intervalo_fixo = itv
+        tr.alavancagem = tm.get("alavancagem", 1)
+        ag.traders.append(tr)
+        ag.aporte(tr, cap)
+        novos.setdefault(tr.chave, []).append(tr)
+    for chave, trs in novos.items():
+        par, it = chave.split("@")
+        passo = mercado.INTERVALOS_MS[it]
+        for v in mercado.velas_desde(par, it, t0 - 1400 * passo):
+            if v["t"] + passo <= t0:          # só o que já tinha fechado na hora em que eles "chegaram"
+                ag.aquecer(chave, v)
+        if ag._buf.get(chave, {}).get("c"):
+            ag.ultimo_preco[par] = ag._buf[chave]["c"][-1]
+            for tr in trs:
+                tr.ultimo_preco = ag.ultimo_preco[par]
+    for chave in novos:      # só depois de TODAS as moedas novas terem histórico (a alavancagem olha a carteira inteira)
+        ag.sincronizar(chave, t0)
+    ag.evento(t0, None, "🆕", f"Chegaram {len(faltam)} traders novos pras moedas {', '.join(sorted({moeda(p) for _, p in faltam}))} "
+                              f"(US$ {nv['capital_usd']:,.0f} a mais na agência, US$ {cap:,.2f} pra cada), com as mesmas regras dos times")
+    avisar(f"🆕 {len(faltam)} traders novos ({', '.join(sorted({moeda(p) for _, p in faltam}))}) desde {hhmm(t0)}: "
+           f"US$ {cap:,.2f} cada. As velas desde então vão ser recuperadas agora.")
+
+
 def custo_ida_e_volta(cfg):
     fut, md = cfg.get("futuros", {}), cfg.get("modo", {})
     entrada = fut.get("taxa_maker", 0.0002) if md.get("entrada_limitada", True) else fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002)
@@ -336,6 +383,7 @@ def cmd_simular(args):
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
     aplicar_times_fixos(ag, cfg)
+    adicionar_moedas_novas(ag, cfg)
     fora = set(cfg["liga"].get("estrategias_excluidas", []))
     for tm in list(ag.disputando()):
         if tm.get("estrategia") in fora:

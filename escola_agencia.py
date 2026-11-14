@@ -93,10 +93,10 @@ def carteira(series, dias, alvo, teto, jp=90, jv=60):
     port, final = [], []
     for j in range(len(dias)):
         vols = {k: _dp(R[k][max(0, j - jp):j]) for k in nomes} if j >= 20 else {}
-        if vols and all(x > 0 for x in vols.values()):
-            inv = {k: 1 / x for k, x in vols.items()}
+        if vols and any(x > 0 for x in vols.values()):   # quem ainda não existia (moeda listada depois) fica com peso 0
+            inv = {k: 1 / x for k, x in vols.items() if x > 0}
             s = sum(inv.values())
-            w = {k: x / s for k, x in inv.items()}
+            w = {k: inv.get(k, 0.0) / s for k in nomes}
         else:
             w = {k: 1 / len(nomes) for k in nomes}
         port.append(sum(w[k] * R[k][j] for k in nomes))
@@ -139,6 +139,12 @@ def rodar(cfg, esc=None, avisar=print):
     itv = md.get("intervalo_forcado") or "4h"
     alvo, teto = cv.get("risco_alvo", 0.6), cv.get("teto", 4.0)
     moedas = cfg.get("liga", {}).get("moedas") or ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+    for par in moedas:   # moeda nova no escritório: baixa o histórico dela também
+        try:
+            historico.atualizar(par, itv, lambda *a, **k: None)
+        except Exception:
+            pass
+    moedas = [m for m in moedas if len(historico.carregar(m, itv)) >= 500] or moedas[:3]
     custos = {"entrada": fut.get("taxa_maker", 0.0002) * (0.9 if fut.get("pagar_taxas_com_bnb") else 1),
               "saida": fut.get("taxa_taker", 0.0005) * (0.9 if fut.get("pagar_taxas_com_bnb") else 1) + fut.get("derrapagem", 0.0002),
               "funding_8h": fut.get("funding_8h", 0.00005)}

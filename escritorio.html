@@ -1508,7 +1508,7 @@ function renderTopo(vivo) {
   const md = (D.cfg && D.cfg.modo) || {};
   const va = D.vol_atual || {};
   const chips = D.modo === '4h_vol'
-    ? ['Futuros', 'Velas de 4h', `Alavancagem ${va.alavancagem != null ? num(va.alavancagem, 1) + 'x agora' : 'pela volatilidade'}`, 'BTC · ETH · SOL', ...(D.times.some(t => String(t.id).startsWith('seykota')) ? [`${D.times.filter(t => String(t.id).startsWith('seykota')).length} times Seykota${D.times.some(t => t.id === 'momentum_aqr') ? ' + Momentum AQR' : ''}`] : []), 'Mesmo risco pra cada trader']
+    ? ['Futuros', 'Velas de 4h', `Alavancagem ${va.alavancagem != null ? num(va.alavancagem, 1) + 'x agora' : 'pela volatilidade'}`, [...new Set(D.traders.map(t => String(t.par || '').replace('USDT', '')))].filter(Boolean).join(' · ') || 'BTC · ETH · SOL', ...(D.times.some(t => String(t.id).startsWith('seykota')) ? [`${D.times.filter(t => String(t.id).startsWith('seykota')).length} times Seykota${D.times.some(t => t.id === 'momentum_aqr') ? ' + Momentum AQR' : ''}`] : []), 'Mesmo risco pra cada trader']
     : D.modo === '5m'
     ? ['Futuros', 'Opera a cada 5 min', `${fc.alavancagem_min || 5}–${fc.alavancagem_max || 10}x`, ...(md.margem_minima_usd ? [`Margem mín. US$${num(md.margem_minima_usd, 0)}`] : []), `Até ${md.limite_horas || 2}h por operação`]
     : ['Futuros', `Perfil ${String(fc.perfil || '').replace('_', ' ')}`, `Até ${alavs.length ? Math.max(...alavs) : 10}x`];
