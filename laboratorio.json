@@ -1,100 +1,135 @@
 {
-  "atualizado_em": "2026-11-08",
-  "experimentos": [
-    {
-      "titulo": "Modo 5 min: abrir a cada 5 min (sinal ou maior chance de WIN), até 2h, 5–10x",
-      "status": "em teste ao vivo",
-      "resultado": "Antes de ligar, testei em 88 dias que o modelo não viu (BTC, ETH, SOL, BNB, XRP): com as taxas de futuros, TODAS as moedas quebraram (−99%) arriscando 1% por operação; com 0,25% e alvo/stop de 3 ATR, −45% em 88 dias. Sem taxas o modelo teria +8% a +55% — ou seja, existe uma pontinha de vantagem, mas as taxas de ~800 operações/dia comem tudo. Nos últimos 30 dias o lado escolhido pelo modelo ganhou 41,5% das vezes (ao acaso: 43,1%). Repetindo os últimos 10 dias com o motor de verdade: ~875 operações/dia e todos os times entre −3% e −5%."
-    },
-    {
-      "titulo": "Mesa de Grade em 10 moedas (alta frequência)",
-      "status": "em teste ao vivo",
-      "resultado": "Repetindo os últimos 60 dias com o motor de verdade: degrau 0,5% = ~200 operações/dia (+7%, US$ 82 de taxa); degrau 0,8% = ~78/dia (+6,3%). Escolhido 0,8% pra ficar em 50–100 operações/dia. Em 5 anos (aproximado) grades perderam — a sprint diária vai dizer."
-    },
-    {
-      "titulo": "Economia de empresa: metas de US$ 50, caixa do time e contratações",
-      "status": "em teste ao vivo",
-      "resultado": "Nos últimos 45 dias, só a Mesa de Grade bateu metas (DOGE: 3 metas); os times de tendência quase não realizaram lucro nesse período de mercado parado/caindo. Contratações devem vir primeiro da mesa."
-    },
-    {
-      "titulo": "Mais risco por operação (perfis)",
-      "status": "aprovado",
-      "resultado": "Seykota em 4 anos: 2% → +50% (queda −14%); 4% → +106% (−24%); 6% → +161% (−33%). O Sharpe quase não muda: o ganho cresce junto com a queda. Padrão agora: agressivo (4% + pirâmide)."
-    },
-    {
-      "titulo": "10 moedas por time em futuros",
-      "status": "reprovado",
-      "resultado": "Seykota: mesmo retorno (+49% vs +50%) com 2,7× mais operações. Momentum piorou bastante (+26% → +9%). Não compensa por enquanto."
-    },
-    {
-      "titulo": "Escola de futuros (LONG e SHORT com o mesmo julgamento do robô ao vivo)",
-      "status": "aprovado",
-      "resultado": "Agora os times são escolhidos por uma prova igual ao jogo: comprando e vendendo, taxas de futuros, funding, liquidação e risco fixo. Top: Seykota (Sharpe 0,94, +50%, queda −14%), Momentum (0,73), Weinstein (0,56), Minervini (0,52). Comprar e segurar deu +256% com queda de −64%."
-    },
-    {
-      "titulo": "Alavancagem por julgamento + aprendizado a cada operação",
-      "status": "em teste ao vivo",
-      "resultado": "Cada operação decide a própria alavancagem (até 10x) pela distância do stop, pela confiança e pela tendência de 200 dias. A confiança aprende com o resultado de cada operação (em R), devagar, pra não confundir sorte com habilidade. A escola reestuda toda semana."
-    },
-    {
-      "titulo": "Futuros: as mesmas estratégias comprando E vendendo (sem alavancagem)",
-      "status": "reprovado",
-      "resultado": "4 anos fora da amostra, taxa de futuros 0,05%: Seykota long/short +88% (só comprado: +169%), Tartarugas +22%, Momentum +46%. O short ajuda nas quedas mas atrapalha num mercado que subiu muito. Velas de 15 min seguem perdendo (−12% a −45% em 4 meses)."
-    },
-    {
-      "titulo": "Futuros: grade neutra (compra nas quedas e vende nas altas)",
-      "status": "reprovado",
-      "resultado": "~70 operações/dia em 3 moedas, mas −8% a −11% em 200 dias. Com 2x: −15% (queda de 59%); com 3x: −23% (queda de 87%). Alavancagem só aumenta o estrago."
-    },
-    {
-      "titulo": "Futuros: grade a favor da tendência de 4h (LONG na alta, SHORT na baixa)",
-      "status": "em teste ao vivo",
-      "resultado": "Últimos 200 dias (5 min): +5,5% com ~27 operações/dia, enquanto segurar deu −2,9%. Mas em 5 anos (velas de 1h, aproximado) perdeu: −10% a −51%. Ou seja: pode ter sido sorte do período. Agora roda na Mesa de Grade a 5x."
-    },
-    {
-      "titulo": "Liga em futuros 5x a 10x, sprints de 1 dia",
-      "status": "substituído",
-      "resultado": "Simulando os últimos 30 dias com o motor de verdade: ~17 operações/dia na agência, 0 liquidações (margem de 25% do caixa por operação). Seykota 5x +8,4%, Momentum 8x −20,7%. 30 dias é pouco: é ruído. Trocado pelo risco fixo com alavancagem por julgamento."
-    },
-    {
-      "titulo": "Robô de grade (20–40 operações por dia)",
-      "status": "substituído",
-      "resultado": "Velas de 5 min, degrau 0,5% em ±20%, US$ 250 por moeda. No passado: 21–31 operações/dia em 3 moedas; os degraus lucraram mais que as taxas, mas o resultado final ficou entre −2% e −5% (30 a 180 dias) por causa das moedas seguradas nas quedas. Perde menos que comprar e segurar quando o mercado cai (−4,3% contra −12,3% em 30 dias) e fica pra trás quando dispara (−4,8% contra +17,9% em 90 dias). Agora roda na Mesa de Grade, medida pelas sprints. Foi trocado pela grade em futuros a favor da tendência."
-    },
-    {
-      "titulo": "Robôs rápidos (velas de 5 e 15 min)",
-      "status": "reprovado",
-      "resultado": "Fazem 1 a 13 operações por dia, mas com as taxas perderam de 23% a 88% em 4 meses fora da amostra (sem taxas, alguns ganhariam até 19%). Ficaram como Mesa Rápida, fora da disputa."
-    },
-    {
-      "titulo": "Velas de 1h só a favor da tendência longa",
-      "status": "reprovado",
-      "resultado": "Recuo na Tendência: −50% (1.671 operações). Rompimento com Filtro: −13% (1.109 operações). Operar mais no mesmo ativo não pagou."
-    },
-    {
-      "titulo": "Mesmas estratégias em 10 moedas (em vez de 5)",
-      "status": "reprovado",
-      "resultado": "Dobrou as operações, mas piorou: Seykota +169% → +89%, Momentum +147% → +43% (queda 36% → 54%). As altcoins extras foram mal de 2022 a 2026."
-    },
-    {
-      "titulo": "Taxa menor (pagar com BNB + ordens limitadas) nos robôs rápidos",
-      "status": "reprovado",
-      "resultado": "Melhora, mas não salva: ainda −3% a −75% em 4 meses."
-    },
-    {
-      "titulo": "Comitê: as 3 melhores estratégias dividindo o capital",
-      "status": "em teste ao vivo",
-      "resultado": "Na escola de futuros (4 anos): Comitê (Seykota + Momentum + Weinstein) +27,6%, queda máx −8,0%, Sharpe 0,91 — contra o Seykota sozinho +50,3%, queda −13,9%, Sharpe 0,94. Caiu menos, ganhou menos. Agora é o Time Comitê na liga."
-    },
-    {
-      "titulo": "Tamanho da aposta pela volatilidade nos times",
-      "status": "aprovado",
-      "resultado": "Virou o risco fixo por operação: o tamanho de cada posição sai da distância do stop (stop longe = posição menor). Na escola de futuros: Seykota +50% com queda de 14% (a 5x fixo, o teste antigo dava queda de 32%)."
-    },
-    {
-      "titulo": "Pirâmide nas tendências (comprar mais quando já está ganhando)",
-      "status": "aprovado",
-      "resultado": "Somar meia unidade a cada meia distância do stop a favor, até 4 (regra das Tartarugas). Seykota a 4% de risco: +106% → +228% em 4 anos (queda −24% → −36%, Sharpe 0,94 → 1,04). Também melhorou Momentum, Weinstein e Minervini. Ligada no perfil agressivo."
-    }
-  ]
+ "atualizado_em": 1794670009332,
+ "experimentos": [
+  {
+   "titulo": "Formação atual: 3 times Seykota (20/100, 15/150, 50/200) + Momentum AQR, velas de 4h, alavancagem pela volatilidade",
+   "status": "em uso",
+   "resultado": "Mesmo risco pra cada trader (pela volatilidade de 90 dias) e alavancagem da agência mirando 60% de oscilação ao ano, com teto de 4x. Nos testes de 2021 a 2026 com taxas: ~130–170% ao ano, com quedas de até ~45–50% no caminho."
+  },
+  {
+   "titulo": "Saída por tempo: com 40 dias (240 velas de 4h) o trader realiza o lucro e espera sinal novo",
+   "status": "em uso",
+   "resultado": "Escolhida entre 208 regras de saída testadas em 2021–2023 e conferida em 2024–2026 (período que ela nunca viu): 118% → 153% ao ano no teste, queda −47% → −44%. Qualquer valor entre 33 e 53 dias também ganhou do 'deixar correr' (não é número mágico). Ajudou BTC e ETH; atrapalhou SOL."
+  },
+  {
+   "titulo": "Realizar o lucro quando o preço está 'esticado' (média em ATR, RSI, Bollinger, alvo fixo, protege-lucro, MACD, ADX, volume…)",
+   "status": "reprovado",
+   "resultado": "62 tipos de saída × 3 jeitos (sair tudo, sair e voltar, realizar metade) + 22 combinações: quase todas pioraram fora da amostra. Em cripto o 'esticado' costuma esticar mais — é ali que estão as quedas e altas que pagam o ano."
+  },
+  {
+   "titulo": "Ciclo de 4 anos do Bitcoin (halving): só operar a favor da fase do ciclo",
+   "status": "em observação",
+   "resultado": "Nos 3 ciclos desde 2016 pareceu ótimo, mas é frágil: errando o topo em 3 meses o resultado despenca, e só existem 3 ciclos pra testar. Hoje (31 meses após o halving de abr/2024) a fase é neutra — não mudaria nada até 2028. Reavaliar perto do próximo halving."
+  },
+  {
+   "titulo": "Outros 17 modelos da escola (Ichimoku, Supertrend, MACD, Weinstein…) com as mesmas saídas por tempo",
+   "status": "reprovado",
+   "resultado": "Nenhum melhorou a agência, nem sozinho nem como 5º time: são todos 'seguir tendência' e andam junto com os nossos. Os de reversão à média perdem dinheiro em cripto com velas de 4h."
+  },
+  {
+   "titulo": "Ideias da internet: apostar menos na queda (AdaptiveTrend 70/30), conjunto de canais Donchian (Concretum), 13 moedas",
+   "status": "reprovado",
+   "resultado": "Apostar menos na queda ganhou em 2021–23 (período de alta) e perdeu em 2024–26 — é aposta na direção, não melhora. Donchian conjunto piorou. Com 13 moedas piorou bastante (altcoins andam junto com o BTC e têm tendências mais 'sujas')."
+  },
+  {
+   "titulo": "ONDO e FIL na agência (pedido do CEO, desde 13/11 15h)",
+   "status": "em uso",
+   "resultado": "No teste histórico da escola, com as 5 moedas a agência rende menos (168% → 132% ao ano) e a queda máxima aumenta. Ficam em observação: reavaliar depois de 1–2 meses ao vivo."
+  },
+  {
+   "titulo": "Modo 5 min: abrir a cada 5 min (sinal ou maior chance de WIN), até 2h, 5–10x",
+   "status": "arquivado",
+   "resultado": "Antes de ligar, testei em 88 dias que o modelo não viu (BTC, ETH, SOL, BNB, XRP): com as taxas de futuros, TODAS as moedas quebraram (−99%) arriscando 1% por operação; com 0,25% e alvo/stop de 3 ATR, −45% em 88 dias. Sem taxas o modelo teria +8% a +55% — ou seja, existe uma pontinha de vantagem, mas as taxas de ~800 operações/dia comem tudo. Nos últimos 30 dias o lado escolhido pelo modelo ganhou 41,5% das vezes (ao acaso: 43,1%). Repetindo os últimos 10 dias com o motor de verdade: ~875 operações/dia e todos os times entre −3% e −5%."
+  },
+  {
+   "titulo": "Mesa de Grade em 10 moedas (alta frequência)",
+   "status": "arquivado",
+   "resultado": "Repetindo os últimos 60 dias com o motor de verdade: degrau 0,5% = ~200 operações/dia (+7%, US$ 82 de taxa); degrau 0,8% = ~78/dia (+6,3%). Escolhido 0,8% pra ficar em 50–100 operações/dia. Em 5 anos (aproximado) grades perderam — a sprint diária vai dizer."
+  },
+  {
+   "titulo": "Economia de empresa: metas de US$ 50, caixa do time e contratações",
+   "status": "arquivado",
+   "resultado": "Nos últimos 45 dias, só a Mesa de Grade bateu metas (DOGE: 3 metas); os times de tendência quase não realizaram lucro nesse período de mercado parado/caindo. Contratações devem vir primeiro da mesa."
+  },
+  {
+   "titulo": "Mais risco por operação (perfis)",
+   "status": "aprovado",
+   "resultado": "Seykota em 4 anos: 2% → +50% (queda −14%); 4% → +106% (−24%); 6% → +161% (−33%). O Sharpe quase não muda: o ganho cresce junto com a queda. Padrão agora: agressivo (4% + pirâmide)."
+  },
+  {
+   "titulo": "10 moedas por time em futuros",
+   "status": "reprovado",
+   "resultado": "Seykota: mesmo retorno (+49% vs +50%) com 2,7× mais operações. Momentum piorou bastante (+26% → +9%). Não compensa por enquanto."
+  },
+  {
+   "titulo": "Escola de futuros (LONG e SHORT com o mesmo julgamento do robô ao vivo)",
+   "status": "aprovado",
+   "resultado": "Agora os times são escolhidos por uma prova igual ao jogo: comprando e vendendo, taxas de futuros, funding, liquidação e risco fixo. Top: Seykota (Sharpe 0,94, +50%, queda −14%), Momentum (0,73), Weinstein (0,56), Minervini (0,52). Comprar e segurar deu +256% com queda de −64%."
+  },
+  {
+   "titulo": "Alavancagem por julgamento + aprendizado a cada operação",
+   "status": "arquivado",
+   "resultado": "Cada operação decide a própria alavancagem (até 10x) pela distância do stop, pela confiança e pela tendência de 200 dias. A confiança aprende com o resultado de cada operação (em R), devagar, pra não confundir sorte com habilidade. A escola reestuda toda semana."
+  },
+  {
+   "titulo": "Futuros: as mesmas estratégias comprando E vendendo (sem alavancagem)",
+   "status": "reprovado",
+   "resultado": "4 anos fora da amostra, taxa de futuros 0,05%: Seykota long/short +88% (só comprado: +169%), Tartarugas +22%, Momentum +46%. O short ajuda nas quedas mas atrapalha num mercado que subiu muito. Velas de 15 min seguem perdendo (−12% a −45% em 4 meses)."
+  },
+  {
+   "titulo": "Futuros: grade neutra (compra nas quedas e vende nas altas)",
+   "status": "reprovado",
+   "resultado": "~70 operações/dia em 3 moedas, mas −8% a −11% em 200 dias. Com 2x: −15% (queda de 59%); com 3x: −23% (queda de 87%). Alavancagem só aumenta o estrago."
+  },
+  {
+   "titulo": "Futuros: grade a favor da tendência de 4h (LONG na alta, SHORT na baixa)",
+   "status": "arquivado",
+   "resultado": "Últimos 200 dias (5 min): +5,5% com ~27 operações/dia, enquanto segurar deu −2,9%. Mas em 5 anos (velas de 1h, aproximado) perdeu: −10% a −51%. Ou seja: pode ter sido sorte do período. Agora roda na Mesa de Grade a 5x."
+  },
+  {
+   "titulo": "Liga em futuros 5x a 10x, sprints de 1 dia",
+   "status": "substituído",
+   "resultado": "Simulando os últimos 30 dias com o motor de verdade: ~17 operações/dia na agência, 0 liquidações (margem de 25% do caixa por operação). Seykota 5x +8,4%, Momentum 8x −20,7%. 30 dias é pouco: é ruído. Trocado pelo risco fixo com alavancagem por julgamento."
+  },
+  {
+   "titulo": "Robô de grade (20–40 operações por dia)",
+   "status": "substituído",
+   "resultado": "Velas de 5 min, degrau 0,5% em ±20%, US$ 250 por moeda. No passado: 21–31 operações/dia em 3 moedas; os degraus lucraram mais que as taxas, mas o resultado final ficou entre −2% e −5% (30 a 180 dias) por causa das moedas seguradas nas quedas. Perde menos que comprar e segurar quando o mercado cai (−4,3% contra −12,3% em 30 dias) e fica pra trás quando dispara (−4,8% contra +17,9% em 90 dias). Agora roda na Mesa de Grade, medida pelas sprints. Foi trocado pela grade em futuros a favor da tendência."
+  },
+  {
+   "titulo": "Robôs rápidos (velas de 5 e 15 min)",
+   "status": "reprovado",
+   "resultado": "Fazem 1 a 13 operações por dia, mas com as taxas perderam de 23% a 88% em 4 meses fora da amostra (sem taxas, alguns ganhariam até 19%). Ficaram como Mesa Rápida, fora da disputa."
+  },
+  {
+   "titulo": "Velas de 1h só a favor da tendência longa",
+   "status": "reprovado",
+   "resultado": "Recuo na Tendência: −50% (1.671 operações). Rompimento com Filtro: −13% (1.109 operações). Operar mais no mesmo ativo não pagou."
+  },
+  {
+   "titulo": "Mesmas estratégias em 10 moedas (em vez de 5)",
+   "status": "reprovado",
+   "resultado": "Dobrou as operações, mas piorou: Seykota +169% → +89%, Momentum +147% → +43% (queda 36% → 54%). As altcoins extras foram mal de 2022 a 2026."
+  },
+  {
+   "titulo": "Taxa menor (pagar com BNB + ordens limitadas) nos robôs rápidos",
+   "status": "reprovado",
+   "resultado": "Melhora, mas não salva: ainda −3% a −75% em 4 meses."
+  },
+  {
+   "titulo": "Comitê: as 3 melhores estratégias dividindo o capital",
+   "status": "arquivado",
+   "resultado": "Na escola de futuros (4 anos): Comitê (Seykota + Momentum + Weinstein) +27,6%, queda máx −8,0%, Sharpe 0,91 — contra o Seykota sozinho +50,3%, queda −13,9%, Sharpe 0,94. Caiu menos, ganhou menos. Agora é o Time Comitê na liga."
+  },
+  {
+   "titulo": "Tamanho da aposta pela volatilidade nos times",
+   "status": "aprovado",
+   "resultado": "Virou o risco fixo por operação: o tamanho de cada posição sai da distância do stop (stop longe = posição menor). Na escola de futuros: Seykota +50% com queda de 14% (a 5x fixo, o teste antigo dava queda de 32%)."
+  },
+  {
+   "titulo": "Pirâmide nas tendências (comprar mais quando já está ganhando)",
+   "status": "aprovado",
+   "resultado": "Somar meia unidade a cada meia distância do stop a favor, até 4 (regra das Tartarugas). Seykota a 4% de risco: +106% → +228% em 4 anos (queda −24% → −36%, Sharpe 0,94 → 1,04). Também melhorou Momentum, Weinstein e Minervini. Ligada no perfil agressivo."
+  }
+ ]
 }

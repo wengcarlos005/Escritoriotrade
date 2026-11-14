@@ -33,7 +33,12 @@ Pronto. Os traders entram nas tendências que já estão acontecendo e daí pra 
 | Atualizar pra versão mais nova | Feche a agência e rode `atualizar.bat` (precisa ter instalado pelo Git) |
 | O Claude como gerente (relatórios, chat) | `3_instalar_gerente.bat` e cole sua chave da Anthropic na aba 🧠 Gerente |
 | A mesma simulação em 2 PCs | `8_sincronizar_entre_pcs.bat` em cada PC (veja a seção 2.0) |
-| Operar com dinheiro de verdade | Leia **[OPERACAO_REAL.md](OPERACAO_REAL.md)** e use o `9_conectar_binance.bat` |
+| Operar com dinheiro de verdade | **[BITGET.md](BITGET.md)** — do zero: criar conta, depositar com PIX, criar a chave e ligar (recomendado) |
+
+### 💰 Quer operar com dinheiro de verdade? Use a Bitget
+A agência já vem pronta pra **Bitget** (taxas, conexão e stop de emergência). O guia **[BITGET.md](BITGET.md)** mostra
+tudo do zero, mesmo pra quem nunca usou: criar a conta, proteger com 2 fatores, colocar dinheiro com **PIX**, criar a
+chave de API (sem permissão de saque), testar **sem depositar** e só depois colocar dinheiro. Comece pequeno.
 
 ## 📏 O que esperar (sem ilusão)
 

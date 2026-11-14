@@ -35,6 +35,7 @@ h1 span{color:var(--acento)}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:stretch}
 .kpi{background:var(--card);border-radius:12px;box-shadow:var(--sombra);padding:10px 14px;min-width:0;display:flex;flex-direction:column;justify-content:center}
 .kpi.real{grid-column:span 2}
+.kpi.real .r{text-transform:none}
 .kpi .st{font-size:11.5px;color:var(--suave);font-weight:600;margin-top:4px;line-height:1.35;white-space:normal}
 .kpi .ac{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
 .kpi .ac .bt-real{margin-left:0}
@@ -226,6 +227,8 @@ details.mais-d summary{cursor:pointer;color:var(--acento);font-weight:600;font-s
 @media (max-width:700px){
   .tela{height:390px}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .chips{display:flex;flex-wrap:nowrap;overflow-x:auto;margin:6px 0 0;padding-bottom:2px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
   .kpi .v{font-size:15px}
   .bt-real{font-size:11px}
   .relogio{font-size:11px}
@@ -247,7 +250,7 @@ body.modo-video .tela > :not(canvas){display:none !important}
 </head>
 <body>
 <nav><div class="in">
-  <div class="marca"><span class="rec off" id="rec"></span>Agência de Trade</div>
+  <div class="marca"><span class="rec off" id="rec"></span>Agência de Traders</div>
   <div class="abas">
     <a href="/" class="on">🏢 Escritório</a>
     <a href="/painel#geral">📊 Painel</a>
@@ -293,7 +296,7 @@ body.modo-video .tela > :not(canvas){display:none !important}
       <div class="abinhas"><button data-ops="pos" class="on">Posições</button><button data-ops="hist">Histórico</button><button data-ops="apr">🧠 Aprendizado</button></div></div>
     <div id="ops-corpo"><div class="vazio">aguardando…</div></div>
   </div>
-  <div class="aviso">simulação com preços reais e dinheiro de mentira · não é recomendação de investimento · <a href="/3d" style="color:inherit">versão 3D</a> · <a href="/pixel" style="color:inherit">versão antiga</a></div>
+  <div class="aviso">simulação com preços reais (dinheiro real só se você conectar uma corretora) · não é recomendação de investimento · <a href="/3d" style="color:inherit">versão 3D</a> · <a href="/pixel" style="color:inherit">versão antiga</a></div>
 </div>
 
 <script>

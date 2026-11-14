@@ -32,8 +32,8 @@ h1 span{color:var(--acento)}
 .sub{color:var(--suave);font-size:13.5px;margin-top:6px}
 .sub b{color:var(--texto)}
 .tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fff1d6;color:#a86a00;margin-left:4px}
-.kpis{display:flex;gap:8px;flex-wrap:wrap}
-.kpi{background:var(--card);border-radius:12px;box-shadow:var(--sombra);padding:8px 13px;min-width:108px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.kpi{background:var(--card);border-radius:12px;box-shadow:var(--sombra);padding:8px 13px;min-width:0}
 .kpi .r{font-size:11px;color:var(--suave);font-weight:600;text-transform:lowercase}
 .kpi .v{font-family:var(--titulo);font-weight:600;font-size:18px;white-space:nowrap;margin-top:1px}
 .pos{color:var(--verde)} .neg{color:var(--vermelho)}
@@ -177,7 +177,7 @@ h1 span{color:var(--acento)}
 @media (max-width:700px){
   .tela{height:390px}
   .ps{display:none}
-  .kpi{min-width:0;flex:1 1 30%}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kpi .v{font-size:15px}
   .relogio{font-size:11px}
 }
@@ -185,7 +185,7 @@ h1 span{color:var(--acento)}
 </head>
 <body>
 <nav><div class="in">
-  <div class="marca"><span class="rec off" id="rec"></span>Agência de Trade</div>
+  <div class="marca"><span class="rec off" id="rec"></span>Agência de Traders</div>
   <div class="abas">
     <a href="/" class="on">🏢 Escritório</a>
     <a href="/painel#geral">📊 Painel</a>
@@ -235,7 +235,7 @@ h1 span{color:var(--acento)}
       <div class="abinhas"><button data-ops="pos" class="on">Posições abertas</button><button data-ops="hist">Histórico de operações</button><button data-ops="apr">🧠 Aprendizado</button></div></div>
     <div id="ops-corpo"><div class="vazio">aguardando…</div></div>
   </div>
-  <div class="aviso">simulação com preços reais e dinheiro de mentira · não é recomendação de investimento · <a href="/pixel" style="color:inherit">versão pixel</a></div>
+  <div class="aviso">simulação com preços reais (dinheiro real só se você conectar uma corretora) · não é recomendação de investimento · <a href="/pixel" style="color:inherit">versão pixel</a></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1390,7 +1390,7 @@ function renderTopo(vivo) {
   const alavs = D.times.filter(t => !t.especial).map(t => t.alavancagem).filter(Boolean);
   const fc = (D.cfg && D.cfg.futuros) || {};
   const va = D.vol_atual || {};
-  const tagFut = FUT() && D.modo === '4h_vol' ? `<span class="tag">⚡ futuros · velas de 4h · alavancagem pela volatilidade${va.alavancagem != null ? ` (${num(va.alavancagem, 1)}x agora)` : ''} · BTC ETH SOL · mesmo risco pra cada trader</span> <span class="tag" style="background:#e3f1e7;color:#2f7d57">${D.fonte_dados === 'futuros' ? 'dados de futuros reais' : 'dados: aproximação à vista'}</span>`
+  const tagFut = FUT() && D.modo === '4h_vol' ? `<span class="tag">⚡ futuros · velas de 4h · alavancagem pela volatilidade${va.alavancagem != null ? ` (${num(va.alavancagem, 1)}x agora)` : ''} · ${[...new Set(D.traders.map(t => String(t.par || '').replace('USDT', '')))].filter(Boolean).join(' ')} · mesmo risco pra cada trader</span> <span class="tag" style="background:#e3f1e7;color:#2f7d57">${D.fonte_dados === 'futuros' ? 'dados de futuros reais' : 'dados: aproximação à vista'}</span>`
     : FUT() ? `<span class="tag">⚡ futuros · perfil ${esc(String(fc.perfil || '').replace('_', ' '))} · risco ${num((fc.risco_por_operacao || 0) * 100, 0)}% por operação${fc.piramide ? ' + pirâmide' : ''} · alavancagem por julgamento${alavs.length ? ` até ${Math.max(...alavs)}x` : ''}</span> <span class="tag" style="background:#e3f1e7;color:#2f7d57" title="${D.fonte_dados === 'futuros' ? 'preço do contrato perpétuo e funding real da Binance' : 'a API de futuros não respondeu: preço à vista e funding médio'}">${D.fonte_dados === 'futuros' ? 'dados de futuros reais' : 'dados: aproximação à vista'}</span>` : '';
   $('sub').innerHTML = vivo ? `Temporada ${temp.numero} · semana ${Math.floor((Date.now() - temp.inicio) / 6048e5) + 1} · titular: <b>${esc(tit.emoji)} ${esc(tit.nome)}</b> ${tagFut}`
                             : `A agência está desligada — mostrando os últimos dados salvos ${tagFut}`;
@@ -1399,7 +1399,7 @@ function renderTopo(vivo) {
     FUT() ? ['posições', `${longs}▲ ${shorts}▼ <small style="font-size:12px;color:var(--suave)">de ${D.traders.length}</small>`, ''] : ['comprados agora', `${abertos.length} de ${D.traders.length}`, ''],
     ...(sp && sp.total ? [[sp.duracao === 'dia' ? 'sprint do dia' : 'sprint ' + sp.numero, `${sp.total.operacoes_agencia ?? sp.total.operacoes} ops · ${pct(sp.total.lucro_pct, 2)}`, cls(sp.total.lucro_pct)]] : []),
     ...(FUT() ? [['liquidações', liq ? `💀 ${liq}` : '0', liq ? 'neg' : '']] : []),
-    ...(D.caixa_empresa != null ? [['🏦 caixa da empresa', usd(D.caixa_empresa || 0), '']] : []),
+    ...(D.cfg && D.cfg.empresa && D.cfg.empresa.ativo ? [['🏦 caixa da empresa', usd(D.caixa_empresa || 0), '']] : []),
     ['próxima rodada', falta(temp.proxima_rodada), '']]
     .map(([r, v, c]) => `<div class="kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div></div>`).join('');
 }

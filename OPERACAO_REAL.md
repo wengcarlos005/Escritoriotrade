@@ -1,5 +1,7 @@
 # Operação real (Binance, Bybit ou Bitget) — passo a passo
 
+> 👉 **Nunca usou a Bitget?** Comece pelo guia completo **[BITGET.md](BITGET.md)** (conta, PIX, chave de API e conexão).
+
 A conta de **futuros USDT-M** da Binance passa a copiar a agência, na proporção: se a agência tem US$ 1.500 e a sua
 conta tem US$ 500, cada posição da conta é 1/3 da posição da agência (somando os 4 times em cada moeda — quando dois
 times estão em lados opostos, a conta fica só com a diferença e paga menos taxa).
