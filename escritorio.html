@@ -1285,6 +1285,7 @@ function pensamento(a) {
     if (p.preco_liquidacao) s += ` Se o preço ${l > 0 ? 'cair' : 'subir'} até ${preco(p.preco_liquidacao)}, sou liquidado 💀.`;
     if (p.forcada) s += ` Entrei FORÇADO (a estratégia não deu sinal): o modelo deu ${Math.round((p.chance || 0.5) * 100)}% de chance de WIN pra esse lado.`;
     const lim = limiteDe(p); if (lim) s += ` Se não fechar antes, saio em ${curto(lim - Date.now())} (limite de 2h).`;
+    if (tr.aviso_real) s += ` ⚠️ ${tr.aviso_real} — aqui na agência sigo posicionado normalmente.`;
     return s + metaTxt;
   }
   const fal = tr.distancia != null && tr.distancia > 0 ? (FUT() ? ` Falta ${num(tr.distancia, 1)}% pro gatilho.` : ` Falta o preço subir ${num(tr.distancia, 1)}%.`) : '';

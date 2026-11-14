@@ -160,6 +160,51 @@ class Operacao:
             self.cli.stop_emergencia(par, q, alvo)
             sos[par] = round(alvo, 6)
 
+    def _testar_sem_saldo(self, ag):
+        """Conta VAZIA: manda de verdade as ordens que mandaria (com o capital de teste) pra ver se a corretora as recebe.
+        Sem saldo ela recusa (falta de margem) — a agência continua normal e mostra o aviso nos traders.
+        Só tenta de novo quando o lado muda ou a cada 4h, pra não ficar insistindo."""
+        cap = float(self.c.get("capital_papel_usd", 500))
+        alvo, _ = self.alvo(ag, cap)
+        regras = self.cli.regras()
+        tent = self.estado.setdefault("tentativas", {})
+        agora = int(time.time() * 1000)
+        recusadas = {}
+        for par, quer in sorted(alvo.items()):
+            px = self._precos.get(par)
+            if not px or par not in regras:
+                continue
+            q = B.arredondar(quer, regras[par]["passo"])
+            if not q or abs(q) * px < regras[par]["min_notional"]:
+                continue
+            lado, moeda = (1 if q > 0 else -1), par.replace("USDT", "")
+            ult = tent.get(par) or {}
+            if ult.get("lado") == lado and agora - ult.get("t", 0) < 4 * 3_600_000:
+                if ult.get("recusada"):
+                    recusadas[par] = ult
+                continue
+            reg = {"t": agora, "lado": lado, "qtd": q, "usd": round(abs(q) * px, 2)}
+            try:
+                self.cli.ordem_mercado(par, q, ident=f"agencia-teste-{int(time.time())}-{moeda[:4]}")
+            except B.ErroBinance as e:
+                m = str(e.msg)
+                falta = any(x in m.lower() for x in ("balance", "margin", "insufficient", "saldo", "available")) or str(e.codigo) in ("40762", "43012", "45110")
+                reg["recusada"] = ("falta de margem (conta sem saldo)" if falta else "recusada") + f" — resposta da {self.nome}: {m[:120]}"
+                tent[par] = recusadas[par] = reg
+                self.avisar(f"  🟡 [{self.c['modo']}] {'COMPRA' if lado > 0 else 'VENDA'} {abs(q):g} {moeda} (~US$ {reg['usd']:,.0f}) "
+                            f"NÃO aberta na {self.nome}: {reg['recusada']}")
+                ag.evento(agora, None, "🟡", f"{self.nome}: {'COMPRA' if lado > 0 else 'VENDA'} de {moeda} (~US$ {reg['usd']:,.0f}) "
+                                             f"não abriu — {reg['recusada'].split(' — ')[0]}. Na agência a posição segue aberta.")
+                continue
+            # a corretora ACEITOU com a conta vazia (não devia): fecha tudo na hora, por segurança
+            tent[par] = dict(reg, recusada=None)
+            self._parar(f"teste sem saldo: a {self.nome} aceitou uma ordem de {moeda} — fechei tudo por segurança")
+            return
+        self.estado["recusadas"] = {p: {k: r[k] for k in ("t", "lado", "qtd", "usd", "recusada")} for p, r in recusadas.items()}
+        for tr in ag.traders:
+            r, p = recusadas.get(tr.par), tr.posicao
+            tr.aviso_real = (f"Não aberta na {self.nome}: {r['recusada'].split(' — ')[0]}" if r and p and p.get("lado") == r["lado"] else None)
+
     def parar_tudo(self, motivo):
         """Fecha todas as posições e PARA (só volta quando você mandar)."""
         with self.trava:
@@ -232,9 +277,18 @@ class Operacao:
                     self.estado["avisou_sem_saldo"] = True
                     self.avisar(f"💵 Conta {self.nome} conectada e funcionando, mas sem saldo (US$ {pat:.2f}). "
                                 "Quando você depositar, ela começa a copiar a agência sozinha.")
+                if pat < 1 and self.c["modo"] in ("testnet", "real") and self.c.get("testar_sem_saldo", True):
+                    self._testar_sem_saldo(ag)
+                    n = len(self.estado.get("recusadas") or {})
+                    if n:
+                        self.estado["status"] = f"sem saldo: {n} ordem(ns) tentada(s) e recusada(s) pela {self.nome} (falta de margem) — a agência segue normal"
                 self._salvar()
                 return
             self.estado.pop("avisou_sem_saldo", None)
+            self.estado.pop("recusadas", None)
+            for tr in ag.traders:
+                if getattr(tr, "aviso_real", None):
+                    tr.aviso_real = None
             hoje = time.strftime("%Y-%m-%d")
             if self.estado.get("dia") != hoje:
                 self.estado.update(dia=hoje, inicio_dia=pat)
