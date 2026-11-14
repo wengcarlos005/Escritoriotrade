@@ -114,6 +114,7 @@ class Operacao:
             r = self.cli.ordem_mercado(par, qtd, reduzir=reduzir, ident=f"agencia-{int(time.time())}-{par[:3]}")
             ordem.update(status=r.get("status"), id=r.get("orderId"), executado=r.get("executedQty"), preco_medio=r.get("avgPrice"))
         self._anotar("ordens", ordem)
+        self.estado["n_ordens"] = self.estado.get("n_ordens", 0) + 1
         lado = "COMPRA" if qtd > 0 else "VENDA"
         self.avisar(f"  💵 [{self.c['modo']}] {lado} {abs(qtd):g} {par.replace('USDT', '')} (~US$ {abs(qtd) * preco:,.0f}) — {motivo}")
         return ordem
@@ -160,6 +161,60 @@ class Operacao:
             self.cli.stop_emergencia(par, q, alvo)
             sos[par] = round(alvo, 6)
 
+    def _movimentos(self, conta, pat):
+        """Depósito ou saque: o saldo da carteira mudou sem nenhuma ordem nossa e com as mesmas posições.
+        Ajusta as referências das travas (senão um saque pareceria prejuízo e a trava do dia fecharia tudo)."""
+        cart = conta.get("carteira", pat)
+        pos = {k: round(v, 8) for k, v in (conta.get("posicoes") or {}).items()}
+        ant, n = self.estado.get("ultimo_saldo"), self.estado.get("n_ordens", 0)
+        if ant and ant.get("pos") == pos and ant.get("n") == n:
+            d = cart - ant["carteira"]
+            if abs(d) >= max(5.0, 0.02 * max(pat, 1.0)):
+                for k in ("inicial", "inicio_dia"):
+                    if self.estado.get(k):
+                        self.estado[k] = max(0.0, self.estado[k] + d)
+                if d < 0:   # sacou: a contagem do próximo lembrete recomeça daqui
+                    self.estado["ref_saque"] = {"t": int(time.time() * 1000), "pat": pat}
+                    self.estado.pop("lembrete_saque", None)
+                else:
+                    ref = self.estado.get("ref_saque")
+                    if ref:
+                        ref["pat"] += d
+                self._anotar("movimentos", {"t": int(time.time() * 1000), "valor": round(d, 2)})
+                self.avisar(f"💵 {'Saque' if d < 0 else 'Depósito'} de US$ {abs(d):,.2f} detectado na {self.nome} — travas ajustadas. "
+                            "Se quiser a agência do mesmo tamanho, clique em ⚖️ Igualar ao saldo.")
+        self.estado["ultimo_saldo"] = {"carteira": cart, "pos": pos, "n": n}
+
+    def _foto_saldo(self, n_antes):
+        """No fim do ciclo: se a agência mandou ordem agora, tira uma foto nova do saldo (taxas e lucro realizado já
+        entram nela) — assim, no próximo ciclo, só depósito/saque mudam a carteira com as mesmas posições."""
+        n = self.estado.get("n_ordens", 0)
+        if n == n_antes or self.c["modo"] == "papel":
+            return
+        try:
+            c = self._conta()
+        except Exception:
+            self.estado.pop("ultimo_saldo", None)
+            return
+        self.estado["ultimo_saldo"] = {"carteira": c.get("carteira", c["patrimonio"]),
+                                       "pos": {k: round(v, 8) for k, v in (c.get("posicoes") or {}).items()}, "n": n}
+
+    def _lembrete_saque(self, pat):
+        """Regra de tirar lucro do bolso: quando a conta sobe X% (padrão 50%) ou passa 1 mês no lucro, sugere sacar uma parte."""
+        agora = int(time.time() * 1000)
+        ref = self.estado.setdefault("ref_saque", {"t": agora, "pat": pat})
+        lucro, dias = pat - ref["pat"], (agora - ref["t"]) / 86_400_000
+        alvo, mes, parte = self.c.get("saque_lucro_pct", 50), self.c.get("saque_a_cada_dias", 30), self.c.get("saque_parte_pct", 50)
+        if lucro > 0 and (lucro >= ref["pat"] * alvo / 100 or dias >= mes):
+            motivo = f"+{lucro / ref['pat'] * 100:.0f}% desde {time.strftime('%d/%m', time.localtime(ref['t'] / 1000))}" + (" · 1 mês" if dias >= mes else "")
+            novo = not self.estado.get("lembrete_saque")
+            self.estado["lembrete_saque"] = {"lucro": round(lucro, 2), "sugerido": round(lucro * parte / 100, 2), "motivo": motivo}
+            if novo:
+                self.avisar(f"💸 Hora de tirar lucro do bolso: a conta da {self.nome} ganhou US$ {lucro:,.2f} ({motivo}). "
+                            f"Sugestão: sacar US$ {lucro * parte / 100:,.2f}. A agência percebe o saque sozinha.")
+        else:
+            self.estado.pop("lembrete_saque", None)
+
     def _testar_sem_saldo(self, ag):
         """Conta VAZIA: manda de verdade as ordens que mandaria (com o capital de teste) pra ver se a corretora as recebe.
         Sem saldo ela recusa (falta de margem) — a agência continua normal e mostra o aviso nos traders.
@@ -194,7 +249,7 @@ class Operacao:
                 self.avisar(f"  🟡 [{self.c['modo']}] {'COMPRA' if lado > 0 else 'VENDA'} {abs(q):g} {moeda} (~US$ {reg['usd']:,.0f}) "
                             f"NÃO aberta na {self.nome}: {reg['recusada']}")
                 ag.evento(agora, None, "🟡", f"{self.nome}: {'COMPRA' if lado > 0 else 'VENDA'} de {moeda} (~US$ {reg['usd']:,.0f}) "
-                                             f"não abriu — {reg['recusada'].split(' — ')[0]}. Na agência a posição segue aberta.")
+                                             f"não abriu — {reg['recusada']}. Na agência a posição segue aberta.")
                 continue
             # a corretora ACEITOU com a conta vazia (não devia): fecha tudo na hora, por segurança
             tent[par] = dict(reg, recusada=None)
@@ -203,7 +258,7 @@ class Operacao:
         self.estado["recusadas"] = {p: {k: r[k] for k in ("t", "lado", "qtd", "usd", "recusada")} for p, r in recusadas.items()}
         for tr in ag.traders:
             r, p = recusadas.get(tr.par), tr.posicao
-            tr.aviso_real = (f"Não aberta na {self.nome}: {r['recusada'].split(' — ')[0]}" if r and p and p.get("lado") == r["lado"] else None)
+            tr.aviso_real = (f"Não aberta na {self.nome}: {r['recusada']}" if r and p and p.get("lado") == r["lado"] else None)
 
     def parar_tudo(self, motivo):
         """Fecha todas as posições e PARA (só volta quando você mandar)."""
@@ -281,7 +336,9 @@ class Operacao:
                     self._testar_sem_saldo(ag)
                     n = len(self.estado.get("recusadas") or {})
                     if n:
-                        self.estado["status"] = f"sem saldo: {n} ordem(ns) tentada(s) e recusada(s) pela {self.nome} (falta de margem) — a agência segue normal"
+                        motivos = {r.get("recusada", "").split(" — ")[0] for r in self.estado["recusadas"].values()}
+                        self.estado["status"] = (f"sem saldo: {n} ordem(ns) tentada(s) e recusada(s) pela {self.nome} "
+                                                 f"({' / '.join(sorted(motivos))}) — a agência segue normal")
                 self._salvar()
                 return
             self.estado.pop("avisou_sem_saldo", None)
@@ -294,7 +351,11 @@ class Operacao:
                 self.estado.update(dia=hoje, inicio_dia=pat)
             if not self.estado.get("inicial") or self.estado["inicial"] < minimo:
                 self.estado["inicial"] = pat
+                self.estado["ref_saque"] = {"t": int(time.time() * 1000), "pat": pat}
                 self.avisar(f"💵 Conta {self.nome}: começando com US$ {pat:,.2f} — copiando a agência a partir de agora.")
+            self._movimentos(conta, pat)
+            n_antes = self.estado.get("n_ordens", 0)
+            self._lembrete_saque(pat)
             self.estado.update(patrimonio=round(pat, 2), em_aberto=round(conta["em_aberto"], 2), posicoes=conta["posicoes"],
                                ultimo_ciclo=int(time.time() * 1000), status="ok")
             # TRAVAS
@@ -326,6 +387,7 @@ class Operacao:
                 self._executar(par, q, px, reduzir, motivo)
             if self.c["modo"] in ("testnet", "real") and self.c.get("stop_emergencia_pct"):
                 self._stops_emergencia()
+            self._foto_saldo(n_antes)
             self._salvar()
         except B.ErroBinance as e:
             self._anotar("erros", {"t": int(time.time() * 1000), "erro": str(e)})

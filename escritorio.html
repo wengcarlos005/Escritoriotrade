@@ -32,10 +32,14 @@ h1 span{color:var(--acento)}
 .sub{color:var(--suave);font-size:13.5px;margin-top:6px}
 .sub b{color:var(--texto)}
 .tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fff1d6;color:#a86a00;margin-left:4px}
-.kpis{display:flex;gap:8px;flex-wrap:wrap}
-.kpi{background:var(--card);border-radius:12px;box-shadow:var(--sombra);padding:8px 13px;min-width:108px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:stretch}
+.kpi{background:var(--card);border-radius:12px;box-shadow:var(--sombra);padding:10px 14px;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.kpi.real{grid-column:span 2}
+.kpi .st{font-size:11.5px;color:var(--suave);font-weight:600;margin-top:4px;line-height:1.35;white-space:normal}
+.kpi .ac{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+.kpi .ac .bt-real{margin-left:0}
 .kpi .r{font-size:11px;color:var(--suave);font-weight:600;text-transform:lowercase}
-.kpi .v{font-family:var(--titulo);font-weight:600;font-size:18px;white-space:nowrap;margin-top:1px}
+.kpi .v{font-family:var(--titulo);font-weight:600;font-size:18px;white-space:nowrap;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
 .pos{color:var(--verde)} .neg{color:var(--vermelho)}
 .principal{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
 @media (max-width:1050px){.principal{grid-template-columns:minmax(0,1fr)}}
@@ -221,9 +225,8 @@ details.mais-d summary{cursor:pointer;color:var(--acento);font-weight:600;font-s
 .dica .dk{display:block;font-family:Inter,system-ui,sans-serif !important;font-size:11.5px !important;color:var(--suave) !important;margin-top:2px}
 @media (max-width:700px){
   .tela{height:390px}
-  .kpi{min-width:0;flex:1 1 30%}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .kpi .v{font-size:15px}
-  .kpi.real{flex:1 1 100%}
   .bt-real{font-size:11px}
   .relogio{font-size:11px}
 }
@@ -1531,20 +1534,33 @@ function renderTopo(vivo) {
   const rbL = rb && rb.patrimonio != null && rb.inicial != null ? rb.patrimonio - rb.inicial : 0;
   const rbNome = rb && rb.corretora || 'Binance';
   const rbTxt = rb ? (rb.modo === 'real' ? `💰 ${rbNome} (REAL)` : rb.modo === 'testnet' ? `🧪 ${rbNome} (treino)` : `📝 ${rbNome} (papel)`) : '';
-  const rbStatus = !rb ? '' : rb.parado ? `<span class="neg">⛔ PARADA: ${esc(rb.motivo || '')}</span> <button class="bt-real" onclick="pedirReal('retomar')">Retomar</button>`
-    : (rb.status || '').startsWith('erro') ? `<span class="neg">⚠️ ${esc(rb.status)}</span>` : (rb.status || '').startsWith('sem saldo') ? `🟡 ${esc(rb.status)}` : `${Object.keys(rb.posicoes || {}).length} moedas abertas <button class="bt-real parar" onclick="pedirReal('parar')">⛔ PARAR TUDO</button>`;
   const patAg = D.traders.reduce((s, t) => s + patrimonio(t), 0);
-  const rbIg = rb && !rb.parado ? ` <button class="bt-real" onclick="igualarReal()" title="Deixa a agência do tamanho do saldo da corretora (agência hoje: ${usd(patAg)}). Muda só o tamanho: porcentagens e ranking ficam iguais.">⚖️ Igualar</button>` : '';
-  $('kpis').innerHTML = [...(rb ? [[rbTxt, `${rb.patrimonio != null ? usd(rb.patrimonio) : '—'} <small class="${cls(rbL)}" style="font-size:12px">${rb.patrimonio != null ? sinal(rbL) + usd(Math.abs(rbL)) : ''}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${rbStatus}${rbIg}</div>`, '', 'real']] : []),
-    ...(cr ? [[`💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}`,
-      `${usd(cr.patrimonio)} <small class="${cls(crL)}" style="font-size:12px">${sinal(crL)}${usd(Math.abs(crL))}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${cr.time === 'agencia' ? `dividida entre os ${D.times.filter(t => !t.especial).length} times` : crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''}</div>`, '', 'real']] : []),
+  const delta = (v, c) => `<small class="${cls(v)}" style="font-size:12px">${sinal(v)}${usd(Math.abs(v))}</small>`;
+  const st = (rb || {}).status || '';
+  const rbSt = !rb ? '' : rb.parado ? `<span class="neg">⛔ PARADA: ${esc(rb.motivo || '')}</span>`
+    : st.startsWith('erro') ? `<span class="neg">⚠️ ${esc(st)}</span>` : st.startsWith('sem saldo') ? `🟡 ${esc(st)}`
+    : `${Object.keys(rb.posicoes || {}).length} moedas abertas · agência ${usd(patAg)}`;
+  const saque = rb && rb.lembrete_saque ? `<div class="st" style="color:#a86a00">💸 Hora de tirar lucro do bolso: +${usd(rb.lembrete_saque.lucro)} (${esc(rb.lembrete_saque.motivo)}). Sugestão: sacar ${usd(rb.lembrete_saque.sugerido)} e deixar o resto trabalhando.</div>` : '';
+  const rbAc = !rb ? '' : rb.parado ? `<button class="bt-real" onclick="pedirReal('retomar')">▶️ Retomar</button>`
+    : `<button class="bt-real" onclick="igualarReal()" title="Deixa a agência do tamanho do saldo da corretora (agência hoje: ${usd(patAg)}). Muda só o tamanho: porcentagens e ranking ficam iguais.">⚖️ Igualar ao saldo</button>` +
+      (st.startsWith('sem saldo') ? '' : `<button class="bt-real parar" onclick="pedirReal('parar')">⛔ PARAR TUDO</button>`);
+  const grandes = [
+    ...(rb ? [`<div class="kpi real"><div class="r">${esc(rbTxt)}</div><div class="v">${rb.patrimonio != null ? usd(rb.patrimonio) : '—'} ${rb.patrimonio != null ? delta(rbL) : ''}</div><div class="st">${rbSt}</div>${saque}<div class="ac">${rbAc}</div></div>`] : []),
+    ...(cr ? [`<div class="kpi real"><div class="r">💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}</div><div class="v">${usd(cr.patrimonio)} ${delta(crL)}</div><div class="st">${cr.time === 'agencia' ? `copia a agência inteira, dividida entre os ${D.times.filter(t => !t.especial).length} times` : crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''} · 📏 <span title="Nos testes desde 2021: ~130–170% ao ano, com quedas de até ~45–50% no caminho. Na vida real costuma render menos (preço de execução, fases ruins). Pense em: pode dobrar num ano bom e cair pela metade num ano ruim.">o que esperar</span></div></div>`] : [])];
+  const empresaOn = D.cfg && D.cfg.empresa && D.cfg.empresa.ativo;
+  const pequenos = [
     [cr ? 'patrimônio simulado' : 'patrimônio', usd(total), ''], ['resultado', `${sinal(lucro)}${usd(Math.abs(lucro))}`, cls(lucro)],
     FUT() ? ['posições', `${longs}▲ ${shorts}▼ <small style="font-size:12px;color:var(--suave)">de ${D.traders.length}</small>`, ''] : ['comprados agora', `${abertos.length} de ${D.traders.length}`, ''],
     ...(sp && sp.total ? [[sp.duracao === 'dia' ? 'sprint do dia' : 'sprint ' + sp.numero, `${sp.total.operacoes_agencia ?? sp.total.operacoes} ops · ${pct(sp.total.lucro_pct, 2)}`, cls(sp.total.lucro_pct)]] : []),
     ...(FUT() ? [['liquidações', liq ? `💀 ${liq}` : '0', liq ? 'neg' : '']] : []),
-    ...(D.caixa_empresa != null ? [['🏦 caixa da empresa', usd(D.caixa_empresa || 0), '']] : []),
-    ['próxima rodada', falta(temp.proxima_rodada), '']]
-    .map(([r, v, c, k]) => `<div class="kpi${k ? ' ' + k : ''}"><div class="r">${r}</div><div class="v ${c}">${v}</div></div>`).join('');
+    ...(empresaOn ? [['🏦 caixa da empresa', usd(D.caixa_empresa || 0), '']] : []),
+    ['próxima rodada', falta(temp.proxima_rodada), '']];
+  // grade simétrica: cartões grandes ocupam 2 colunas; os pequenos completam as fileiras (sem buraco no fim)
+  const colunas = window.innerWidth <= 700 ? 2 : 4, usadas = grandes.length * 2;
+  let n = Math.ceil((usadas + 4) / colunas) * colunas - usadas;
+  while (n > pequenos.length) n -= colunas;
+  $('kpis').innerHTML = grandes.join('') + pequenos.slice(0, Math.max(0, n))
+    .map(([r, v, c]) => `<div class="kpi"><div class="r">${r}</div><div class="v ${c}">${v}</div></div>`).join('');
 }
 
 

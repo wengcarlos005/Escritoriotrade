@@ -1,33 +1,59 @@
-# 🏢 Agência de Trade — Liga de 5 times, Escola de Traders, Escritório e o Claude como gerente
+# 🏢 Agência de Traders — robôs de cripto que competem num escritório pixel-art
 
-Robôs de cripto **simulados**: preços reais da Binance e **dinheiro de mentira**.
-A **Escola de Traders** testa 15 estratégias inspiradas nos traders mais famosos do mundo, de forma honesta.
-As **5 melhores viram times** de uma liga. Toda semana o melhor time vira o **titular** (o que operaria com
-dinheiro real no futuro) e os outros ficam na reserva. O **Claude** é o gerente: relatório diário e chat.
+Uma "agência" de traders-robôs que operam **BTC, ETH, SOL, ONDO e FIL** em futuros (comprado e vendido), usando
+preços reais. Quatro times disputam uma liga — 🐇 **Coelhos Cafeinados**, 🦊 **Raposas Isentonas**,
+🐢 **Tartarugas Aposentadas** e 🔄 **Momentum AQR** — e você acompanha tudo num **escritório animado** no navegador
+(e no celular). Por padrão é **tudo simulado, com dinheiro de mentira**. Se quiser, dá pra ligar uma conta de
+verdade (Bitget, Bybit ou Binance) que copia a agência — com travas de segurança.
 
-> ⚠️ Simulação educativa. Trade é risco: dá pra perder e não existe lucro garantido.
-> Resultado passado não garante o futuro. Nada aqui é recomendação de investimento.
+> ⚠️ Projeto educativo. Trade é risco: dá pra perder e não existe lucro garantido. Resultado passado não garante o
+> futuro. Nada aqui é recomendação de investimento.
 
 ---
 
-## 1. Instalar (uma vez)
+## 🚀 Comece aqui (Windows, 10 minutos)
 
-1. **Python 3.10+**: https://www.python.org/downloads/ — no instalador, **marque “Add python.exe to PATH”**.
-2. **Gerente (opcional, recomendado):** dois cliques em `3_instalar_gerente.bat` (ou `pip install anthropic`).
-   Depois cole sua chave de API na aba 🧠 Gerente do painel (o passo a passo aparece lá).
+1. **Instale o Python** (3.10 ou mais novo): https://www.python.org/downloads/ — no instalador, **marque “Add
+   python.exe to PATH”** antes de clicar em Install.
+2. **Baixe a agência** — escolha um jeito:
+   - **Fácil:** no GitHub, botão verde **Code → Download ZIP**, e extraia a pasta (ex.: em Documentos).
+   - **Com atualização automática (recomendado):** instale o Git (https://git-scm.com/download/win, tudo padrão),
+     baixe o arquivo `instalar_do_github.bat` desta página, coloque na pasta onde quer a agência e dê dois cliques.
+3. Dentro da pasta, dê dois cliques em **`2_ligar_agencia.bat`**. Na primeira vez a escola faz as provas (alguns
+   minutos) e depois abre o **escritório** no navegador (http://127.0.0.1:8000). **Deixe a janela preta aberta** —
+   é ela que faz a agência funcionar. Pra desligar: **Ctrl+C** nela.
 
-## 1.1 Instalar e atualizar pelo GitHub
+Pronto. Os traders entram nas tendências que já estão acontecendo e daí pra frente operam sozinhos, de 4 em 4 horas.
 
-O projeto mora em https://github.com/wengcarlos005/Escritoriotrade (privado).
+**Extras (todos opcionais):**
 
-- **Primeira vez:** instale o Git (https://git-scm.com/download/win, tudo padrão). Coloque o
-  `instalar_do_github.bat` na pasta onde quer a agência (se tiver a pasta antiga `agencia-de-trade`, ao lado
-  dela) e dê dois cliques. Ele baixa tudo na pasta `Escritoriotrade` e copia seus dados da pasta antiga.
-- **Já tem a pasta instalada (do zip)?** Coloque o `conectar_ao_github.bat` **dentro** dela e dê dois cliques: a pasta passa a
-  atualizar pelo GitHub, sem perder nada.
-- **Atualizar:** feche a agência e dê dois cliques em `atualizar.bat`. Pronto.
-- **Seus dados nunca vão pro GitHub nem são apagados:** a pasta `dados/` (temporada, chave do gerente,
-  histórico) e o seu `config.json` ficam só no seu PC.
+| Quero… | Faça |
+|---|---|
+| Ver no celular | Use o endereço que aparece na janela preta (mesmo Wi-Fi). Se não abrir: `7_liberar_celular.bat` |
+| Atualizar pra versão mais nova | Feche a agência e rode `atualizar.bat` (precisa ter instalado pelo Git) |
+| O Claude como gerente (relatórios, chat) | `3_instalar_gerente.bat` e cole sua chave da Anthropic na aba 🧠 Gerente |
+| A mesma simulação em 2 PCs | `8_sincronizar_entre_pcs.bat` em cada PC (veja a seção 2.0) |
+| Operar com dinheiro de verdade | Leia **[OPERACAO_REAL.md](OPERACAO_REAL.md)** e use o `9_conectar_binance.bat` |
+
+## 📏 O que esperar (sem ilusão)
+
+- **Como os traders operam:** seguem tendências (médias de Ed Seykota em 3 ritmos + o momentum da AQR) em velas de
+  4h. Ficam semanas numa posição, sem alvo de lucro; saem quando a tendência vira ou depois de **40 dias** (realizam o
+  lucro e esperam um sinal novo). O tamanho de cada posição segue a volatilidade (mesmo risco pra todos).
+- **Nos testes (2021 → 2026, com taxas):** ~130–170% ao ano, com **quedas de até ~45–50%** no caminho e semestres
+  fracos no meio. **Na vida real costuma render menos** (preço de execução, fases ruins, o mercado muda).
+  Pense em: *pode dobrar num ano bom e cair pela metade num ano ruim*.
+- Por isso a agência tem um **lembrete de saque**: quando a conta real sobe 50% (ou passa 1 mês no lucro), ela sugere
+  tirar uma parte do lucro do bolso.
+
+## 1.1 Instalar e atualizar pelo GitHub (detalhes)
+
+O projeto mora em https://github.com/wengcarlos005/Escritoriotrade (público).
+
+- **Já baixou o ZIP e quer passar a atualizar pelo Git?** Coloque o `conectar_ao_github.bat` **dentro** da pasta e dê
+  dois cliques: ela passa a atualizar pelo GitHub, sem perder nada.
+- **Seus dados nunca vão pro GitHub nem são apagados ao atualizar:** a pasta `dados/` (temporada, chaves, histórico) e
+  o seu `config.json` ficam só no seu PC.
 
 ## 2. Usar (Windows: dois cliques)
 
@@ -58,12 +84,14 @@ repositório **privado e vazio** chamado `escritoriotrade-dados` (é lá que a s
 
 Deixe a agência aberta em **um PC por vez**. A chave do gerente e o `config.json` não vão pra nuvem.
 
-## 2.0.1 Operar de verdade na Binance
+## 2.0.1 Operar de verdade (Bitget, Bybit ou Binance)
 
 Passo a passo completo em **[OPERACAO_REAL.md](OPERACAO_REAL.md)**: a conta de futuros copia a agência na proporção,
-nesta ordem — **papel** (só anota) → **testnet** (Binance de treino) → **real**. Conecte com o
+nesta ordem — **papel** (só anota) → (treino, se a corretora tiver) → **real**. Conecte com o
 `9_conectar_binance.bat` (a chave é digitada na janela, nunca no chat). Travas: perda máxima no dia, piso, teto de
-exposição, stop de emergência na própria Binance (vale com o PC desligado) e o botão **⛔ PARAR TUDO** no escritório.
+exposição, stop de emergência na própria corretora (vale com o PC desligado) e o botão **⛔ PARAR TUDO** no escritório.
+O botão **⚖️ Igualar ao saldo** deixa a agência do tamanho da sua conta (copia 1 pra 1), e depósitos/saques são
+percebidos sozinhos.
 
 ## 2.0.2 Rodar num servidor na nuvem (24h, pelo celular)
 
@@ -71,6 +99,9 @@ Quer acompanhar sem deixar o PC ligado? Veja o passo a passo em **[SERVIDOR.md](
 (~R$ 25–35/mês), cola um comando e a agência fica no ar com HTTPS e senha, atualizando sozinha todo dia.
 
 ## 2.1 Como funciona a liga
+> **O que vale hoje é o 📐 modo de 4h** (item mais abaixo). Os outros itens desta seção (modo 5 min, julgamento,
+> pirâmide…) são de versões anteriores e ficam aqui como registro — dá pra voltar a eles pelo `config.json`.
+
 - **⏱️ MODO 5 MIN (padrão desde nov/2026):** todos os funcionários operam em velas de 5 minutos e **abrem uma operação a
   cada 5 minutos** sempre que estão fora: pelo sinal da estratégia do time ou, sem sinal, **obrigados** a abrir no lado
   (LONG ou SHORT) com **maior chance de WIN** segundo o modelo (`modelo.py`). Cada operação dura **até 2 horas**
@@ -237,12 +268,12 @@ Os padrões ficam em `config.padrao.json` (vem nas atualizações). Pra mudar al
 - `mascote`: nome, emoji e frases. `gerente`: relatório automático e intervalo.
 
 ## 5. Antes de pensar em dinheiro real
-1. Meses de simulação ao vivo com a estratégia escolhida (não dias).
-2. Um time titular formado por aluno **aprovado** na escola, e que continue aprovado quando a escola rodar de novo.
-3. Valores pequenos que você aceita perder; chave da Binance **sem permissão de saque** e com IP restrito.
-4. Este projeto ainda **não envia ordens reais** — de propósito.
-5. **Futuros com alavancagem é o jeito mais rápido de perder dinheiro de verdade.** Confira se você pode operar
-   futuros na sua corretora e no seu país antes de qualquer coisa, e comece sem alavancagem.
+1. Acompanhe pelo menos algumas semanas no simulado e veja se você aguenta as quedas no meio do caminho.
+2. Comece com um valor pequeno que você aceita perder inteiro. Chave da corretora **sem permissão de saque**.
+3. Teste a conexão antes de depositar: com a conta zerada a agência já manda as ordens e mostra que a corretora
+   recusou por falta de saldo — sem mexer na simulação.
+4. **Futuros com alavancagem é o jeito mais rápido de perder dinheiro de verdade.** Confira se você pode operar
+   futuros na sua corretora e no seu país. Ganho em corretora no exterior precisa ser declarado (fale com um contador).
 
 ## 6. Referências usadas
 - freqtrade, nautilus_trader, QuantConnect Lean, vectorbt, jesse, hummingbot (frameworks open-source).

@@ -13,7 +13,7 @@ if errorlevel 1 goto erro
 if exist "agencia-de-trade\dados" xcopy /E /I /Y "agencia-de-trade\dados" "Escritoriotrade\dados" >nul
 if exist "agencia-de-trade\dados" echo Seus dados da pasta antiga foram copiados: temporada, chave do gerente e historico.
 echo.
-echo Pronto! Na pasta Escritoriotrade, de dois cliques em 2_ligar_agencia.bat
+echo Pronto! Na pasta Escritoriotrade, de dois cliques em 2_ligar_agencia.bat (precisa do Python instalado)
 echo Para atualizar no futuro: atualizar.bat
 explorer Escritoriotrade
 pause

@@ -145,8 +145,8 @@ def rodar(cfg, esc=None, avisar=print):
         except Exception:
             pass
     moedas = [m for m in moedas if len(historico.carregar(m, itv)) >= 500] or moedas[:3]
-    custos = {"entrada": fut.get("taxa_maker", 0.0002) * (0.9 if fut.get("pagar_taxas_com_bnb") else 1),
-              "saida": fut.get("taxa_taker", 0.0005) * (0.9 if fut.get("pagar_taxas_com_bnb") else 1) + fut.get("derrapagem", 0.0002),
+    custos = {"entrada": fut.get("taxa_maker", 0.0002),   # o desconto de BNB (Binance) já vem aplicado pelo carregar_config
+              "saida": fut.get("taxa_taker", 0.0005) + fut.get("derrapagem", 0.0002),
               "funding_8h": fut.get("funding_8h", 0.00005)}
     agora = int(time.time() * 1000)
     ref = next((r for r in esc["resultados"] if r.get("provas")), None)

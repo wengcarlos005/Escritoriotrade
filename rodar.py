@@ -44,6 +44,13 @@ def _mesclar(base, extra):
     return base
 
 
+TAXAS_CORRETORA = {   # futuros USDT-M, nível básico (conta comum)
+    "binance": {"taxa_maker": 0.0002, "taxa_taker": 0.0005, "pagar_taxas_com_bnb": True},
+    "bybit": {"taxa_maker": 0.0002, "taxa_taker": 0.00055, "pagar_taxas_com_bnb": False},
+    "bitget": {"taxa_maker": 0.0002, "taxa_taker": 0.0006, "pagar_taxas_com_bnb": False},
+}
+
+
 def carregar_config():
     """Padrões em config.padrao.json (vem nas atualizações) + o que você mudar em config.json (só seu)."""
     cfg = json.loads((AQUI / "config.padrao.json").read_text(encoding="utf-8"))
@@ -57,6 +64,14 @@ def carregar_config():
             print(f"⚠️  Não consegui ler o config.json ({e}). Usando só os padrões.")
     # perfil de risco (moderado / agressivo / muito_agressivo); o que você escrever direto no config.json vale por cima
     fut = cfg.get("futuros", {})
+    # taxas da corretora que você usa (a simulação fica igual à sua conta); o que estiver no seu config.json vale por cima
+    corretora = ((cfg.get("conta_binance") or {}).get("corretora") or "bitget").lower()
+    tab = TAXAS_CORRETORA.get(corretora)
+    explicito_fut = meu.get("futuros", {}) if isinstance(meu.get("futuros"), dict) else {}
+    if tab:
+        for k, v in tab.items():
+            if k not in explicito_fut:
+                fut[k] = v
     if fut.get("pagar_taxas_com_bnb"):   # Binance dá 10% de desconto na taxa de futuros pagando com BNB
         fut["taxa_taker"] = round(fut.get("taxa_taker", 0.0005) * 0.9, 7)
         fut["taxa_maker"] = round(fut.get("taxa_maker", 0.0002) * 0.9, 7)
@@ -557,6 +572,13 @@ def cmd_sincronia(args):
 
     def salvar_config(c):
         pessoal.write_text(json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
+    if not (meu.get("sincronizar") or {}).get("repo"):
+        # o repositório de dados é SEU (privado): pergunta o usuário do GitHub (quem baixou de outra pessoa usa o próprio)
+        padrao = (sincronia.repo_padrao() or "").rstrip("/").replace(".git", "").split("/")[-2:-1]
+        dono = input(f"Seu usuário do GitHub{f' (Enter = {padrao[0]})' if padrao else ''}: ").strip() or (padrao[0] if padrao else "")
+        if not dono:
+            print("Preciso do seu usuário do GitHub pra achar o repositório escritoriotrade-dados."); return
+        meu.setdefault("sincronizar", {})["repo"] = f"https://github.com/{dono}/escritoriotrade-dados.git"
     sincronia.ligar(salvar_config, meu, usar_este=getattr(args, "usar_este", False))
 
 
