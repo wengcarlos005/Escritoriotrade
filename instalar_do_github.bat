@@ -6,7 +6,6 @@ where git >nul 2>nul
 if errorlevel 1 goto semgit
 if exist "Escritoriotrade\.git" goto jatem
 echo Baixando a agencia do GitHub...
-echo Na primeira vez o navegador abre pra voce entrar na sua conta do GitHub.
 echo.
 git clone https://github.com/wengcarlos005/Escritoriotrade.git Escritoriotrade
 if errorlevel 1 goto erro
