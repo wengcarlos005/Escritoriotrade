@@ -48,6 +48,7 @@ class Operacao:
         self.trava = threading.Lock()
         self.estado = carregar_estado()
         self.estado.setdefault("ordens", [])
+        self.estado.pop("tentativas", None)   # ao religar, a conta vazia testa as ordens de novo na hora (ex.: depois de editar a chave)
         self.estado.setdefault("erros", [])
         self.estado["modo"] = self.c["modo"]
         self.cli = cliente
