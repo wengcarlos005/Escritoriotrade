@@ -1533,7 +1533,9 @@ function renderTopo(vivo) {
   const rbTxt = rb ? (rb.modo === 'real' ? `💰 ${rbNome} (REAL)` : rb.modo === 'testnet' ? `🧪 ${rbNome} (treino)` : `📝 ${rbNome} (papel)`) : '';
   const rbStatus = !rb ? '' : rb.parado ? `<span class="neg">⛔ PARADA: ${esc(rb.motivo || '')}</span> <button class="bt-real" onclick="pedirReal('retomar')">Retomar</button>`
     : (rb.status || '').startsWith('erro') ? `<span class="neg">⚠️ ${esc(rb.status)}</span>` : (rb.status || '').startsWith('sem saldo') ? `🟡 ${esc(rb.status)}` : `${Object.keys(rb.posicoes || {}).length} moedas abertas <button class="bt-real parar" onclick="pedirReal('parar')">⛔ PARAR TUDO</button>`;
-  $('kpis').innerHTML = [...(rb ? [[rbTxt, `${rb.patrimonio != null ? usd(rb.patrimonio) : '—'} <small class="${cls(rbL)}" style="font-size:12px">${rb.patrimonio != null ? sinal(rbL) + usd(Math.abs(rbL)) : ''}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${rbStatus}</div>`, '', 'real']] : []),
+  const patAg = D.traders.reduce((s, t) => s + patrimonio(t), 0);
+  const rbIg = rb && !rb.parado ? ` <button class="bt-real" onclick="igualarReal()" title="Deixa a agência do tamanho do saldo da corretora (agência hoje: ${usd(patAg)}). Muda só o tamanho: porcentagens e ranking ficam iguais.">⚖️ Igualar</button>` : '';
+  $('kpis').innerHTML = [...(rb ? [[rbTxt, `${rb.patrimonio != null ? usd(rb.patrimonio) : '—'} <small class="${cls(rbL)}" style="font-size:12px">${rb.patrimonio != null ? sinal(rbL) + usd(Math.abs(rbL)) : ''}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${rbStatus}${rbIg}</div>`, '', 'real']] : []),
     ...(cr ? [[`💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}`,
       `${usd(cr.patrimonio)} <small class="${cls(crL)}" style="font-size:12px">${sinal(crL)}${usd(Math.abs(crL))}</small><div style="font-size:11px;color:var(--suave);font-weight:600;white-space:normal">${cr.time === 'agencia' ? `dividida entre os ${D.times.filter(t => !t.especial).length} times` : crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''}</div>`, '', 'real']] : []),
     [cr ? 'patrimônio simulado' : 'patrimônio', usd(total), ''], ['resultado', `${sinal(lucro)}${usd(Math.abs(lucro))}`, cls(lucro)],
@@ -1555,6 +1557,16 @@ function relogio() {
   $('relogio').textContent = `${n > 0.5 ? '🌙' : '☀️'} ${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor(h % 1 * 60)).padStart(2, '0')} em Brasília${MODO5() && W >= 600 ? ' · novas entradas a cada 5 min' : ''}`;
 }
 let REAL = null;
+async function igualarReal() {
+  const real = REAL && REAL.patrimonio != null && REAL.patrimonio >= 10 ? REAL.patrimonio : null;
+  const atual = D ? D.traders.reduce((s, t) => s + patrimonio(t), 0) : 0;
+  const v = prompt(`Deixar a agência com quanto (US$)?\n\nHoje a agência tem ${usd(atual)}${real ? ` e a corretora tem ${usd(real)}` : ' (a corretora ainda está sem saldo — digite o valor que você vai depositar)'}.\n` +
+    'Todas as posições, margens e caixas mudam de tamanho na mesma proporção. Porcentagens e ranking não mudam.', real ? real.toFixed(2) : '');
+  if (v === null) return;
+  const n = parseFloat(String(v).replace(',', '.'));
+  if (!(n >= 10)) { alert('Digite um valor de pelo menos US$ 10.'); return; }
+  try { const r = await fetch('/api/real/igualar', {method: 'POST', body: JSON.stringify({valor: n})}).then(x => x.json()); alert(r.msg || r.erro || 'ok'); } catch (e) { alert('Não consegui falar com o programa.'); }
+}
 async function pedirReal(acao) {
   if (acao === 'parar' && !confirm('PARAR TUDO na corretora?\n\nFecha TODAS as posições da conta agora, a mercado, e a agência deixa de operar a conta até você clicar em Retomar.')) return;
   try { const r = await fetch('/api/real/' + acao, {method: 'POST', body: '{}'}).then(x => x.json()); alert(r.msg || r.erro || 'ok'); } catch (e) { alert('Não consegui falar com o programa.'); }

@@ -186,6 +186,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._responder(200, {"ok": False, "erro": "A agência não está rodando."})
             _estado["fila"].put({"acao": "parar_real" if caminho.endswith("parar") else "retomar_real"})
             return self._responder(200, {"ok": True, "msg": "Pedido enviado."})
+        if caminho == "/api/real/igualar":
+            if _estado["fila"] is None:
+                return self._responder(200, {"ok": False, "erro": "A agência não está rodando — ligue o 2_ligar_agencia.bat."})
+            try:
+                valor = float(corpo.get("valor")) if corpo.get("valor") not in (None, "") else None
+            except (TypeError, ValueError):
+                return self._responder(200, {"ok": False, "erro": "Valor inválido."})
+            if valor is not None and valor < 10:
+                return self._responder(200, {"ok": False, "erro": "O valor precisa ser de pelo menos US$ 10."})
+            _estado["fila"].put({"acao": "igualar_real", "valor": valor})
+            return self._responder(200, {"ok": True, "msg": "Pedido enviado: em alguns segundos a agência fica do tamanho do saldo."})
         if caminho == "/api/comando":
             if _estado["fila"] is None:
                 return self._responder(200, {"ok": False, "erro": "A simulação não está rodando. Abra com: python rodar.py simular"})

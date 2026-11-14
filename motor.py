@@ -1068,6 +1068,45 @@ class Agencia:
         self.time(trader.time)["aportes"] += valor_usd
         self.aportes_ceo += valor_usd
 
+    def reescalar(self, fator, t, motivo=""):
+        """Multiplica TODO o dinheiro da agência por `fator` (caixa, posições, margens, aportes, curvas): as
+        porcentagens, o ranking, os preços de entrada, stops e liquidação continuam iguais — só o tamanho muda.
+        Usado pra deixar a agência do tamanho do saldo real da corretora (aí a conta copia 1 pra 1)."""
+        if not fator or fator <= 0 or abs(fator - 1) < 1e-9:
+            return
+        x = lambda v: v * fator if isinstance(v, (int, float)) and not isinstance(v, bool) else v
+        for tr in self.traders:
+            for k in ("caixa", "capital_inicial", "capital_recebido", "lucro_realizado", "taxas_pagas", "volume", "funding_pago", "lucro_marco"):
+                if hasattr(tr, k):
+                    setattr(tr, k, x(getattr(tr, k)))
+            p = tr.posicao
+            if p:
+                for k in ("qtd", "custo", "margem", "notional", "taxa_abertura", "funding", "risco_usd"):
+                    if k in p:
+                        p[k] = x(p[k])
+                if p.get("real_escala"):
+                    p["real_escala"] = p["real_escala"] / fator
+            for op in tr.trades or []:
+                for k in ("valor", "lucro"):
+                    if k in op:
+                        op[k] = x(op[k])
+        for tm in self.times:
+            for k in ("aportes", "lucro_usado_bebes", "caixa_time"):
+                if k in tm:
+                    tm[k] = x(tm[k])
+            tm["curva"] = [[c[0]] + [x(v) for v in c[1:]] for c in tm.get("curva") or []]
+        self.aportes_ceo = x(self.aportes_ceo)
+        self.caixa_empresa = x(getattr(self, "caixa_empresa", 0.0) or 0.0)
+        self.curva = [[c[0]] + [x(v) for v in c[1:]] for c in self.curva or []]
+        base = (self.sprint or {}).get("base") or {}
+        for b in base.values():
+            for k in ("lucro", "patr", "taxas", "volume", "funding"):
+                if k in b:
+                    b[k] = x(b[k])
+        self.escala_total = getattr(self, "escala_total", 1.0) * fator
+        self.evento(t, None, "⚖️", f"Agência ajustada ao saldo real: todo o dinheiro ×{fator:.4f} — patrimônio agora US$ {self.patrimonio():,.2f}"
+                                  f"{' (' + motivo + ')' if motivo else ''}. As porcentagens e o ranking não mudam.")
+
     def patrimonio(self, time_id=None):
         """Traders + o caixa de contratação dos times (dinheiro da empresa que ainda não virou funcionário)."""
         caixas = sum(tm.get("caixa_time") or 0.0 for tm in self.times if time_id is None or tm["id"] == time_id)

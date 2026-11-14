@@ -435,6 +435,14 @@ def _laco(args, cfg, esc, ag, fila, op=None):
                     op.parar_tudo("botão PARAR TUDO no painel")
                 elif cmd.get("acao") == "retomar_real" and op:
                     op.retomar()
+                elif cmd.get("acao") == "igualar_real":
+                    alvo_usd = cmd.get("valor") or (op.estado.get("patrimonio") if op and op.ativo else None)
+                    if alvo_usd and float(alvo_usd) >= 10 and ag.patrimonio() > 0:
+                        f = float(alvo_usd) / ag.patrimonio()
+                        ag.reescalar(f, int(time.time() * 1000), "valor digitado" if cmd.get("valor") else "saldo da corretora")
+                        salvar(ag)
+                    else:
+                        print("⚖️  Não ajustei: preciso de um saldo de pelo menos US$ 10 (da corretora ou digitado).")
             # 2) Saiu boletim novo da escola?
             novo = escola_mod.carregar()
             if novo and novo.get("gerado_em") != ag.escola_aplicada:
