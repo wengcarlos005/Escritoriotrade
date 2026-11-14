@@ -219,7 +219,7 @@ class Operacao:
     def _testar_sem_saldo(self, ag):
         """Conta VAZIA: manda de verdade as ordens que mandaria (com o capital de teste) pra ver se a corretora as recebe.
         Sem saldo ela recusa (falta de margem) — a agência continua normal e mostra o aviso nos traders.
-        Só tenta de novo quando o lado muda ou a cada 4h, pra não ficar insistindo."""
+        Só tenta de novo quando o lado muda, a cada 30 min, ou ao religar a agência — pra não ficar insistindo."""
         cap = float(self.c.get("capital_papel_usd", 500))
         alvo, _ = self.alvo(ag, cap)
         regras = self.cli.regras()
@@ -235,7 +235,7 @@ class Operacao:
                 continue
             lado, moeda = (1 if q > 0 else -1), par.replace("USDT", "")
             ult = tent.get(par) or {}
-            if ult.get("lado") == lado and agora - ult.get("t", 0) < 4 * 3_600_000:
+            if ult.get("lado") == lado and agora - ult.get("t", 0) < self.c.get("teste_a_cada_minutos", 30) * 60_000:
                 if ult.get("recusada"):
                     recusadas[par] = ult
                 continue
