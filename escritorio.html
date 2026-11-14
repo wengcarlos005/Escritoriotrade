@@ -1275,7 +1275,13 @@ function pensamento(a) {
     let s = p.lado == null ? `Estou comprado em ${moeda} (${pct(mov, 2)}).` :
       `Estou ${l > 0 ? 'comprado (LONG)' : 'vendido (SHORT)'} em ${moeda}${x ? ` a ${x}x` : ''}: ${pct(mov, 2)} no preço${x ? `, ${pct(mov * x, 1)} na margem` : ''}.`;
     if (p.lotes) s += ` Tenho ${p.lotes} degrau${p.lotes > 1 ? 's' : ''} aberto${p.lotes > 1 ? 's' : ''}.`;
-    if (p.stop) s += ` Meu stop está em ${preco(p.stop)}.`;
+    if (p.saida_tipo === 'medias' && p.folga_pct != null)
+      s += ` Fico enquanto a tendência ${l > 0 ? 'de alta' : 'de queda'} durar: minha média rápida está ${num(Math.abs(p.folga_pct), 1)}% ${l > 0 ? 'acima' : 'abaixo'} da lenta${Math.abs(p.folga_pct) < 1.5 ? ' (quase cruzando — posso sair logo!)' : ''}. Se elas cruzarem, eu saio.`;
+    else if (p.saida_tipo === 'momentum' && p.saida_preco)
+      s += ` Fico enquanto o preço estiver ${l > 0 ? 'acima' : 'abaixo'} do de 60 dias atrás (${preco(p.saida_preco)}, ${pct((p.saida_preco / px - 1) * 100, 1)} daqui). Se ${l > 0 ? 'cair' : 'passar'} disso, eu saio.`;
+    const mb = tr.params && tr.params.max_barras, br = p.m && p.m.barras;
+    if (mb && br != null) { const d = Math.max(0, (mb - br) * 4 / 24); s += d < 0.2 ? ' Minha tendência já fez 40 dias: realizo o lucro na próxima vela.' : ` Se a tendência não virar antes, realizo o lucro em ~${d < 2 ? num(d * 24, 0) + 'h' : num(d, 0) + ' dias'} (regra dos 40 dias).`; }
+    if (p.stop) s += ` Stop de emergência em ${preco(p.stop)}${p.stop_protecao ? ' (puxei pra antes da liquidação)' : ''}.`;
     if (p.preco_liquidacao) s += ` Se o preço ${l > 0 ? 'cair' : 'subir'} até ${preco(p.preco_liquidacao)}, sou liquidado 💀.`;
     if (p.forcada) s += ` Entrei FORÇADO (a estratégia não deu sinal): o modelo deu ${Math.round((p.chance || 0.5) * 100)}% de chance de WIN pra esse lado.`;
     const lim = limiteDe(p); if (lim) s += ` Se não fechar antes, saio em ${curto(lim - Date.now())} (limite de 2h).`;

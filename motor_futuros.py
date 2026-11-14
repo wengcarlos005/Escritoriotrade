@@ -172,6 +172,27 @@ class Futuros:
             p["stop"] = 1 / m["stop"] if m.get("stop") else None
             p["alvo"] = 1 / m["alvo"] if m.get("alvo") else None
 
+    def _proteger_liquidacao(self, folga=0.85):
+        """O stop nunca fica além da liquidação: se ficaria, vai pra 85% do caminho até ela (sai antes de ser liquidado)."""
+        p = self.posicao
+        m, liq = p.get("m"), p.get("preco_liquidacao")
+        if not (m and m.get("stop") and liq):
+            return
+        lim = p["preco"] + folga * (liq - p["preco"])
+        if p["lado"] > 0 and m["stop"] < lim:
+            m["stop"], p["stop_protecao"] = lim, True
+        elif p["lado"] < 0 and 1 / m["stop"] > lim:
+            m["stop"], p["stop_protecao"] = 1 / lim, True
+        self._niveis_reais()
+
+    def _anotar_saida(self, dd, v, i, p):
+        """Pro escritório mostrar o que faria o trader sair: folga entre as médias, ou o preço que vira o momentum."""
+        pos = self.posicao
+        if "r" in dd and "l" in dd and dd["r"][i] and dd["l"][i]:
+            pos["saida_tipo"], pos["folga_pct"] = "medias", round((dd["r"][i] / dd["l"][i] - 1) * 100, 1)
+        elif "ret" in dd and p.get("n") and i - p["n"] >= 0:
+            pos["saida_tipo"], pos["saida_preco"] = "momentum", v["c"][i - p["n"]]
+
     def _liq(self, preco, lado, L, cfg):
         mmr = self._f(cfg).get("margem_manutencao", 0.005)
         return preco * (1 - 1 / L + mmr) if lado > 0 else preco * (1 + 1 / L - mmr)
@@ -310,11 +331,15 @@ class Futuros:
         if self.posicao and not self._checar_liquidacao(o, h, l, t, cfg, ag):
             lado = self.posicao["lado"]
             dd, vv = (d, v) if lado > 0 else (de, ve)
+            if vol:
+                self._proteger_liquidacao()
             r = checar_saida(est, dd, vv, i, p, self.posicao["m"])
             if r:
                 self._fechar_fut(r[0] if lado > 0 else 1 / r[0], r[1], t, cfg, ag)
             else:
                 self._niveis_reais()
+                if vol:
+                    self._anotar_saida(dd, v, i, p)
                 if not vol:
                     self._piramide(c, t, cfg, ag)
         if not vol:
