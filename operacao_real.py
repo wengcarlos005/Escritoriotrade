@@ -48,7 +48,8 @@ class Operacao:
         self.trava = threading.Lock()
         self.estado = carregar_estado()
         self.estado.setdefault("ordens", [])
-        self.estado.pop("tentativas", None)   # ao religar, a conta vazia testa as ordens de novo na hora (ex.: depois de editar a chave)
+        for r in (self.estado.get("tentativas") or {}).values():   # ao religar, a conta vazia testa as ordens de novo na hora
+            r["t"] = 0                                             # (ex.: depois de editar a chave); a resposta antiga fica pra comparar
         self.estado.setdefault("erros", [])
         self.estado["modo"] = self.c["modo"]
         self.cli = cliente
@@ -248,7 +249,10 @@ class Operacao:
                 permissao = "permission" in m.lower() or "permiss" in m.lower()
                 reg["recusada"] = (("chave SEM permissão de ordens em Futuros — edite a chave na corretora (Futuros → Ordens: leitura e escrita)" if permissao
                                     else "falta de margem (conta sem saldo)" if falta else "recusada") + f" — resposta da {self.nome}: {m[:120]}")
+                mesmo = ult.get("recusada") == reg["recusada"] and ult.get("lado") == lado
                 tent[par] = recusadas[par] = reg
+                if mesmo:
+                    continue   # mesma resposta de antes: não enche o feed (o aviso continua nos traders e no cartão)
                 self.avisar(f"  🟡 [{self.c['modo']}] {'COMPRA' if lado > 0 else 'VENDA'} {abs(q):g} {moeda} (~US$ {reg['usd']:,.0f}) "
                             f"NÃO aberta na {self.nome}: {reg['recusada']}")
                 ag.evento(agora, None, "🟡", f"{self.nome}: {'COMPRA' if lado > 0 else 'VENDA'} de {moeda} (~US$ {reg['usd']:,.0f}) "
