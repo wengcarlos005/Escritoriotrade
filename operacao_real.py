@@ -62,9 +62,9 @@ class Operacao:
                 self.avisar(f"⚠️  Conta {self.nome}: falta a chave de {self.c['modo']} (rode o 9_conectar_binance.bat). Operação real DESLIGADA.")
                 self.ativo = False
             else:
-                self.cli = B.criar_cliente(corretora, self.c["modo"], ch["chave"], ch["segredo"])
+                self.cli = B.criar_cliente(corretora, self.c["modo"], ch["chave"], ch["segredo"], ch.get("frase"))
         if self.ativo and self.c["modo"] == "papel" and self.cli is None:
-            self.cli = B.criar_cliente(corretora, "real") if corretora == "bybit" else B.Cliente("testnet")   # só regras e preços públicos
+            self.cli = B.criar_cliente(corretora, "real") if corretora in ("bybit", "bitget") else B.Cliente("testnet")   # só regras e preços públicos
         if self.ativo:
             self.avisar(f"💵 Conta {self.nome} ligada em modo {self.c['modo'].upper()}"
                         + (" (só anota as ordens, não manda nada)" if self.c["modo"] == "papel" else "")

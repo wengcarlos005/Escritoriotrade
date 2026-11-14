@@ -1,4 +1,4 @@
-# Operação real (Binance ou Bybit) — passo a passo
+# Operação real (Binance, Bybit ou Bitget) — passo a passo
 
 A conta de **futuros USDT-M** da Binance passa a copiar a agência, na proporção: se a agência tem US$ 1.500 e a sua
 conta tem US$ 500, cada posição da conta é 1/3 da posição da agência (somando os 4 times em cada moeda — quando dois
@@ -64,3 +64,15 @@ Os números ficam em `conta_binance` no `config.json` (`perda_max_dia_pct`, `pis
 4. Pra treinar antes: no site da Bybit ligue o **Demo Trading**, crie a chave lá e use o modo **2 (treino)**.
 
 Na Bybit o stop de emergência é o **stop loss da própria posição** (aparece na posição, no app), a 20% do preço.
+
+## Bitget
+
+1. Na Bitget, transfira o valor que vai operar (USDT) pra conta de **Futuros USDT-M**.
+2. **Perfil → Gerenciamento de API → Criar API** (chave gerada pelo sistema). Crie uma **Passphrase** (uma senha só da
+   chave — anote). Permissões: **só Futuros → Ordens e Posições (leitura e escrita)**. **Nada** de Saque nem
+   Transferência. Se puder, vincule ao IP do PC que vai operar.
+3. Rode o `9_conectar_binance.bat` → corretora **3 (Bitget)** → modo **3 (real)** → `EU ENTENDO O RISCO` → cole a
+   API Key, a Secret Key e a Passphrase (as duas últimas não aparecem enquanto você digita).
+4. Pra treinar antes, use o modo **1 (papel)** — a Bitget não tem conta de treino pela API.
+
+Na Bitget o stop de emergência é uma ordem de **stop loss da posição** (pos_loss, pelo preço de marcação), a 20% do preço.

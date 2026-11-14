@@ -562,12 +562,14 @@ def cmd_binance(args):
     print("  Qual corretora?")
     print("  1) Binance")
     print("  2) Bybit")
-    corretora = {"1": "binance", "2": "bybit"}.get(input("\nEscolha (1-2): ").strip())
+    print("  3) Bitget")
+    corretora = {"1": "binance", "2": "bybit", "3": "bitget"}.get(input("\nEscolha (1-3): ").strip())
     if not corretora:
         print("Opção inválida."); return
     nome = binance_real.NOMES[corretora]
-    treino = "Demo Trading da Bybit (no site da Bybit, ligue o modo Demo e crie a chave lá)" if corretora == "bybit" \
-        else "Binance de TREINO (crie a chave em testnet.binancefuture.com)"
+    treino = ("Demo Trading da Bybit (no site da Bybit, ligue o modo Demo e crie a chave lá)" if corretora == "bybit"
+              else "não disponível na Bitget — use o papel pra treinar" if corretora == "bitget"
+              else "Binance de TREINO (crie a chave em testnet.binancefuture.com)")
     print(f"\n  Modo na {nome}:")
     print("  1) papel    — só anota as ordens que mandaria (sem chave, sem risco)")
     print(f"  2) treino   — {treino}, dinheiro de mentira")
@@ -577,11 +579,15 @@ def cmd_binance(args):
     modo = {"1": "papel", "2": "testnet", "3": "real", "4": "desligado"}.get(op)
     if not modo:
         print("Opção inválida."); return
+    if corretora == "bitget" and modo == "testnet":
+        print("A Bitget não tem conta de treino pela API aqui: escolha o papel (1) pra treinar, ou o real (3)."); return
     if modo in ("testnet", "real"):
         if modo == "real":
             print(f"\n⚠️  ANTES DE SEGUIR, confira na {nome} (Gerenciamento de API):")
             if corretora == "bybit":
                 print("   • a chave tem SÓ 'Contrato → Ordens' e 'Contrato → Posições' — NUNCA saque nem transferência;")
+            elif corretora == "bitget":
+                print("   • a chave tem SÓ 'Futuros → Ordens/Posições' (leitura e escrita) — NUNCA saque nem transferência;")
             else:
                 print("   • a chave tem SÓ 'Ativar Futuros' (e leitura) — NUNCA 'Ativar Saques';")
             print("   • restrita ao IP deste PC (mais seguro);")
@@ -591,14 +597,15 @@ def cmd_binance(args):
                 print("Cancelado."); return
         chave = input("API Key: ").strip()
         segredo = getpass.getpass("Secret Key (não aparece enquanto digita): ").strip()
-        cli = binance_real.criar_cliente(corretora, modo, chave, segredo)
+        frase = getpass.getpass("Passphrase da chave (a senha que você criou junto com a chave; não aparece): ").strip() if corretora == "bitget" else None
+        cli = binance_real.criar_cliente(corretora, modo, chave, segredo, frase)
         try:
             cli.sincronizar_relogio()
             c = cli.conta()
         except Exception as e:
             print(f"\n❌ Não consegui entrar na conta: {e}\n   Confira a chave, as permissões de derivativos/futuros e a restrição de IP.")
             return
-        binance_real.salvar_chave(modo, chave, segredo, corretora)
+        binance_real.salvar_chave(modo, chave, segredo, corretora, frase)
         print(f"\n✅ Conectado na {nome} ({'treino' if modo == 'testnet' else modo}). Patrimônio: US$ {c['patrimonio']:,.2f} · "
               f"posições abertas: {c['posicoes'] or 'nenhuma'}")
         if c["patrimonio"] < 50:

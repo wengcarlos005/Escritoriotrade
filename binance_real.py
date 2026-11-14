@@ -38,24 +38,31 @@ def carregar_chave():
         return None
 
 
-def salvar_chave(modo, chave, segredo, corretora="binance"):
+def salvar_chave(modo, chave, segredo, corretora="binance", frase=None):
     ARQ_CHAVE.parent.mkdir(exist_ok=True)
-    ARQ_CHAVE.write_text(json.dumps({"modo": modo, "corretora": corretora, "chave": chave.strip(), "segredo": segredo.strip()}), encoding="utf-8")
+    d = {"modo": modo, "corretora": corretora, "chave": chave.strip(), "segredo": segredo.strip()}
+    if frase:
+        d["frase"] = frase.strip()
+    ARQ_CHAVE.write_text(json.dumps(d), encoding="utf-8")
     try:
         ARQ_CHAVE.chmod(0o600)
     except Exception:
         pass
 
 
-def criar_cliente(corretora, modo, chave=None, segredo=None):
-    """Binance ou Bybit — as duas têm a mesma interface pra operacao_real."""
-    if (corretora or "binance").lower() == "bybit":
+def criar_cliente(corretora, modo, chave=None, segredo=None, frase=None):
+    """Binance, Bybit ou Bitget — todas com a mesma interface pra operacao_real."""
+    c = (corretora or "binance").lower()
+    if c == "bybit":
         import bybit_real
         return bybit_real.Cliente(modo, chave, segredo)
+    if c == "bitget":
+        import bitget_real
+        return bitget_real.Cliente("real", chave, segredo, frase)
     return Cliente(modo, chave, segredo)
 
 
-NOMES = {"binance": "Binance", "bybit": "Bybit"}
+NOMES = {"binance": "Binance", "bybit": "Bybit", "bitget": "Bitget"}
 
 
 class Cliente:
