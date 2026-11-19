@@ -227,6 +227,43 @@ def aplicar_times_fixos(ag, cfg, avisar=print):
                 avisar(f"🔧 {tm['emoji']} {tm['nome']}: ritmo fixo garantido ({', '.join(f'{k} {v}' for k, v in f['params'].items())}).")
 
 
+def remover_moedas_fora(ag, cfg, avisar=print):
+    """Moedas que SAÍRAM do config com a temporada rodando: fecha as posições a mercado (no preço de agora), e o dinheiro
+    de cada trader que sai vai pros colegas do MESMO time (o dinheiro do time não muda: porcentagem e ranking seguem iguais)."""
+    por_time = cfg["liga"].get("traders_por_time") or len(cfg["liga"]["moedas"])
+    validas = set(cfg["liga"]["moedas"][:por_time])
+    saem = [tr for tr in ag.traders if tr.par not in validas and tr.tipo == "trader"
+            and not ag.time(tr.time).get("especial") and not ag.time(tr.time).get("membros")]
+    if not saem:
+        return
+    agora = int(time.time() * 1000)
+    try:
+        px = mercado.precos(sorted({tr.par for tr in saem})) or {}
+    except Exception:
+        px = {}
+    total, linhas = 0.0, []
+    for tr in saem:
+        if tr.posicao:
+            preco = px.get(tr.par) or ag.ultimo_preco.get(tr.par) or tr.ultimo_preco or tr.posicao["preco"]
+            antes = tr.lucro_realizado
+            tr._fechar_fut(preco, "moeda retirada da agência", agora, ag.cfg, ag)
+            linhas.append(f"{tr.nome} ({moeda(tr.par)}) {tr.lucro_realizado - antes:+.2f}")
+        colegas = [x for x in ag.traders if x.time == tr.time and x not in saem]
+        valor = tr.patrimonio()
+        total += tr.lucro_realizado
+        for x in colegas:   # repassa o caixa dentro do time
+            x.caixa += valor / len(colegas)
+            x.capital_recebido = getattr(x, "capital_recebido", 0.0) + valor / len(colegas)
+            x.capital_inicial = (getattr(x, "capital_inicial", 0.0) or 0.0) + valor / len(colegas)
+        tr.caixa = 0.0
+    ag.traders = [x for x in ag.traders if x not in saem]
+    nomes = ", ".join(sorted({moeda(tr.par) for tr in saem}))
+    ag.evento(agora, None, "📤", f"{nomes} saíram da agência: {len(saem)} traders encerrados ({'; '.join(linhas) or 'sem posição aberta'}). "
+                                 f"Resultado deles: US$ {total:+.2f}. O dinheiro foi pros colegas de BTC/ETH/SOL do mesmo time.")
+    avisar(f"📤 {nomes} retiradas: {len(saem)} traders encerrados, posições fechadas a mercado (resultado US$ {total:+.2f}); "
+           "o caixa foi repassado aos colegas do mesmo time.")
+
+
 def adicionar_moedas_novas(ag, cfg, avisar=print):
     """Moedas que entraram no config com a temporada já rodando (liga.moedas + liga.moedas_novas): cada time ganha
     um trader pra cada moeda nova, com o dinheiro novo dividido igualmente, COMO SE existissem desde `desde`
@@ -398,6 +435,7 @@ def cmd_simular(args):
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
     aplicar_times_fixos(ag, cfg)
+    remover_moedas_fora(ag, cfg)
     adicionar_moedas_novas(ag, cfg)
     fora = set(cfg["liga"].get("estrategias_excluidas", []))
     for tm in list(ag.disputando()):

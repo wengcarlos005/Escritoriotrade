@@ -1,6 +1,6 @@
 # 🏢 Agência de Traders — robôs de cripto que competem num escritório pixel-art
 
-Uma "agência" de traders-robôs que operam **BTC, ETH, SOL, ONDO e FIL** em futuros (comprado e vendido), usando
+Uma "agência" de traders-robôs que operam **BTC, ETH e SOL** em futuros (comprado e vendido), usando
 preços reais. Quatro times disputam uma liga — 🐇 **Coelhos Cafeinados**, 🦊 **Raposas Isentonas**,
 🐢 **Tartarugas Aposentadas** e 🔄 **Momentum AQR** — e você acompanha tudo num **escritório animado** no navegador
 (e no celular). Por padrão é **tudo simulado, com dinheiro de mentira**. Se quiser, dá pra ligar uma conta de
@@ -145,8 +145,8 @@ Quer acompanhar sem deixar o PC ligado? Veja o passo a passo em **[SERVIDOR.md](
 - **📐 Modo atual: velas de 4h com alavancagem pela volatilidade** (`modo.tipo = "4h_vol"`). 3 times, **todos da
   estratégia do Seykota** (médias exponenciais), cada um num ritmo: 🐇 **Coelhos Cafeinados** (médias 20/100, os
   apressados), 🦊 **Raposas Isentonas** (15/150) e 🐢 **Tartarugas Aposentadas** (50/200, as pacientes) — mais o 🔄 **Momentum AQR** (momentum de série temporal de Moskowitz, Ooi & Pedersen, olhando
-  360 velas = 60 dias), que entrou pela prova da agência — `liga.times_fixos`. Cada time tem 5 traders (BTC, ETH,
-  SOL, ONDO e FIL — ONDO e FIL entraram em 13/11 às 15h com US$ 500 a mais), 20 no total, com US$ 2.000 simulados.
+  360 velas = 60 dias), que entrou pela prova da agência — `liga.times_fixos`. Cada time tem 3 traders (BTC, ETH e
+  SOL), 12 no total, com US$ 1.500 simulados numa temporada nova.
   Por que só Seykota: nos testes de 2022 a 2026 ele rendeu ~100% ao ano e só teve 1 semestre levemente negativo,
   enquanto Supertrend e Tudor Jones mais atrapalhavam que ajudavam; os 3 ritmos diferentes mantêm a diversificação.
   Cada um entra e sai pelos sinais (comprado ou vendido), em velas de 4h. O TAMANHO de cada operação é decidido na entrada:
