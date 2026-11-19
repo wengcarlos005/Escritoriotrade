@@ -379,7 +379,8 @@ class Operacao:
                 if not px or par not in regras:
                     continue
                 dif = quer - atual
-                tol = max(regras[par]["min_notional"] * 1.05, self.c["tolerancia_usd"], abs(quer) * px * self.c["tolerancia_pct"] / 100)
+                tol_usd = min(self.c["tolerancia_usd"], max(6.0, pat * 0.03))   # conta pequena (ex.: US$ 85): tolerância menor, senão nada abre
+                tol = max(regras[par]["min_notional"] * 1.05, tol_usd, abs(quer) * px * self.c["tolerancia_pct"] / 100)
                 if abs(dif) * px < tol and not (quer == 0 and atual):
                     continue
                 q = B.arredondar(dif, regras[par]["passo"])
