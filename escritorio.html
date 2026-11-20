@@ -38,7 +38,7 @@ h1 span{color:var(--acento)}
 .kpi.real .r{text-transform:none}
 .kpi .st{font-size:11.5px;color:var(--suave);font-weight:600;margin-top:4px;line-height:1.35;white-space:normal}
 .kpi .ac{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
-.kpi .ac .bt-real{margin-left:0}
+.kpi .ac .btn{padding:6px 10px;font-size:12px}
 .kpi .r{font-size:11px;color:var(--suave);font-weight:600;text-transform:lowercase}
 .kpi .v{font-family:var(--titulo);font-weight:600;font-size:18px;white-space:nowrap;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
 .pos{color:var(--verde)} .neg{color:var(--vermelho)}
@@ -160,7 +160,7 @@ h1 span{color:var(--acento)}
 .bx-help{font-size:12px;color:var(--suave);margin:2px 0 10px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}
 .bx-help b{color:var(--texto)}
 .bx{border:1px solid var(--linha);border-radius:12px;overflow:hidden;font-variant-numeric:tabular-nums}
-.bx-row{display:grid;grid-template-columns:minmax(150px,1.5fr) .95fr .85fr 1fr 1fr 1fr minmax(120px,1.25fr) minmax(96px,1fr);gap:8px;align-items:center;
+.bx-row{display:grid;grid-template-columns:minmax(150px,1.5fr) .9fr .8fr .95fr .95fr .95fr minmax(118px,1.2fr) minmax(130px,1.15fr) minmax(90px,.95fr);gap:8px;align-items:center;
   padding:9px 12px;border-top:1px solid #eef1ee;font-size:13px}
 .bx-row:hover{background:#fafcf9}
 .bx-row>div{min-width:0}
@@ -191,6 +191,7 @@ h1 span{color:var(--acento)}
   .bx-row .bx-pnlc{grid-column:3;grid-row:1;text-align:right}
   .bx-row .r{text-align:left}
   .bx-row .bx-pnlc.r{text-align:right}
+  .bx-row .bx-termo{grid-column:1 / span 2}
   .bx-time{border-radius:10px;margin-top:12px;border:0}
   .bx-fora{border:0;padding:6px 2px}
 }
@@ -230,13 +231,65 @@ details.mais-d summary{cursor:pointer;color:var(--acento);font-weight:600;font-s
   .chips{display:flex;flex-wrap:nowrap;overflow-x:auto;margin:6px 0 0;padding-bottom:2px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
   .kpi .v{font-size:15px}
-  .bt-real{font-size:11px}
   .relogio{font-size:11px}
 }
 
 .tela canvas{image-rendering:pixelated;touch-action:none}
-.bt-real{border:0;border-radius:8px;padding:3px 8px;font-weight:800;cursor:pointer;background:#e8eef0;color:#16202e;margin-left:4px}
-.bt-real.parar{background:#e0454b;color:#fff}
+/* botões: um sistema só (primário / secundário / perigo) */
+.btn{font:700 12.5px Inter,system-ui,sans-serif;display:inline-flex;align-items:center;gap:6px;border:1px solid transparent;border-radius:10px;padding:7px 12px;
+  cursor:pointer;line-height:1.1;transition:background .15s,box-shadow .15s,transform .05s,border-color .15s;white-space:nowrap}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(47,125,87,.3)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn.pri{background:var(--acento);color:#fff}
+.btn.pri:hover{background:#276a4a}
+.btn.sec{background:#fff;color:var(--texto);border-color:var(--linha)}
+.btn.sec:hover{background:var(--card2);border-color:#cfd8cc}
+.btn.perigo{background:#fff;color:#c9353b;border-color:#f3c9cb}
+.btn.perigo:hover{background:#e0454b;color:#fff;border-color:#e0454b}
+.btn.perigo.cheio{background:#e0454b;color:#fff;border-color:#e0454b}
+.btn.perigo.cheio:hover{background:#c9353b}
+.btn.perigo:focus-visible{box-shadow:0 0 0 3px rgba(224,69,75,.3)}
+/* selo das posições que valem dinheiro de verdade */
+.selo-real{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:800;letter-spacing:.3px;padding:2px 7px;border-radius:999px;
+  background:linear-gradient(135deg,#ffd76a,#f2b01e);color:#5a3d00;box-shadow:0 0 0 1px rgba(201,140,0,.35);white-space:nowrap}
+.selo-real.papel{background:#eef1ef;color:#5d6b62;box-shadow:0 0 0 1px var(--linha)}
+.bx-row.eh-real{background:#fffbef;box-shadow:inset 3px 0 0 #f2b01e}
+.bx-row.eh-real:hover{background:#fff7e0}
+.real-faixa{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 12px;margin:0 0 10px;border-radius:12px;background:#fffbef;
+  border:1px solid #f6e3ad;font-size:12.5px}
+.real-faixa .rp{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #f1e2b8;border-radius:999px;padding:3px 9px 3px 4px;white-space:nowrap}
+.real-faixa .nota{flex-basis:100%;color:#8a6d1e;font-size:11.5px}
+/* termômetro "Realizar?" */
+.termo{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left}
+.termo .tb{width:46px;height:7px;border-radius:99px;background:#edf0ec;overflow:hidden;flex:none}
+.termo .tb i{display:block;height:100%;border-radius:99px}
+.termo b{font-size:13px;min-width:30px;text-align:right}
+.termo span{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap}
+.termo.segurar .tb i{background:#18a058} .termo.segurar span{background:#e3f6ec;color:#0f8a4a}
+.termo.neutro .tb i{background:#e09a00} .termo.neutro span{background:#fff4dc;color:#9a6400}
+.termo.alerta .tb i{background:#e0454b} .termo.alerta span{background:#fdeaea;color:#c9353b}
+.termo:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(47,125,87,.3);border-radius:6px}
+/* janela de confirmação */
+.modal-fundo{position:fixed;inset:0;z-index:100;background:rgba(20,30,24,.45);display:flex;align-items:center;justify-content:center;padding:16px;
+  animation:mf .15s ease-out}
+@keyframes mf{from{opacity:0}}
+.modal{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);max-width:440px;width:100%;padding:20px;animation:mm .18s ease-out;max-height:calc(100vh - 32px);overflow-y:auto}
+@keyframes mm{from{transform:translateY(8px) scale(.98);opacity:0}}
+.modal h3{font-family:var(--titulo);font-weight:600;font-size:20px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.modal .corpo{font-size:13.5px;color:#3a463e;line-height:1.5}
+.modal .corpo p{margin:0 0 8px}
+.modal .corpo ul{margin:4px 0 8px;padding-left:18px}
+.modal label{display:block;font-size:12px;font-weight:700;color:var(--suave);margin:10px 0 4px}
+.modal input{width:100%;font:600 16px Inter,system-ui,sans-serif;padding:10px 12px;border:1px solid var(--linha);border-radius:10px;outline:none}
+.modal input:focus{border-color:var(--acento);box-shadow:0 0 0 3px rgba(47,125,87,.2)}
+.modal .atalhos{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.modal .erro{color:#c9353b;font-size:12px;font-weight:600;min-height:16px;margin-top:6px}
+.modal .pes{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+.modal.perigo h3{color:#c9353b}
+.modal .tab-termo{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0;table-layout:fixed}
+.modal .tab-termo td{white-space:normal;overflow-wrap:anywhere;vertical-align:top}
+.modal .tab-termo td{padding:3px 6px;border-top:1px solid #eef1ee}
 body.modo-video{overflow:hidden;background:#cfd6dc}
 body.modo-video .tela{position:fixed;inset:0;width:100vw;border-radius:0;z-index:50}
 body.modo-video .tela > :not(canvas){display:none !important}
@@ -1291,6 +1344,8 @@ function pensamento(a) {
     if (p.preco_liquidacao) s += ` Se o preço ${l > 0 ? 'cair' : 'subir'} até ${preco(p.preco_liquidacao)}, sou liquidado 💀.`;
     if (p.forcada) s += ` Entrei FORÇADO (a estratégia não deu sinal): o modelo deu ${Math.round((p.chance || 0.5) * 100)}% de chance de WIN pra esse lado.`;
     const lim = limiteDe(p); if (lim) s += ` Se não fechar antes, saio em ${curto(lim - Date.now())} (limite de 2h).`;
+    if (p.realizar) s += ` Termômetro "Realizar?": ${p.realizar.nota}% (${faixaNota(p.realizar.nota)[1]}).`;
+    if (realDe(tr)) s += ` 💰 Esta moeda está aberta de verdade na ${(REAL && REAL.corretora) || 'corretora'}.`;
     if (tr.aviso_real) s += ` ⚠️ ${tr.aviso_real} — aqui na agência sigo posicionado normalmente.`;
     return s + metaTxt;
   }
@@ -1362,7 +1417,8 @@ function renderDetalhe() {
       <div class="dt-pnl ${cls(ab.usd)}">${usdS(ab.usd)}</div><div class="dt-roe ${cls(ab.pct)}">ROE ${pctS(ab.pct, 2)} <span class="sub" style="margin:0;font-weight:500">· lucro sobre a margem</span></div>
       <div class="dt-grid"><div><span>Entrada</span><b>${preco(p.preco)}</b></div><div><span>Preço atual</span><b>${preco(tr.ultimo_preco || p.preco)}</b></div>
         <div><span>Liquidação</span><b class="bx-liq">${p.preco_liquidacao ? preco(p.preco_liquidacao) : '—'}</b></div><div><span>Margem</span><b>${usd(p.margem || p.custo || 0)}</b></div>
-        <div><span>Tamanho</span><b>${usd(p.notional || p.qtd * p.preco)}</b></div><div><span>Fecha em</span><b>${p.saida_pendente ? 'saindo…' : lim ? curto(lim - Date.now()) : '—'}</b></div></div></div>`;
+        <div><span>Tamanho</span><b>${usd(p.notional || p.qtd * p.preco)}</b></div><div><span>Fecha em</span><b>${p.saida_pendente ? 'saindo…' : lim ? curto(lim - Date.now()) : '—'}</b></div></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px"><span class="sub" style="margin:0;font-weight:600">Realizar?</span>${termoHtml(tr)}${seloReal(tr)}</div></div>`;
   } else {
     const st = tr.parou_hoje ? 'Parou por hoje (bateu o limite de perda do dia) 🛑' : tr.ordem ? `Ordem de ${tr.ordem.lado > 0 ? 'compra' : 'venda'} ${((tr.ordem.j || {}).alavancagem || '')}x em ${preco(tr.ordem.preco)} esperando executar ⏳` : 'Sem posição agora — abre na próxima vela de 5 min.';
     pos = `<div class="dt-vazio">${st}</div>`;
@@ -1414,16 +1470,93 @@ function aberto(tr) {   // lucro/prejuízo em aberto: US$ e % sobre a margem (ou
   if (p.lado != null) { const v = p.lado * p.qtd * (px - p.preco), base = p.margem || p.custo || 1; return {usd: v, pct: v / base * 100, mov: (px / p.preco - 1) * 100}; }
   const v = p.qtd * px - p.custo; return {usd: v, pct: v / (p.custo || 1) * 100, mov: (px / p.preco - 1) * 100};
 }
+/* ---------- conta real e termômetro "Realizar?" ---------- */
+const realLig = () => REAL && REAL.modo && REAL.modo !== 'desligado' ? REAL : null;
+const seloTxt = rb => rb.modo === 'real' ? '💰 REAL' : rb.modo === 'testnet' ? '🧪 TREINO' : '📝 PAPEL';
+function realDe(tr) {   // a corretora tem posição nesta moeda, do mesmo lado do trader?
+  const rb = realLig(), p = tr.posicao;
+  if (!rb || !p || !rb.posicoes) return null;
+  const q = rb.posicoes[tr.par];
+  return q && Math.sign(q) === ladoDe(tr) ? q : null;
+}
+function seloReal(tr) {
+  const rb = realLig(), q = realDe(tr);
+  if (!q) return '';
+  return `<span class="selo-real${rb.modo === 'real' ? '' : ' papel'}" title="A ${esc(rb.corretora || 'corretora')} tem ${num(Math.abs(q), 4)} ${esc(String(tr.par).replace('USDT', ''))} ${q > 0 ? 'comprado' : 'vendido'} de verdade nesta moeda (soma de todos os traders dela, na proporção do seu saldo).">${seloTxt(rb)}</span>`;
+}
+const faixaNota = n => n >= 65 ? ['alerta', 'pensar em realizar'] : n >= 45 ? ['neutro', 'neutro'] : ['segurar', 'segurar'];
+const TERMO_COMO = `<p><b>O que é:</b> a chance estimada de o <b>resto</b> desta operação (daqui até a saída pela regra) dar prejuízo. Quanto maior, mais motivo pra pensar em realizar.</p>
+  <p><b>Como foi feito:</b> olha 6 sinais — tempo na operação, folga das médias, força do momentum, lucro em aberto, quanto o preço está esticado e se o BTC está a favor nos últimos 30 dias. Aprendeu com as operações de 2021–23 e foi conferido em 2024–26 (dados que ele nunca viu).</p>
+  <table class="tab-termo"><tr><td>Nota</td><td>O resto da operação deu prejuízo</td><td>Segurar rendeu, em média</td></tr>
+  <tr><td>abaixo de 45%</td><td>~44% das vezes</td><td class="pos">+3,9%</td></tr><tr><td>45–65%</td><td>~50%</td><td class="pos">+3,3%</td></tr>
+  <tr><td>acima de 65%</td><td>~65%</td><td class="pos">+3,0%</td></tr></table>
+  <p><b>Sinceridade:</b> ele acerta só um pouco (59% das comparações; 50% seria sorte). E mesmo nas notas altas, <b>segurar rendeu em média mais do que realizar</b>, porque as tendências que dão certo dão muito certo. Por isso a agência <b>não fecha sozinha</b> pela nota: é um alerta pra você avaliar junto com o resto.</p>`;
+function termoHtml(tr) {
+  const r = tr.posicao && tr.posicao.realizar;
+  if (!r) return '<span class="bx-sub" title="aparece na próxima vela de 4h">calculando…</span>';
+  const [k, txt] = faixaNota(r.nota);
+  const fat = (r.fatores || []).map(f => `${f.pesa === 'sobe' ? '▲' : '▼'} ${f.nome}`).join('\n');
+  return `<button class="termo ${k}" data-termo="${esc(tr.uid || tr.nome)}" title="Realizar? ${r.nota}% — chance de o resto desta operação dar prejuízo.\nO que mais pesou:\n${esc(fat)}\n(▲ puxa pra realizar · ▼ puxa pra segurar)\nClique pra entender."><span class="tb"><i style="width:${Math.max(4, r.nota)}%"></i></span><b>${r.nota}%</b><span>${txt}</span></button>`;
+}
+function explicarTermo(id) {
+  const tr = D && D.traders.find(t => (t.uid || t.nome) === id);
+  const r = tr && tr.posicao && tr.posicao.realizar;
+  if (!r) return;
+  const [k, txt] = faixaNota(r.nota);
+  const fat = (r.fatores || []).map(f => `<li>${f.pesa === 'sobe' ? '▲ puxa pra <b>realizar</b>' : '▼ puxa pra <b>segurar</b>'}: ${esc(f.nome)}</li>`).join('');
+  modal({titulo: `🌡️ Realizar? ${r.nota}% · ${esc(tr.nome)} em ${esc(simbolo(tr))}`,
+    corpo: `<div class="termo ${k}" style="cursor:default;margin-bottom:8px"><span class="tb" style="width:120px"><i style="width:${Math.max(4, r.nota)}%"></i></span><b>${r.nota}%</b><span>${txt}</span></div>
+      ${realDe(tr) ? '<p>' + seloReal(tr) + ' esta moeda está aberta na corretora com dinheiro de verdade.</p>' : ''}
+      <p><b>O que mais pesou agora:</b></p><ul>${fat}</ul>${TERMO_COMO}`,
+    botoes: [{txt: 'Entendi', cls: 'pri'}]});
+}
+
+/* ---------- janela de confirmação (substitui os avisos do navegador) ---------- */
+function modal({titulo, corpo, botoes, perigo, campo}) {
+  return new Promise(ok => {
+    const f = document.createElement('div');
+    f.className = 'modal-fundo';
+    f.innerHTML = `<div class="modal${perigo ? ' perigo' : ''}" role="dialog" aria-modal="true"><h3>${titulo}</h3><div class="corpo">${corpo}</div>
+      ${campo ? `<label for="mdl-in">${campo.rotulo}</label><input id="mdl-in" inputmode="decimal" autocomplete="off" value="${esc(campo.valor || '')}">
+        ${campo.atalhos && campo.atalhos.length ? `<div class="atalhos">${campo.atalhos.map((a, i) => `<button class="btn sec" data-at="${i}">${a.txt}</button>`).join('')}</div>` : ''}<div class="erro" id="mdl-erro"></div>` : ''}
+      <div class="pes">${botoes.map((b, i) => `<button class="btn ${b.cls || 'sec'}" data-b="${i}">${b.txt}</button>`).join('')}</div></div>`;
+    const fim = v => { f.remove(); document.removeEventListener('keydown', tecla); ok(v); };
+    const conf = botoes.findIndex(b => b.valor !== undefined && b.valor !== null && b.valor !== false);
+    const enviar = i => {
+      const b = botoes[i];
+      if (campo && b.valor) {
+        const v = parseFloat(String(f.querySelector('#mdl-in').value).replace(/[^0-9,.-]/g, '').replace(',', '.'));
+        const e = campo.validar ? campo.validar(v) : '';
+        if (e) { f.querySelector('#mdl-erro').textContent = e; f.querySelector('#mdl-in').focus(); return; }
+        return fim(v);
+      }
+      fim(b.valor);
+    };
+    const tecla = ev => { if (ev.key === 'Escape') fim(null); if (ev.key === 'Enter' && campo && conf >= 0) enviar(conf); };
+    f.addEventListener('click', ev => {
+      if (ev.target === f) return fim(null);
+      const b = ev.target.closest('[data-b]'), at = ev.target.closest('[data-at]');
+      if (at) { f.querySelector('#mdl-in').value = campo.atalhos[+at.dataset.at].valor; f.querySelector('#mdl-erro').textContent = ''; return; }
+      if (b) enviar(+b.dataset.b);
+    });
+    document.addEventListener('keydown', tecla);
+    document.body.appendChild(f);
+    (f.querySelector('#mdl-in') || f.querySelector(`[data-b="${botoes.length - 1}"]`)).focus();
+  });
+}
+const aviso = (titulo, texto) => modal({titulo, corpo: `<p>${esc(texto)}</p>`, botoes: [{txt: 'OK', cls: 'pri'}]});
+
 function celulasPos(tr) {
   const p = tr.posicao, ab = aberto(tr), x = p.alavancagem || alavDe(tr), lim = limiteDe(p);
   const quem = moedaDe(tr) !== tr.nome ? `<span>${esc(tr.nome)}</span>` : '';
-  return `<div class="bx-sym"><b>${simbolo(tr)}</b><span class="pp">Perp</span><div class="q">${badgeLado(p.lado, x)}${quem}${p.stop_movido ? '<span title="lucro protegido">🔒</span>' : ''}</div></div>
+  return `<div class="bx-sym"><b>${simbolo(tr)}</b><span class="pp">Perp</span><div class="q">${badgeLado(p.lado, x)}${seloReal(tr)}${quem}${p.stop_movido ? '<span title="lucro protegido">🔒</span>' : ''}</div></div>
     <div class="r" data-l="Tamanho">${usd(p.notional || p.qtd * p.preco)}</div>
     <div class="r" data-l="Margem">${usd(p.margem || p.custo || 0)}</div>
     <div class="r" data-l="Entrada">${preco(p.preco)}</div>
     <div class="r" data-l="Preço atual">${preco(tr.ultimo_preco || p.preco)}</div>
     <div class="r bx-liq" data-l="Liquidação">${p.preco_liquidacao ? preco(p.preco_liquidacao) : '—'}</div>
     <div class="r bx-pnlc" data-l="PNL (ROE)"><div class="bx-pnl ${cls(ab.usd)}">${usdS(ab.usd)}<small>${pctS(ab.pct, 2)}</small></div></div>
+    <div class="bx-termo" data-l="Realizar?">${termoHtml(tr)}</div>
     <div class="r" data-l="Tempo">${duracao(Date.now() - p.t)}<span class="bx-sub">${p.saida_pendente ? 'saindo…' : lim ? 'fecha em ' + curto(lim - Date.now()) : ''}</span></div>`;
 }
 function semPosicao(tr) {
@@ -1437,7 +1570,7 @@ function renderPosicoes() {
   const abertos = D.traders.filter(t => t.posicao), tot = abertos.reduce((s, t) => s + aberto(t).usd, 0);
   const ajuda = `<div class="bx-help"><span><b>${abertos.length}</b> posições abertas · PNL aberto <b class="${cls(tot)}">${usdS(tot)}</b></span>
     <span title="Long (comprado) ganha se o preço subir. Short (vendido) ganha se cair. ROE = lucro ou prejuízo sobre a margem. Liquidação = preço em que a margem inteira é perdida.">ⓘ Long ganha se subir · Short ganha se cair · ROE = lucro sobre a margem</span></div>`;
-  const head = `<div class="bx-row bx-head"><div>Moeda</div><div class="r">Tamanho</div><div class="r">Margem</div><div class="r">Entrada</div><div class="r">Preço atual</div><div class="r">Liquidação</div><div class="r">PNL (ROE %)</div><div class="r">Tempo</div></div>`;
+  const head = `<div class="bx-row bx-head"><div>Moeda</div><div class="r">Tamanho</div><div class="r">Margem</div><div class="r">Entrada</div><div class="r">Preço atual</div><div class="r">Liquidação</div><div class="r">PNL (ROE %)</div><div title="Chance de o resto da operação dar prejuízo (0–100%). Clique numa nota pra entender.">Realizar? ⓘ</div><div class="r">Tempo</div></div>`;
   const corpo = times.map(t => {
     const membros = D.traders.filter(x => x.time === t.id);
     const ab = membros.filter(x => x.posicao).sort((a, b) => aberto(b).usd - aberto(a).usd), fora = membros.filter(x => !x.posicao);
@@ -1447,10 +1580,20 @@ function renderPosicoes() {
         <span class="k">temporada <b class="${cls(t.resultado_pct)}">${pctS(t.resultado_pct, 2)}</b></span>
         <span class="k" title="caixa do time pra contratar">💰 ${barraHtml(caixaFrac(t), t.titular ? '#e2a72e' : corTime(t.id)).replace('cx-barra', 'cx-barra mini')} <b>${usd(t.caixa_time || 0)}</b> / ${num(custoContratar(), 0)}</span>
         <span class="dir"><span class="k">PNL aberto <b class="${cls(soma)}">${usdS(soma)}</b></span></span></div>`
-      + ab.map(tr => `<div class="bx-row">${celulasPos(tr)}</div>`).join('')
+      + ab.map(tr => `<div class="bx-row${realDe(tr) ? ' eh-real' : ''}">${celulasPos(tr)}</div>`).join('')
       + (fora.length ? `<div class="bx-fora">${fora.map(semPosicao).join('')}</div>` : '');
   }).join('');
-  return ajuda + `<div class="bx">${head}${corpo}</div>`;
+  return faixaReal() + ajuda + `<div class="bx">${head}${corpo}</div>`;
+}
+function faixaReal() {
+  const rb = realLig();
+  if (!rb) return '';
+  const tag = seloTxt(rb), ps = Object.entries(rb.posicoes || {}).filter(([, q]) => q);
+  const px = par => ((D.ultimo_preco || {})[par]) || ((D.traders.find(t => t.par === par) || {}).ultimo_preco) || 0;
+  const itens = ps.length ? ps.map(([par, q]) => `<span class="rp">${badgeLado(Math.sign(q))}<b>${esc(par.replace('USDT', ''))}</b> ${num(Math.abs(q), 4)}${px(par) ? ` · ${usd(Math.abs(q) * px(par))}` : ''}</span>`).join('')
+    : `<span class="sub" style="margin:0">${(rb.status || '').startsWith('sem saldo') ? 'sem saldo: nenhuma posição aberta de verdade ainda' : 'nenhuma posição aberta na corretora agora'}</span>`;
+  return `<div class="real-faixa"><span class="selo-real${rb.modo === 'real' ? '' : ' papel'}">${tag}</span><b>Na ${esc(rb.corretora || 'corretora')} agora:</b>${itens}
+    <span class="nota">As linhas destacadas em amarelo com o selo ${tag} são as moedas que estão abertas de verdade. A corretora junta os traders da mesma moeda numa posição só, do tamanho proporcional ao seu saldo.</span></div>`;
 }
 function renderHistorico() {
   const nomeT = id => { const t = D.times.find(x => x.id === id); return t ? `${t.emoji} ${t.nome.replace('Time ', '')}` : id; };
@@ -1506,6 +1649,7 @@ document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-ops]'); if (b) { OPS_ABA = b.dataset.ops; renderOps(); return; }
   const h = ev.target.closest('[data-hist]'); if (h) { HIST_TIME = h.dataset.hist; HIST_LIM = 60; renderOps(); return; }
   if (ev.target.closest('[data-mais]')) { HIST_LIM += 60; renderOps(); return; }
+  const tm = ev.target.closest('[data-termo]'); if (tm) { explicarTermo(tm.dataset.termo); return; }
   const v = ev.target.closest('[data-ver]');
   if (v && D) { OPS_ABA = v.dataset.ver; if (OPS_ABA === 'hist') {
       const ag = SEL && SEL.tipo === 'ag' ? AG.get(SEL.id) : null;
@@ -1544,9 +1688,9 @@ function renderTopo(vivo) {
     : st.startsWith('erro') ? `<span class="neg">⚠️ ${esc(st)}</span>` : st.startsWith('sem saldo') ? `🟡 ${esc(st)}`
     : `${Object.keys(rb.posicoes || {}).length} moedas abertas · agência ${usd(patAg)}`;
   const saque = rb && rb.lembrete_saque ? `<div class="st" style="color:#a86a00">💸 Hora de tirar lucro do bolso: +${usd(rb.lembrete_saque.lucro)} (${esc(rb.lembrete_saque.motivo)}). Sugestão: sacar ${usd(rb.lembrete_saque.sugerido)} e deixar o resto trabalhando.</div>` : '';
-  const rbAc = !rb ? '' : rb.parado ? `<button class="bt-real" onclick="pedirReal('retomar')">▶️ Retomar</button>`
-    : `<button class="bt-real" onclick="igualarReal()" title="Deixa a agência do tamanho do saldo da corretora (agência hoje: ${usd(patAg)}). Muda só o tamanho: porcentagens e ranking ficam iguais.">⚖️ Igualar ao saldo</button>` +
-      (st.startsWith('sem saldo') ? '' : `<button class="bt-real parar" onclick="pedirReal('parar')">⛔ PARAR TUDO</button>`);
+  const rbAc = !rb ? '' : rb.parado ? `<button class="btn pri" onclick="pedirReal('retomar')">▶️ Retomar</button>`
+    : `<button class="btn sec" onclick="igualarReal()" title="Deixa a agência do tamanho do saldo da corretora (agência hoje: ${usd(patAg)}). Muda só o tamanho: porcentagens e ranking ficam iguais.">⚖️ Igualar ao saldo</button>` +
+      (st.startsWith('sem saldo') ? '' : `<button class="btn perigo" onclick="pedirReal('parar')" title="Fecha todas as posições da corretora agora">⛔ Parar tudo</button>`);
   const grandes = [
     ...(rb ? [`<div class="kpi real"><div class="r">${esc(rbTxt)}</div><div class="v">${rb.patrimonio != null ? usd(rb.patrimonio) : '—'} ${rb.patrimonio != null ? delta(rbL) : ''}</div><div class="st">${rbSt}</div>${saque}<div class="ac">${rbAc}</div></div>`] : []),
     ...(cr ? [`<div class="kpi real"><div class="r">💵 conta real${cr.modo === 'simulado' ? ' (simulada)' : ''}</div><div class="v">${usd(cr.patrimonio)} ${delta(crL)}</div><div class="st">${cr.time === 'agencia' ? `copia a agência inteira, dividida entre os ${D.times.filter(t => !t.especial).length} times` : crTm ? esc(crTm.emoji + ' ' + crTm.nome) + ' opera hoje' : ''} · 📏 <span title="Nos testes desde 2021: ~130–170% ao ano, com quedas de até ~45–50% no caminho. Na vida real costuma render menos (preço de execução, fases ruins). Pense em: pode dobrar num ano bom e cair pela metade num ano ruim.">o que esperar</span></div></div>`] : [])];
@@ -1578,17 +1722,39 @@ function relogio() {
 let REAL = null;
 async function igualarReal() {
   const real = REAL && REAL.patrimonio != null && REAL.patrimonio >= 10 ? REAL.patrimonio : null;
-  const atual = D ? D.traders.reduce((s, t) => s + patrimonio(t), 0) : 0;
-  const v = prompt(`Deixar a agência com quanto (US$)?\n\nHoje a agência tem ${usd(atual)}${real ? ` e a corretora tem ${usd(real)}` : ' (a corretora ainda está sem saldo — digite o valor que você vai depositar)'}.\n` +
-    'Todas as posições, margens e caixas mudam de tamanho na mesma proporção. Porcentagens e ranking não mudam.', real ? real.toFixed(2) : '');
-  if (v === null) return;
-  const n = parseFloat(String(v).replace(',', '.'));
-  if (!(n >= 10)) { alert('Digite um valor de pelo menos US$ 10.'); return; }
-  try { const r = await fetch('/api/real/igualar', {method: 'POST', body: JSON.stringify({valor: n})}).then(x => x.json()); alert(r.msg || r.erro || 'ok'); } catch (e) { alert('Não consegui falar com o programa.'); }
+  const atual = D ? D.traders.reduce((s, t) => s + patrimonio(t), 0) : 0, nome = (REAL && REAL.corretora) || 'corretora';
+  const v = await modal({titulo: '⚖️ Igualar a agência ao saldo',
+    corpo: `<p>Hoje a agência tem <b>${usd(atual)}</b>${real ? ` e a ${esc(nome)} tem <b>${usd(real)}</b>` : `. A ${esc(nome)} ainda está sem saldo: digite quanto você vai depositar`}.</p>
+      <p>Todas as posições, margens e caixas mudam de tamanho na mesma proporção. <b>Porcentagens e ranking não mudam.</b></p>`,
+    campo: {rotulo: 'Deixar a agência com (US$)', valor: real ? real.toFixed(2) : '',
+      atalhos: real ? [{txt: `Saldo da ${esc(nome)} (${usd(real)})`, valor: real.toFixed(2)}] : [],
+      validar: n => n >= 10 ? '' : 'Digite um valor de pelo menos US$ 10.'},
+    botoes: [{txt: 'Cancelar'}, {txt: 'Igualar', cls: 'pri', valor: true}]});
+  if (v == null) return;
+  await enviarReal('igualar', {valor: v});
 }
 async function pedirReal(acao) {
-  if (acao === 'parar' && !confirm('PARAR TUDO na corretora?\n\nFecha TODAS as posições da conta agora, a mercado, e a agência deixa de operar a conta até você clicar em Retomar.')) return;
-  try { const r = await fetch('/api/real/' + acao, {method: 'POST', body: '{}'}).then(x => x.json()); alert(r.msg || r.erro || 'ok'); } catch (e) { alert('Não consegui falar com o programa.'); }
+  if (acao === 'parar') {
+    const n = REAL && REAL.posicoes ? Object.values(REAL.posicoes).filter(q => q).length : 0;
+    const ok = await modal({titulo: '⛔ Parar tudo na corretora?', perigo: true,
+      corpo: `<p>Fecha <b>${n ? `as ${n} posições` : 'todas as posições'}</b> da conta agora, a preço de mercado.</p>
+        <p>A agência continua simulando, mas <b>deixa de operar a conta</b> até você clicar em <b>Retomar</b>.</p>`,
+      botoes: [{txt: 'Cancelar'}, {txt: 'Sim, fechar tudo', cls: 'perigo cheio', valor: true}]});
+    if (!ok) return;
+  } else if (acao === 'retomar') {
+    const ok = await modal({titulo: '▶️ Retomar a conta real?',
+      corpo: '<p>A agência volta a copiar as posições na corretora, na proporção do seu saldo, já na próxima checagem (até 1 minuto).</p>',
+      botoes: [{txt: 'Cancelar'}, {txt: 'Retomar', cls: 'pri', valor: true}]});
+    if (!ok) return;
+  }
+  await enviarReal(acao, {});
+}
+async function enviarReal(acao, corpo) {
+  try {
+    const r = await fetch('/api/real/' + acao, {method: 'POST', body: JSON.stringify(corpo)}).then(x => x.json());
+    await aviso(r.erro ? '⚠️ Não deu certo' : '✅ Pronto', r.msg || r.erro || 'ok');
+  } catch (e) { await aviso('⚠️ Sem conexão', 'Não consegui falar com o programa. Ele está ligado (janela preta aberta)?'); }
+  atualizar();
 }
 async function atualizar() {
   try {

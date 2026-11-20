@@ -8,10 +8,19 @@ da grade), funding a cada 8h (quem está comprado paga, vendido recebe, na médi
 Liquidação: se a perda da posição comer a margem (menos a margem de manutenção), perde a margem inteira.
 """
 import bisect
+import math
 import random
 
 import indicadores
 from estrategias import BARRAS_POR_DIA, checar_saida, fracao_entrada, niveis_de_entrada, pode_entrar
+
+# Termômetro "Realizar?" — pesos da regressão logística (dados padronizados), treinada em 2021–23 nos 4 times.
+TERMO_NOMES = ["tempo na operação", "folga entre as médias", "força do momentum", "lucro em aberto",
+               "preço esticado da média 20", "BTC a favor nos últimos 30 dias"]
+TERMO_MU = [0.3531, 0.0583, 0.0835, 0.1981, 0.4417, 0.1325]
+TERMO_SD = [0.2719, 0.0745, 0.3338, 0.3687, 1.21, 0.1572]
+TERMO_W = [-0.1117, -0.0665, -0.1693, -0.2258, -0.0463, -0.4994]
+TERMO_BASE = 0.3441
 
 H8 = 8 * 3_600_000
 
@@ -193,6 +202,29 @@ class Futuros:
         elif "ret" in dd and p.get("n") and i - p["n"] >= 0:
             pos["saida_tipo"], pos["saida_preco"] = "momentum", v["c"][i - p["n"]]
 
+    def _termometro(self, dd, v, i, ag):
+        """Termômetro "Realizar?" (0–100): chance de o RESTO desta operação (daqui até a saída da regra) dar prejuízo.
+        Regressão logística treinada em 2021–23 e conferida em 2024–26 (nunca viu): acerta pouco (AUC 0,59).
+        Mesmo nas notas altas, segurar rendeu em média mais do que realizar — é um alerta, não uma ordem."""
+        pos = self.posicao
+        m, lado, c = pos.get("m") or {}, pos["lado"], v["c"][i]
+        r, l, ret = (dd.get("r") or [None])[i] if "r" in dd else None, (dd.get("l") or [None])[i] if "l" in dd else None, None
+        if "ret" in dd:
+            ret = dd["ret"][i]
+        cs = v["c"][max(0, i - 120):i + 1]
+        hs, ls = v["h"][max(0, i - 120):i + 1], v["l"][max(0, i - 120):i + 1]
+        e20, atr = indicadores.ema(cs, 20)[-1], indicadores.atr(hs, ls, cs, 14)[-1]
+        btc = (getattr(ag, "_buf", {}) or {}).get("BTCUSDT@" + self.chave.split("@")[-1]) if ag else None
+        b30 = btc["c"][-1] / btc["c"][-181] - 1 if btc and len(btc["c"]) > 181 else 0.0
+        x = [m.get("barras", 0) / 240, (r / l - 1) if r and l else 0.0, ret if ret is not None else 0.0,
+             lado * (c / pos["preco"] - 1), lado * (c - e20) / atr if e20 and atr else 0.0, lado * b30]
+        z = [(a - mu) / sd for a, mu, sd in zip(x, TERMO_MU, TERMO_SD)]
+        contrib = [w * a for w, a in zip(TERMO_W, z)]
+        nota = 1 / (1 + math.exp(-(sum(contrib) + TERMO_BASE)))
+        fat = sorted(zip(TERMO_NOMES, contrib, x), key=lambda f: -abs(f[1]))[:3]
+        pos["realizar"] = {"nota": round(nota * 100), "fatores": [
+            {"nome": n, "pesa": "sobe" if k > 0 else "desce", "forca": round(abs(k), 2), "valor": round(val, 3)} for n, k, val in fat]}
+
     def _liq(self, preco, lado, L, cfg):
         mmr = self._f(cfg).get("margem_manutencao", 0.005)
         return preco * (1 - 1 / L + mmr) if lado > 0 else preco * (1 + 1 / L - mmr)
@@ -340,6 +372,10 @@ class Futuros:
                 self._niveis_reais()
                 if vol:
                     self._anotar_saida(dd, v, i, p)
+                try:
+                    self._termometro(dd, v, i, ag)
+                except Exception:
+                    pass   # o termômetro é só informativo: nunca pode atrapalhar a operação
                 if not vol:
                     self._piramide(c, t, cfg, ag)
         if not vol:
