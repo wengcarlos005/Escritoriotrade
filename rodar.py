@@ -237,6 +237,29 @@ def remover_moedas_fora(ag, cfg, avisar=print):
     if not saem:
         return
     agora = int(time.time() * 1000)
+    # "fantasmas": a moeda JÁ tinha saído antes, mas um PC com a versão antiga recriou os traders dela (com dinheiro
+    # novo, de mentira). Esses só são apagados: o dinheiro deles nunca foi da agência, então não vai pra ninguém.
+    retiradas = set(getattr(ag, "moedas_retiradas", None) or [])
+    for e in getattr(ag, "eventos", None) or []:
+        txt = str(e.get("texto") or "")
+        if "saíram da agência" in txt and e.get("t", 0) < agora:
+            retiradas |= {par for par in {tr.par for tr in saem} if moeda(par) in txt.split("saíram")[0]}
+    fantasmas = [tr for tr in saem if tr.par in retiradas]
+    if fantasmas:
+        nomes_f = ", ".join(sorted({moeda(tr.par) for tr in fantasmas}))
+        valor_f = sum(tr.patrimonio() for tr in fantasmas)
+        for tr in fantasmas:   # o "dinheiro colocado" no time também volta pro que era antes do engano
+            tm = ag.time(tr.time)
+            if tm and tm.get("aportes"):
+                tm["aportes"] = max(0.0, tm["aportes"] - (getattr(tr, "capital_inicial", 0.0) or 0.0))
+        ag.traders = [x for x in ag.traders if x not in fantasmas]
+        ag.evento(agora, None, "🧹", f"{nomes_f} tinham voltado por engano (um PC com a versão antiga recriou {len(fantasmas)} traders). "
+                                     f"Apagados sem mexer no dinheiro dos outros (US$ {valor_f:.2f} que não eram da agência).")
+        avisar(f"🧹 {nomes_f}: {len(fantasmas)} traders recriados por engano foram apagados (US$ {valor_f:.2f} de mentira saiu da conta).")
+        saem = [tr for tr in saem if tr not in fantasmas]
+    ag.moedas_retiradas = sorted(retiradas | {tr.par for tr in saem})
+    if not saem:
+        return
     try:
         px = mercado.precos(sorted({tr.par for tr in saem})) or {}
     except Exception:
@@ -271,7 +294,7 @@ def adicionar_moedas_novas(ag, cfg, avisar=print):
     import calendar
     nv = cfg["liga"].get("moedas_novas") or {}
     por_time = cfg["liga"].get("traders_por_time") or len(cfg["liga"]["moedas"])
-    moedas = cfg["liga"]["moedas"][:por_time]
+    moedas = [m for m in cfg["liga"]["moedas"][:por_time] if m not in (getattr(ag, "moedas_retiradas", None) or [])]
     faltam = [(tm, par) for tm in ag.disputando() for par in moedas
               if not tm.get("membros") and not any(tr.time == tm["id"] and tr.par == par for tr in ag.traders)]
     if not faltam or not nv.get("capital_usd"):
