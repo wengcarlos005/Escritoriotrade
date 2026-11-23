@@ -13,6 +13,7 @@ import os
 import queue
 import shutil
 import sys
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -225,6 +226,53 @@ def aplicar_times_fixos(ag, cfg, avisar=print):
                         tr.aplicar_params_novos()
             if corrigiu:
                 avisar(f"🔧 {tm['emoji']} {tm['nome']}: ritmo fixo garantido ({', '.join(f'{k} {v}' for k, v in f['params'].items())}).")
+
+
+def desfazer_fantasmas_repassados(ag, avisar=print):
+    """Conserto de uma vez só: um PC com a versão antiga recriou moedas que já tinham saído (com dinheiro novo, de
+    mentira) e depois outro PC as retirou de novo REPASSANDO esse dinheiro aos colegas. Pelo feed dá pra saber
+    exatamente quanto cada time recebeu: o aporte extra do time + o lucro de cada trader recriado. Tira isso de volta."""
+    import re
+    if getattr(ag, "fantasmas_desfeitos", False):
+        return
+    ev = getattr(ag, "eventos", None) or []
+    sai = [k for k, e in enumerate(ev) if "saíram da agência" in str(e.get("texto") or "")]
+    if len(sai) < 2:
+        return
+    i1, i2 = sai[0], sai[1]
+    cheg = [k for k in range(i1 + 1, i2) if str(ev[k].get("texto") or "").startswith("Chegaram ")]
+    if not cheg:
+        return
+    m = re.search(r"US\$ ([\d.]+) a mais", ev[cheg[-1]]["texto"])
+    times = [tm for tm in ag.times if not tm.get("especial") and not tm.get("membros")]
+    if not m or not times:
+        return
+    extra = float(m.group(1)) / len(times)
+    t2, total = ev[i2].get("t"), 0.0
+    for tm in times:
+        lucro = 0.0
+        for e in ev[i1 + 1:i2 + 1]:
+            txt = str(e.get("texto") or "")
+            g = re.match(r"\S+ do (.+?) ganhou US\$ ([\d.]+)", txt) or re.match(r"\S+ do (.+?) perdeu US\$ ([\d.]+)", txt)
+            if g and e.get("t") == t2 and g.group(1) == tm["nome"]:
+                lucro += float(g.group(2)) * (1 if "ganhou" in txt else -1)
+        valor = extra + lucro
+        membros = [tr for tr in ag.traders if tr.time == tm["id"]]
+        if not membros or valor <= 0:
+            continue
+        for tr in membros:
+            parte = valor / len(membros)
+            tr.caixa -= parte
+            tr.capital_recebido = (getattr(tr, "capital_recebido", 0.0) or 0.0) - parte
+            tr.capital_inicial = (getattr(tr, "capital_inicial", 0.0) or 0.0) - parte
+        tm["aportes"] = max(0.0, (tm.get("aportes") or 0.0) - extra)
+        total += valor
+    ag.fantasmas_desfeitos = True
+    if total:
+        agora = int(time.time() * 1000)
+        ag.evento(agora, None, "🧹", f"Conserto: US$ {total:.2f} de dinheiro de mentira (de moedas recriadas por um PC desatualizado) "
+                                     "saíram dos caixas e dos aportes dos times. A agência voltou ao valor certo.")
+        avisar(f"🧹 Conserto: US$ {total:.2f} de dinheiro de mentira saíram da agência (moedas recriadas por um PC desatualizado).")
 
 
 def remover_moedas_fora(ag, cfg, avisar=print):
@@ -458,6 +506,12 @@ def cmd_simular(args):
     if not ag.times:
         ag.nova_temporada(escolher_times(cfg, esc), agora)
     aplicar_times_fixos(ag, cfg)
+    desfazer_fantasmas_repassados(ag)
+    try:   # qual versão do programa este PC está rodando (pra conferir de longe se o atualizar funcionou)
+        ag.versao_codigo = subprocess.run(["git", "log", "-1", "--format=%h %cd", "--date=format:%d/%m %H:%M"], cwd=str(AQUI),
+                                          capture_output=True, text=True, timeout=10).stdout.strip() or None
+    except Exception:
+        ag.versao_codigo = None
     remover_moedas_fora(ag, cfg)
     adicionar_moedas_novas(ag, cfg)
     fora = set(cfg["liga"].get("estrategias_excluidas", []))
